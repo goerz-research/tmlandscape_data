@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --job-name=CPH0013_RWA_prop
+#SBATCH --time=00:20:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=1000
+#SBATCH --partition=AG-KOCH
+#SBATCH --output=%j-prop-%N.out
+
+export OMP_NUM_THREADS=4
+
+############## **** Run main program **** ##################
+set -x
+
+export OMP_NUM_THREADS=4
+tm_en_gh --rwa  .
+tm_en_prop . | tee prop.log
