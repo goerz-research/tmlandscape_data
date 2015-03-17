@@ -1,5 +1,6 @@
 #!/bin/bash
 conda create -p ./venv anaconda
+./venv/bin/conda install -y -p ./venv pexpect
 
 export PREFIX=`pwd`/venv
 export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
