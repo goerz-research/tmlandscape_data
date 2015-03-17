@@ -2,6 +2,8 @@
 conda create -p ./venv anaconda
 ./venv/bin/conda install -y -p ./venv pexpect
 
+wget https://raw.githubusercontent.com/goerz/mplstyles/master/interactive.mplstyle -O ./venv/lib/python2.7/site-packages/matplotlib/mpl-data/matplotlibrc
+
 export PREFIX=`pwd`/venv
 export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
 export PATH=$PREFIX/bin:$PATH
