@@ -17,7 +17,7 @@ user_ints: n_qubit = 5, n_cavity = 20
 
 user_strings: gate = CPHASE, J_T = SM
 
-user_logicals: prop_guess = T, dissipation = T
+user_logicals: prop_guess = F, dissipation = T
 
 user_reals: &
 w_c     = 8300.0_MHz, &
