@@ -1,6 +1,5 @@
 #!/bin/bash
-conda create -p ./venv anaconda
-./venv/bin/conda install -y -p ./venv pexpect
+conda create -p ./venv ipython ipython-notebook numpy scipy matplotlib bokeh pexpect sympy
 
 wget https://raw.githubusercontent.com/goerz/mplstyles/master/interactive.mplstyle -O ./venv/lib/python2.7/site-packages/matplotlib/mpl-data/matplotlibrc
 
@@ -22,3 +21,4 @@ mkdir -p ./venv/src
 
 pip install mgplottools
 pip install fortranfile
+pip install clusterjob
