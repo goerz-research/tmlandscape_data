@@ -1,2 +1,8 @@
+*.dat
+*.debug
+*.out
+*.log
+oct_pulses
 .ipynb_checkpoints
 /venv/
+memoize.dump
