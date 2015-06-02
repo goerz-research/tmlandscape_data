@@ -6,3 +6,4 @@ oct_pulses
 .ipynb_checkpoints
 /venv/
 memoize.dump
+/test_constraint/CPH0013_prop/

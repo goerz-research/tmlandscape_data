@@ -3,21 +3,21 @@ tgrid: n = 1
 
 pulse: n = 1
 1: type = rectangular, t_start = 0.0, t_stop = 500_ns, E_0 = 20_MHz, w_L = 6.59_GHz, id = 1, &
-   oct_increase_factor = 5.0, oct_outfile = pulse.dat, oct_lambda_a = 1.0e6, time_unit = ns, ampl_unit = MHz, &
+   oct_increase_factor = 5.0, oct_outfile = pulse.dat, oct_lambda_a = 1.0e7, time_unit = ns, ampl_unit = MHz, &
    oct_shape = flattop, t_rise = 50_ns, t_fall = 50_ns, is_complex = F
 
 
 oct: iter_stop = 10000, max_megs = 2000, type = krotovpk, A = 0.0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
-     keep_pulses = all, max_hours = 11, delta_J_conv = 1.0e-8, J_T_conv = 1.0d-4, strict_convergence = T, &
+     keep_pulses = all, max_hours = 11, delta_J_conv = 1.0e-6, J_T_conv = 1.0d-4, strict_convergence = T, &
      continue = T, params_file = oct_params.dat
 
-misc: prop = newton, mass = 1.0
+misc: prop = cheby, mass = 1.0
 
 user_ints: n_qubit = 5, n_cavity = 20
 
 user_strings: gate = CPHASE, J_T = SM
 
-user_logicals: prop_guess = F, dissipation = T
+user_logicals: prop_guess = F, dissipation = F
 
 user_reals: &
 w_c     = 8300.0_MHz, &
@@ -26,11 +26,11 @@ w_2     = 6600.0_MHz, &
 w_d     = 0.0_MHz, &
 alpha_1 = -300.0_MHz, &
 alpha_2 = -300.0_MHz, &
-J       =   5.0_MHz, &
+J       =   0.0_MHz, &
 g_1     = 100.0_MHz, &
 g_2     = 100.0_MHz, &
 n0_qubit  = 0.0, &
 n0_cavity = 0.0, &
-kappa   = 1.6_MHz, &
+kappa   = 0.0_MHz, &
 gamma_1 = 0.0, &
 gamma_2 = 0.0, &
