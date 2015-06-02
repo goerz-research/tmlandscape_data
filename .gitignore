@@ -2,6 +2,7 @@
 *.debug
 *.out
 *.log
+*.bak
 oct_pulses
 .ipynb_checkpoints
 /venv/

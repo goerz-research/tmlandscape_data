@@ -11,6 +11,8 @@ mkdir -p ./venv/src
 (cd $PREFIX/src/ && git clone git@jerusalem.physik.uni-kassel.de:goerz/transmon_oct)
 (cd $PREFIX/src/ && git clone git@jerusalem.physik.uni-kassel.de:goerz/QDYNTransmonLib)
 
+(cd $PREFIX/bin/ && ln -s ../../rewrite_dissipation.py)
+
 (cd $PREFIX/src/qdyn && git checkout master && ./configure --prefix=$PREFIX --no-hooks && make install)
 (cd $PREFIX/src/qdynpylib && git checkout master && pip install -e .)
 (cd $PREFIX/src/transmon_oct && git checkout master && ./configure --prefix=$PREFIX && make install)
