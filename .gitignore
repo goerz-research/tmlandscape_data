@@ -3,6 +3,7 @@
 *.out
 *.log
 *.bak
+*.pyc
 oct_pulses
 .ipynb_checkpoints
 /venv/
