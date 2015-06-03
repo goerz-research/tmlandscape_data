@@ -20,7 +20,7 @@ def decay_qubit(i):
         return -0.5 * 1.0e-3 * 0.033
     else:
         # higher levels are "truncated" with an extremely high decay rate
-        return -0.5 * 1.0e-3 * 500
+        return -0.5 * 1.0e-3 * 10000
 
 
 def decay_cavity(n):
@@ -33,7 +33,7 @@ def decay_cavity(n):
         return n * -0.5 * 1.0e-3 * 0.05
     else:
         # higher levels are "truncated" with an extremely high decay rate
-        return -0.5 * 1.0e-3 * 500
+        return -0.5 * 1.0e-3 * 10000
 
 
 os.rename("ham_drift.dat", "ham_drift.bak")
