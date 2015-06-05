@@ -6,6 +6,8 @@ import sys
 import os
 import subprocess as sp
 import numpy as np
+import multiprocessing
+import re
 import QDYN
 from QDYN.pulse import Pulse, pulse_tgrid, blackman, carrier
 from textwrap import dedent
@@ -18,13 +20,7 @@ def get_cpus():
     if 'SLURM_JOB_CPUS_PER_NODE' in os.environ:
         return int(os.environ['SLURM_JOB_CPUS_PER_NODE'])
     else:
-        sockets = int(sp.check_output(
-                  'grep "physical id" /proc/cpuinfo | uniq | wc -l',
-                  shell=True))
-        cores_per_socket = int(sp.check_output(
-                  "grep 'cpu cores' /proc/cpuinfo | uniq | awk '{print $4}'",
-                  shell=True))
-        return sockets * cores_per_socket
+        return multiprocessing.cpu_count()
 
 
 def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False):
@@ -77,17 +73,45 @@ def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False):
     return signal
 
 
-def write_run(config, params, pulse, runfolder):
-    """Write config file and pulse to runfolder"""
+def runfolder_to_params(runfolder):
+    """From the full path to the runfolder, extract and return
+    (w_2, w_c, E0, pulse_label), where w_2 is the second qubit frequency in
+    MHz, w_c is the cavity frequency in MHz, E0 is the pulse amplitude in
+    MHz, and pulse_label is an indicator of the pulse structure for that
+    run, e.g. '2freq_resonant'"""
+    if runfolder.endswith(r'/'):
+        runfolder = runfolder[:-1]
+    parts = runfolder.split(os.path.sep)
+    E0_str = parts.pop()
+    if E0_str == 'field_free':
+        E0 = 0.0
+        pulse_label = E0_str
+    else:
+        E0 = int(E0_str[1:])
+        pulse_label = parts.pop()
+    parts.pop() # discard 'stage1'
+    w2_wc_str = parts.pop()
+    w2_wc_match = re.match(r'w2_(\d+)MHz_wc_(\d+)MHz', w2_wc_str)
+    if w2_wc_match:
+        w_2 = float(w2_wc_match.group(1))
+        w_c = float(w2_wc_match.group(2))
+    else:
+        raise ValueError("Could not get w_2, w_c from %s" % w2_wc_str)
+    return w_2, w_c, E0, pulse_label
+
+
+def write_run(args):
+    """Create runfolder, write config file and pulse to runfolder
+
+    args is a tuple (runfolder, kwargs) where runfolder is the full path to the
+    runfolder to be generated and kwargs is a dictionary of additional
+    parameters
+    """
+    runfolder, kwargs = args
+    w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
+    T = 200.0 # ns
+    nt = 200*11*100
     QDYN.shutil.mkdir(runfolder)
-    with open(os.path.join(runfolder, 'config'), 'w') as config_fh:
-        config_fh.write(config.format(**params))
-    pulse.write(filename=os.path.join(runfolder, 'pulse.guess'))
-
-
-def generate_jobs(w2, wc):
-    """Generate an array of tuples (config, pulse, runfolder)"""
-    jobs = []
     config = dedent(r'''
     tgrid: n = 1
     1 : t_start = 0.0, t_stop = {T}_ns, nt = {nt}
@@ -119,33 +143,86 @@ def generate_jobs(w2, wc):
     kappa   = 0.05_MHz, &
     gamma_1 = 0.012_MHz, &
     gamma_2 = 0.012_MHz, &
-    '''.format(T='{T}', nt='{nt}', w_c=wc*1000.0, w_2=w2*1000))
-    T = 200.0
-    nt = 200*11*100
-    tgrid = pulse_tgrid(200, nt=nt)
-    w_min = 5.5 # GHz  -- minimal frequency to allow for pulse
+    '''.format(T=T, nt=nt, w_c=w_c, w_2=w_2))
+    w_c *= 1/1000.0 # to GHZ
+    w_2 *= 1/1000.0 # to GHZ
+    tgrid = pulse_tgrid(T, nt=nt)
+
+    if pulse_label == 'field_free':
+        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
+        pulse.preamble = ['# Guess pulse: field-free']
+        pulse.amplitude = 0.0 * carrier(tgrid, 'ns', 0.0, 'GHz')
+    elif pulse_label == '1freq_center':
+        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
+        pulse.preamble = [
+        '# Guess pulse: single-frequency (centered), E0 = %d MHz'%E0]
+        w_L = 0.5*(6.0 + w_2)
+        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
+                             * carrier(tgrid, 'ns', w_L, 'GHz')
+    elif pulse_label.startswith('1freq_'):
+        w_L = kwargs['w_L']
+        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
+        pulse.preamble = [('# Guess pulse: single-frequency w_L = %f GHz, '
+        'E0 = %d MHz')%(w_L,E0)]
+        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
+                            * carrier(tgrid, 'ns', w_L, 'GHz')
+    elif pulse_label == '2freq_resonant':
+        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
+        pulse.preamble = [
+        '# Guess pulse: two-frequency (resonant), E0 = %d MHz'%E0]
+        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
+                             * carrier(tgrid, 'ns', [6.0, w_2], 'GHz')
+    elif pulse_label.startswith('2freq_'):
+        freq_1 = kwargs['freq_1']
+        freq_2 = kwargs['freq_2']
+        phi = kwargs['phi']
+        a_1 = kwargs['a_1']
+        a_2 = kwargs['a_2']
+        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
+        pulse.preamble = [('# Guess pulse: freqs = %s GHz, '
+        'weights = %s, phase = %f pi, E0 = %d MHz')%(
+        str((freq_1,freq_2)), str((a_1,a_2)), phi, E0)]
+        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
+                            * carrier(tgrid, 'ns', freq=(freq_1, freq_2),
+                                    freq_unit='GHz', weights=(a_1, a_2),
+                                    phases=(0.0, phi))
+    elif pulse_label.startswith('5freq_'):
+        freq = kwargs['freq']
+        a = kwargs['a']
+        b = kwargs['b']
+        norm_carrier = CRAB_carrier(tgrid, 'ns', freq, 'GHz', a, b,
+                                    normalize=True)
+        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
+        pulse.preamble = [('# Guess pulse: CRAB (norm.) freqs = %s GHz, '
+        'a_n = %s, b_n = %s, E0 = %d MHz')%(str(freq), str(a), str(b), E0)]
+        pulse.amplitude = E0 * blackman(tgrid, 0, T) * norm_carrier
+    else:
+        raise ValueError("Unknown pulse label %s" % pulse_label)
+
+    with open(os.path.join(runfolder, 'config'), 'w') as config_fh:
+        config_fh.write(config)
+    pulse.write(filename=os.path.join(runfolder, 'pulse.guess'))
+
+
+def generate_jobs(w2, wc):
+    """Generate a set of runfolders, ready for propagation. Returns a list of
+    runfolder paths. w2 and wc must be given in GHz"""
+    jobs = [] # jobs to be handled by write_run worker
+    runfolders = []
+    w_min = 5.0
 
     runfolder_root = 'w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000)
 
     # field-free
     runfolder = os.path.join(runfolder_root, 'field_free')
-    pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-    pulse.preamble = ['# Guess pulse: field-free']
-    pulse.amplitude = 0.0 * carrier(tgrid, 'ns', 0.0, 'GHz')
-    write_run(config, {'T':pulse.T, 'nt':nt}, pulse, runfolder)
-    jobs.append(runfolder)
+    jobs.append((runfolder, {}))
+    runfolders.append(runfolder)
 
     # single-frequency (center)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
         runfolder = os.path.join(runfolder_root, '1freq_center', "E%03d"%E0)
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = [
-        '# Guess pulse: single-frequency (centered), E0 = %d MHz'%E0]
-        w_L = 0.5*(6.0 + w2)
-        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                             * carrier(tgrid, 'ns', w_L, 'GHz')
-        write_run(config, {'T':pulse.T, 'nt':nt}, pulse, runfolder)
-        jobs.append(runfolder)
+        jobs.append((runfolder, {}))
+        runfolders.append(runfolder)
 
     # single-frequency (random)
     for realization in xrange(10):
@@ -153,64 +230,45 @@ def generate_jobs(w2, wc):
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             runfolder = os.path.join(runfolder_root,
                                      '1freq_%d'%(realization+1), "E%03d"%E0)
-            pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-            pulse.preamble = [('# Guess pulse: single-frequency w_L = %f GHz, '
-            'E0 = %d MHz')%(w_L,E0)]
-            pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                                * carrier(tgrid, 'ns', w_L, 'GHz')
-            write_run(config, {'T':pulse.T, 'nt':nt}, pulse, runfolder)
-            jobs.append(runfolder)
+            jobs.append((runfolder, {'w_L':w_L}))
+            runfolders.append(runfolder)
 
     # two-frequency (resonant)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
         runfolder = os.path.join(runfolder_root, '2freq_resonant', "E%03d"%E0)
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = [
-        '# Guess pulse: two-frequency (resonant), E0 = %d MHz'%E0]
-        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                             * carrier(tgrid, 'ns', [6.0, w2], 'GHz')
-        write_run(config, {'T':pulse.T, 'nt':nt}, pulse, runfolder)
-        jobs.append(runfolder)
+        jobs.append((runfolder, {}))
+        runfolders.append(runfolder)
 
     # two-frequency (random)
     for realization in xrange(10):
-        w_1 = w_min + random()*(1.1*wc-w_min)
-        w_2 = w_min + random()*(1.1*wc-w_min)
+        freq_1 = w_min + random()*(1.1*wc-w_min)
+        freq_2 = w_min + random()*(1.1*wc-w_min)
         phi = 2*random()
         a_1 = random()
         a_2 = random()
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             runfolder = os.path.join(runfolder_root,
                                      '2freq_%d'%(realization+1), "E%03d"%E0)
-            pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-            pulse.preamble = [('# Guess pulse: freqs = %s GHz, '
-            'weights = %s, phase = %f pi, E0 = %d MHz')%(
-            str((w_1,w_2)), str((a_1,a_2)), phi, E0)]
-            pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                              * carrier(tgrid, 'ns', freq=(w_1, w_2),
-                                        freq_unit='GHz', weights=(a_1, a_2),
-                                        phases=(0.0, phi))
-            write_run(config, {'T':pulse.T, 'nt':nt}, pulse, runfolder)
-            jobs.append(runfolder)
+            jobs.append((runfolder, {'freq_1': freq_1, 'freq_2': freq_2,
+                         'phi': phi, 'a_1': a_1, 'a_2': a_2}))
+            runfolders.append(runfolder)
 
     # five-frequency (random)
     for realization in xrange(10):
         freq = w_min + np.random.rand(5) * (1.1*wc-w_min)
         a = np.random.rand(5) - 0.5
         b = np.random.rand(5) - 0.5
-        norm_carrier = CRAB_carrier(tgrid, 'ns', freq, 'GHz', a, b,
-                                    normalize=True)
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             runfolder = os.path.join(runfolder_root,
                                      '5freq_%d'%(realization+1), "E%03d"%E0)
-            pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-            pulse.preamble = [('# Guess pulse: CRAB (norm.) freqs = %s GHz, '
-            'a_n = %s, b_n = %s, E0 = %d MHz')%(str(freq), str(a), str(b), E0)]
-            pulse.amplitude = E0 * blackman(tgrid, 0, T) * norm_carrier
-            write_run(config, {'T':pulse.T, 'nt':nt}, pulse, runfolder)
-            jobs.append(runfolder)
+            jobs.append((runfolder, {'freq': freq.copy(), 'a': a.copy(),
+                                     'b': b.copy()}))
+            runfolders.append(runfolder)
 
-    return jobs
+    threadpool_map = make_threadpool_map(get_cpus())
+    threadpool_map(write_run, jobs)
+
+    return runfolders
 
 
 def propagate(runfolder):
@@ -231,29 +289,34 @@ def propagate(runfolder):
     return QDYN.gate2q.Gate2Q(file=gatefile)
 
 
-def threadpool_map(worker, jobs):
-    """map worker routine over array of jobs, using a thread pool"""
-    from multiprocessing.dummy import Pool
-    p = get_cpus() / 4
-    if (p > 1):
-        try:
-            pool = Pool(processes=p)
-            results = pool.map(worker, jobs)
-        except sp.CalledProcessError, err:
-            print "Encountered Error in thread pool"
-            print err
-    else: # single core: don't use ThreadPool
-        results = []
-        for job in jobs:
-            results.append(worker(job))
-    return results
+def make_threadpool_map(p):
+    """Return a threadpool_map function using p parallel processes"""
+    if p < 1:
+        p = 1
+    def threadpool_map(worker, jobs):
+        """map worker routine over array of jobs, using a thread pool"""
+        from multiprocessing import Pool
+        if (p > 1):
+            try:
+                pool = Pool(processes=p)
+                results = pool.map(worker, jobs)
+            except sp.CalledProcessError, err:
+                print "Encountered Error in thread pool"
+                print err
+        else: # single core: don't use ThreadPool
+            results = []
+            for job in jobs:
+                results.append(worker(job))
+        return results
+    return threadpool_map
 
 
 def pre_simplex_scan(w_2, w_c):
     """Perform scan for the given qubit and cavity frequency"""
     # create state 1 runfolders and propagate them
     runfolders =  generate_jobs(w_2, w_c)
-    threadpool_map(propagate, runfolders)
+    #threadpool_map = make_threadpool_map(get_cpus()/4)
+    #threadpool_map(propagate, runfolders)
 
 
 def main(argv=None):
