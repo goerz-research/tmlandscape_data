@@ -8,10 +8,11 @@ import subprocess as sp
 import numpy as np
 import multiprocessing
 import re
-import QDYN
-from QDYN.pulse import Pulse, pulse_tgrid, blackman, carrier
+import shutil
 from textwrap import dedent
 from random import random
+import QDYN
+from QDYN.pulse import Pulse, pulse_tgrid, blackman, carrier
 
 
 def get_cpus():
@@ -204,7 +205,7 @@ def write_run(args):
     pulse.write(filename=os.path.join(runfolder, 'pulse.guess'))
 
 
-def generate_jobs(w2, wc):
+def generate_runfolders(w2, wc):
     """Generate a set of runfolders, ready for propagation. Returns a list of
     runfolder paths. w2 and wc must be given in GHz"""
     jobs = [] # jobs to be handled by write_run worker
@@ -215,13 +216,15 @@ def generate_jobs(w2, wc):
 
     # field-free
     runfolder = os.path.join(runfolder_root, 'field_free')
-    jobs.append((runfolder, {}))
+    if not os.path.isdir(runfolder):
+        jobs.append((runfolder, {}))
     runfolders.append(runfolder)
 
     # single-frequency (center)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
         runfolder = os.path.join(runfolder_root, '1freq_center', "E%03d"%E0)
-        jobs.append((runfolder, {}))
+        if not os.path.isdir(runfolder):
+            jobs.append((runfolder, {}))
         runfolders.append(runfolder)
 
     # single-frequency (random)
@@ -230,13 +233,15 @@ def generate_jobs(w2, wc):
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             runfolder = os.path.join(runfolder_root,
                                      '1freq_%d'%(realization+1), "E%03d"%E0)
-            jobs.append((runfolder, {'w_L':w_L}))
+            if not os.path.isdir(runfolder):
+                jobs.append((runfolder, {'w_L':w_L}))
             runfolders.append(runfolder)
 
     # two-frequency (resonant)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
         runfolder = os.path.join(runfolder_root, '2freq_resonant', "E%03d"%E0)
-        jobs.append((runfolder, {}))
+        if not os.path.isdir(runfolder):
+            jobs.append((runfolder, {}))
         runfolders.append(runfolder)
 
     # two-frequency (random)
@@ -249,8 +254,9 @@ def generate_jobs(w2, wc):
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             runfolder = os.path.join(runfolder_root,
                                      '2freq_%d'%(realization+1), "E%03d"%E0)
-            jobs.append((runfolder, {'freq_1': freq_1, 'freq_2': freq_2,
-                         'phi': phi, 'a_1': a_1, 'a_2': a_2}))
+            if not os.path.isdir(runfolder):
+                jobs.append((runfolder, {'freq_1': freq_1, 'freq_2': freq_2,
+                            'phi': phi, 'a_1': a_1, 'a_2': a_2}))
             runfolders.append(runfolder)
 
     # five-frequency (random)
@@ -261,8 +267,9 @@ def generate_jobs(w2, wc):
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             runfolder = os.path.join(runfolder_root,
                                      '5freq_%d'%(realization+1), "E%03d"%E0)
-            jobs.append((runfolder, {'freq': freq.copy(), 'a': a.copy(),
-                                     'b': b.copy()}))
+            if not os.path.isdir(runfolder):
+                jobs.append((runfolder, {'freq': freq.copy(), 'a': a.copy(),
+                                        'b': b.copy()}))
             runfolders.append(runfolder)
 
     threadpool_map = make_threadpool_map(get_cpus())
@@ -275,17 +282,31 @@ def propagate(runfolder):
     """
     Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
     """
+    w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
+    temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                     "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0))
     gatefile = os.path.join(runfolder, 'U.dat')
     if not os.path.isfile(gatefile):
+        QDYN.shutil.mkdir(temp_runfolder)
+        shutil.copy(os.path.join(runfolder, 'pulse.guess'), temp_runfolder)
+        shutil.copy(os.path.join(runfolder, 'config'), temp_runfolder)
         env = os.environ.copy()
         env['OMP_NUM_THREADS'] = '4'
-        sp.call(['tm_en_gh', '--dissipation', '.'], cwd=runfolder)
-        sp.call(['rewrite_dissipation.py',], cwd=runfolder)
-        sp.call(['tm_en_logical_eigenstates.py', '.'], cwd=runfolder)
-        with open(os.path.join(runfolder, 'prop.log'), 'w') as stdout:
-            sp.call(['tm_en_prop.py', '.'], cwd=runfolder, env=env,
+        with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
+            stdout.write("**** tm_en_gh -- dissipation . \n")
+            sp.call(['tm_en_gh', '--dissipation', '.'], cwd=temp_runfolder,
                     stderr=sp.STDOUT, stdout=stdout)
-        # TODO: clean up
+            stdout.write("**** rewrite_dissipation.py. \n")
+            sp.call(['rewrite_dissipation.py',], cwd=temp_runfolder,
+                    stderr=sp.STDOUT, stdout=stdout)
+            stdout.write("**** tm_en_logical_eigenstates.py . \n")
+            sp.call(['tm_en_logical_eigenstates.py', '.'], cwd=temp_runfolder,
+                    stderr=sp.STDOUT, stdout=stdout)
+            stdout.write("**** tm_en_prop . \n")
+            sp.call(['tm_en_prop', '.'], cwd=temp_runfolder, env=env,
+                    stderr=sp.STDOUT, stdout=stdout)
+        shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
+        shutil.rmtree(temp_runfolder)
     return QDYN.gate2q.Gate2Q(file=gatefile)
 
 
@@ -314,9 +335,9 @@ def make_threadpool_map(p):
 def pre_simplex_scan(w_2, w_c):
     """Perform scan for the given qubit and cavity frequency"""
     # create state 1 runfolders and propagate them
-    runfolders =  generate_jobs(w_2, w_c)
-    #threadpool_map = make_threadpool_map(get_cpus()/4)
-    #threadpool_map(propagate, runfolders)
+    runfolders =  generate_runfolders(w_2, w_c)
+    threadpool_map = make_threadpool_map(get_cpus()/4)
+    threadpool_map(propagate, runfolders)
 
 
 def main(argv=None):
@@ -335,6 +356,8 @@ def main(argv=None):
         arg_parser.error("w_2 and w_c must be given")
     except ValueError:
         arg_parser.error("w_1 and w_c must be given as floats")
+    assert 'SCRATCH_ROOT' in os.environ, \
+    "SCRATCH_ROOT environment variable must be defined"
     pre_simplex_scan(w_2, w_c)
 
 if __name__ == "__main__":
