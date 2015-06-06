@@ -151,22 +151,26 @@ def runfolder_to_params(runfolder):
         raise ValueError("Could not get w_2, w_c from %s" % w2_wc_str)
     return w_2, w_c, E0, pulse_label
 
+
 def nstr(a):
     """Return string without newlines"""
     return str(a).replace("\n", " ")
 
+
 def write_run(args):
     """Create runfolder, write config file and pulse to runfolder
 
-    args is a tuple (runfolder, kwargs) where runfolder is the full path to the
-    runfolder to be generated and kwargs is a dictionary of additional
+    args is a tuple (runfolder, temp_runfolder, kwargs) where runfolder is the
+    full path to the runfolder to be generated, temp_runfolder is the scratch
+    space runfolder to be generated, and kwargs is a dictionary of additional
     parameters
     """
-    runfolder, kwargs = args
+    runfolder, temp_runfolder, kwargs = args
     w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
     T = 200.0 # ns
     nt = 200*11*100
     QDYN.shutil.mkdir(runfolder)
+    QDYN.shutil.mkdir(temp_runfolder)
     config = dedent(r'''
     tgrid: n = 1
     1 : t_start = 0.0, t_stop = {T}_ns, nt = {nt}
@@ -256,7 +260,9 @@ def write_run(args):
 
     with open(os.path.join(runfolder, 'config'), 'w') as config_fh:
         config_fh.write(config)
-    pulse.write(filename=os.path.join(runfolder, 'pulse.guess'))
+    with open(os.path.join(runfolder, 'pulse.guess.header'), 'w') as ph_fh:
+        ph_fh.write("".join(pulse.preamble) + "\n")
+    pulse.write(filename=os.path.join(temp_runfolder, 'pulse.guess'))
 
 
 def generate_runfolders(w2, wc):
@@ -271,34 +277,45 @@ def generate_runfolders(w2, wc):
     runfolder_root = 'w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000)
 
     # field-free
-    runfolder = os.path.join(runfolder_root, 'field_free')
+    pulse_label = 'field_free'
+    runfolder = os.path.join(runfolder_root, pulse_label)
+    temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                     "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, 0.0))
     if not os.path.isdir(runfolder):
-        jobs.append((runfolder, {}))
-    runfolders.append(runfolder)
+        jobs.append((runfolder, temp_runfolder, {}))
+    runfolders.append((runfolder, temp_runfolder))
 
     # single-frequency (center)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
-        runfolder = os.path.join(runfolder_root, '1freq_center', "E%03d"%E0)
+        pulse_label = '1freq_center'
+        runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
+        temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                        "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
         if not os.path.isdir(runfolder):
-            jobs.append((runfolder, {}))
-        runfolders.append(runfolder)
+            jobs.append((runfolder, temp_runfolder, {}))
+        runfolders.append((runfolder, temp_runfolder))
 
     # single-frequency (random)
     for realization in xrange(10):
         w_L = float(random_freq(1)[0])
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
-            runfolder = os.path.join(runfolder_root,
-                                     '1freq_%d'%(realization+1), "E%03d"%E0)
+            pulse_label = '1freq_%d'%(realization+1)
+            runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
+            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                            "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
             if not os.path.isdir(runfolder):
-                jobs.append((runfolder, {'w_L':w_L}))
-            runfolders.append(runfolder)
+                jobs.append((runfolder, temp_runfolder, {'w_L':w_L}))
+            runfolders.append((runfolder, temp_runfolder))
 
     # two-frequency (resonant)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
-        runfolder = os.path.join(runfolder_root, '2freq_resonant', "E%03d"%E0)
+        pulse_label = '2freq_resonant'
+        runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
+        temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                        "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
         if not os.path.isdir(runfolder):
-            jobs.append((runfolder, {}))
-        runfolders.append(runfolder)
+            jobs.append((runfolder, temp_runfolder, {}))
+        runfolders.append((runfolder, temp_runfolder))
 
     # two-frequency (random)
     for realization in xrange(10):
@@ -307,12 +324,14 @@ def generate_runfolders(w2, wc):
         a_1 = random()
         a_2 = random()
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
-            runfolder = os.path.join(runfolder_root,
-                                     '2freq_%d'%(realization+1), "E%03d"%E0)
+            pulse_label = '2freq_%d'%(realization+1)
+            runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
+            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                            "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
             if not os.path.isdir(runfolder):
-                jobs.append((runfolder, {'freq_1': freq_1, 'freq_2': freq_2,
-                            'phi': phi, 'a_1': a_1, 'a_2': a_2}))
-            runfolders.append(runfolder)
+                jobs.append((runfolder, temp_runfolder, {'freq_1': freq_1,
+                    'freq_2': freq_2, 'phi': phi, 'a_1': a_1, 'a_2': a_2}))
+            runfolders.append((runfolder, temp_runfolder))
 
     # five-frequency (random)
     for realization in xrange(10):
@@ -320,12 +339,14 @@ def generate_runfolders(w2, wc):
         a = np.random.rand(5) - 0.5
         b = np.random.rand(5) - 0.5
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
-            runfolder = os.path.join(runfolder_root,
-                                     '5freq_%d'%(realization+1), "E%03d"%E0)
+            pulse_label = '5freq_%d'%(realization+1)
+            runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
+            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                            "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
             if not os.path.isdir(runfolder):
-                jobs.append((runfolder, {'freq': freq.copy(), 'a': a.copy(),
-                                        'b': b.copy()}))
-            runfolders.append(runfolder)
+                jobs.append((runfolder, temp_runfolder, {'freq': freq.copy(),
+                            'a': a.copy(), 'b': b.copy()}))
+            runfolders.append((runfolder, temp_runfolder))
 
     threadpool_map = make_threadpool_map(get_cpus())
     threadpool_map(write_run, jobs)
@@ -333,17 +354,13 @@ def generate_runfolders(w2, wc):
     return runfolders
 
 
-def propagate(runfolder):
+def propagate(runfolder_tuple):
     """
     Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
     """
-    w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
-    temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                     "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0))
+    runfolder, temp_runfolder = runfolder_tuple
     gatefile = os.path.join(runfolder, 'U.dat')
     if not os.path.isfile(gatefile):
-        QDYN.shutil.mkdir(temp_runfolder)
-        shutil.copy(os.path.join(runfolder, 'pulse.guess'), temp_runfolder)
         shutil.copy(os.path.join(runfolder, 'config'), temp_runfolder)
         env = os.environ.copy()
         env['OMP_NUM_THREADS'] = '4'
@@ -360,10 +377,13 @@ def propagate(runfolder):
             stdout.write("**** tm_en_prop . \n")
             sp.call(['tm_en_prop', '.'], cwd=temp_runfolder, env=env,
                     stderr=sp.STDOUT, stdout=stdout)
-        shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
+        if 'field_free' in runfolder:
+            sp.call('cp {temp_runfolder_all} {runfolder}'.format(
+                   temp_runfolder_all=os.path.join(temp_runfolder, '*'),
+                   runfolder=runfolder), shell=True)
+        else:
+            shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
         shutil.rmtree(temp_runfolder)
-        sp.call("head -1 {pulse} > {pulse}.header && rm {pulse}".format(
-                pulse=os.path.join(runfolder, 'pulse.guess')), shell=True)
     return QDYN.gate2q.Gate2Q(file=gatefile)
 
 
@@ -392,9 +412,9 @@ def make_threadpool_map(p):
 def pre_simplex_scan(w_2, w_c):
     """Perform scan for the given qubit and cavity frequency"""
     # create state 1 runfolders and propagate them
-    runfolders =  generate_runfolders(w_2, w_c)
+    runfolder_tuples =  generate_runfolders(w_2, w_c)
     threadpool_map = make_threadpool_map(get_cpus()/4)
-    threadpool_map(propagate, runfolders)
+    threadpool_map(propagate, runfolder_tuples)
 
 
 def main(argv=None):
