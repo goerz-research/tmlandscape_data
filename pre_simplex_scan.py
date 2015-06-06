@@ -74,6 +74,57 @@ def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False):
     return signal
 
 
+def make_random_freq(w_1, w_2, w_c, alpha_1, alpha_2, low_freq_limit,
+    sidebands=True):
+    """Return a random_freq function for generating random frequencies in the
+    region of the system-typical frequencies. The low_freq_limit is the maximum
+    frequency at which the shape is allowed to oscillate.
+
+    If sidebands is True, allow for sideband frequencies such as transitions
+    010 -> 101
+    """
+    delta = abs(w_2 - w_1)
+    intervals1 = []
+    intervals1.append([w_1-1.2*abs(alpha_1), w_2+0.2*abs(alpha_2)])
+    if sidebands:
+        intervals1.append([w_c-1.2*delta, w_c+1.2*delta])
+    # collapse overlapping intervals
+    intervals = []
+    for i, interval in enumerate(intervals1):
+        if i == 0:
+            intervals.append(interval)
+        else:
+            (a, b) = interval
+            (a_prev, b_prev) = intervals[-1]
+            if a > b_prev:
+                intervals.append(interval)
+            else:
+                if a < a_prev:
+                    intervals[-1][0] = a
+                if b > b_prev:
+                    intervals[-1][1] = b
+    def random_freq(n, n_low_freq=0):
+        """Return n "normal" (high) random frequencies, and n_low_freq low
+        frequency components"""
+        result = []
+        for realization in xrange(n):
+            total_width = 0.0
+            for (a,b) in intervals:
+                total_width += b-a
+            r = total_width * random()
+            for (a,b) in intervals:
+                w = b-a
+                if r > w:
+                    r -= w
+                else:
+                    result.append(a + r)
+                    break
+        for realization in xrange(n_low_freq):
+            result.append(low_freq_limit*random())
+        return np.array(result)
+    return random_freq
+
+
 def runfolder_to_params(runfolder):
     """From the full path to the runfolder, extract and return
     (w_2, w_c, E0, pulse_label), where w_2 is the second qubit frequency in
@@ -100,6 +151,9 @@ def runfolder_to_params(runfolder):
         raise ValueError("Could not get w_2, w_c from %s" % w2_wc_str)
     return w_2, w_c, E0, pulse_label
 
+def nstr(a):
+    """Return string without newlines"""
+    return str(a).replace("\n", " ")
 
 def write_run(args):
     """Create runfolder, write config file and pulse to runfolder
@@ -195,7 +249,7 @@ def write_run(args):
                                     normalize=True)
         pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
         pulse.preamble = [('# Guess pulse: CRAB (norm.) freqs = %s GHz, '
-        'a_n = %s, b_n = %s, E0 = %d MHz')%(str(freq), str(a), str(b), E0)]
+        'a_n = %s, b_n = %s, E0 = %d MHz')%(nstr(freq), nstr(a), nstr(b), E0)]
         pulse.amplitude = E0 * blackman(tgrid, 0, T) * norm_carrier
     else:
         raise ValueError("Unknown pulse label %s" % pulse_label)
@@ -210,7 +264,9 @@ def generate_runfolders(w2, wc):
     runfolder paths. w2 and wc must be given in GHz"""
     jobs = [] # jobs to be handled by write_run worker
     runfolders = []
-    w_min = 5.0
+    random_freq = make_random_freq(w_1=6.0, w_2=w2, w_c=wc, alpha_1=0.29,
+                                   alpha_2=0.31, low_freq_limit=0.02,
+                                   sidebands=True)
 
     runfolder_root = 'w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000)
 
@@ -229,7 +285,7 @@ def generate_runfolders(w2, wc):
 
     # single-frequency (random)
     for realization in xrange(10):
-        w_L = w_min + random()*(1.1*wc-w_min)
+        w_L = float(random_freq(1)[0])
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             runfolder = os.path.join(runfolder_root,
                                      '1freq_%d'%(realization+1), "E%03d"%E0)
@@ -246,8 +302,7 @@ def generate_runfolders(w2, wc):
 
     # two-frequency (random)
     for realization in xrange(10):
-        freq_1 = w_min + random()*(1.1*wc-w_min)
-        freq_2 = w_min + random()*(1.1*wc-w_min)
+        freq_1, freq_2 = random_freq(2)
         phi = 2*random()
         a_1 = random()
         a_2 = random()
@@ -261,7 +316,7 @@ def generate_runfolders(w2, wc):
 
     # five-frequency (random)
     for realization in xrange(10):
-        freq = w_min + np.random.rand(5) * (1.1*wc-w_min)
+        freq = random_freq(3, n_low_freq=2)
         a = np.random.rand(5) - 0.5
         b = np.random.rand(5) - 0.5
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
@@ -307,6 +362,8 @@ def propagate(runfolder):
                     stderr=sp.STDOUT, stdout=stdout)
         shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
         shutil.rmtree(temp_runfolder)
+        sp.call("head -1 {pulse} > {pulse}.header && rm {pulse}".format(
+                pulse=os.path.join(runfolder, 'pulse.guess')), shell=True)
     return QDYN.gate2q.Gate2Q(file=gatefile)
 
 
