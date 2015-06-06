@@ -1,3 +1,3 @@
 export PREFIX=`pwd`/venv
 export PATH=$PREFIX/bin:$PATH
-export export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
