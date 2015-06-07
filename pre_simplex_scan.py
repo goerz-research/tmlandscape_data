@@ -274,7 +274,7 @@ def generate_runfolders(w2, wc):
                                    alpha_2=0.31, low_freq_limit=0.02,
                                    sidebands=True)
 
-    runfolder_root = 'w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000)
+    runfolder_root = 'runs/w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000)
 
     # field-free
     pulse_label = 'field_free'
