@@ -12,7 +12,9 @@ import shutil
 from textwrap import dedent
 from random import random
 import QDYN
-from QDYN.pulse import Pulse, pulse_tgrid, blackman, carrier
+import logging
+import time
+logging.basicConfig(level=logging.INFO)
 
 
 def get_cpus():
@@ -23,55 +25,10 @@ def get_cpus():
     else:
         return multiprocessing.cpu_count()
 
-
-def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False):
-    r'''
-    Construct a "carrier" based on the CRAB formula
-
-        .. math::
-        E(t) = \sum_{n} (a_n \cos(\omega_n t) + b_n \cos(\omega_n t))
-
-    where :math:`a_n` is the n'th element of `a`, :math:`b_n` is the n'th
-    element of `b`, and :math:`\omega_n` is the n'th element of freq.
-
-    Parameters
-    ----------
-    t : array-like
-        time grid values
-    time_unit : str
-        Unit of `t`
-    freq : scalar, ndarray(float64)
-        Carrier frequency or frequencies
-    freq_unit : str
-        Unit of `freq`
-    a: array-like
-        Coefficients for cosines
-    b: array-line
-        Coefficients for sines
-    normalize: logical, optional
-        If True, normalize the resulting carrier such that its values are in
-        [-1,1]
-
-    Notes
-    -----
-
-    `freq_unit` can be Hz (GHz, MHz, etc), describing the frequency directly,
-    or any energy unit, in which case the energy value E (given through the
-    freq parameter) is converted to an actual frequency as
-
-     .. math:: f = E / (\\hbar * 2 * pi)
-    '''
-    from QDYN.units import NumericConverter
-    convert = NumericConverter()
-    c = convert.to_au(1, time_unit) * convert.to_au(1, freq_unit)
-    assert len(a) == len(b) == len(freq), \
-    "freq, a, b must all be of the same length"
-    signal = np.zeros(len(t), dtype=np.complex128)
-    for w_n, a_n, b_n in zip(freq, a, b):
-        signal += a_n * np.cos(c*w_n*t) + b_n * np.sin(c*w_n*t)
-    if normalize:
-        signal *= 1.0 / (np.abs(signal).max())
-    return signal
+def hostname():
+    """Return the hostname"""
+    import socket
+    return socket.gethostname()
 
 
 def make_random_freq(w_1, w_2, w_c, alpha_1, alpha_2, low_freq_limit,
@@ -152,25 +109,14 @@ def runfolder_to_params(runfolder):
     return w_2, w_c, E0, pulse_label
 
 
-def nstr(a):
-    """Return string without newlines"""
-    return str(a).replace("\n", " ")
-
-
-def write_run(args):
-    """Create runfolder, write config file and pulse to runfolder
-
-    args is a tuple (runfolder, temp_runfolder, kwargs) where runfolder is the
-    full path to the runfolder to be generated, temp_runfolder is the scratch
-    space runfolder to be generated, and kwargs is a dictionary of additional
-    parameters
-    """
-    runfolder, temp_runfolder, kwargs = args
-    w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
+def generate_runfolders(w2, wc):
+    """Generate a set of runfolders, ready for propagation. Returns a list of
+    runfolder paths. w2 and wc must be given in GHz"""
+    from analytical_pulses import AnalyticalPulse
+    logger = logging.getLogger(__name__)
+    logger.debug("Entering generate_runfolders")
     T = 200.0 # ns
     nt = 200*11*100
-    QDYN.shutil.mkdir(runfolder)
-    QDYN.shutil.mkdir(temp_runfolder)
     config = dedent(r'''
     tgrid: n = 1
     1 : t_start = 0.0, t_stop = {T}_ns, nt = {nt}
@@ -194,81 +140,15 @@ def write_run(args):
     w_d     = 0.0_MHz, &
     alpha_1 = -290.0_MHz, &
     alpha_2 = -310.0_MHz, &
-    J       =   5.0_MHz, &
-    g_1     = 100.0_MHz, &
-    g_2     = 100.0_MHz, &
+    J       =   0.0_MHz, &
+    g_1     = 70.0_MHz, &
+    g_2     = 70.0_MHz, &
     n0_qubit  = 0.0, &
     n0_cavity = 0.0, &
     kappa   = 0.05_MHz, &
     gamma_1 = 0.012_MHz, &
     gamma_2 = 0.012_MHz, &
-    '''.format(T=T, nt=nt, w_c=w_c, w_2=w_2))
-    w_c *= 1/1000.0 # to GHZ
-    w_2 *= 1/1000.0 # to GHZ
-    tgrid = pulse_tgrid(T, nt=nt)
-
-    if pulse_label == 'field_free':
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = ['# Guess pulse: field-free']
-        pulse.amplitude = 0.0 * carrier(tgrid, 'ns', 0.0, 'GHz')
-    elif pulse_label == '1freq_center':
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = [
-        '# Guess pulse: single-frequency (centered), E0 = %d MHz'%E0]
-        w_L = 0.5*(6.0 + w_2)
-        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                             * carrier(tgrid, 'ns', w_L, 'GHz')
-    elif pulse_label.startswith('1freq_'):
-        w_L = kwargs['w_L']
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = [('# Guess pulse: single-frequency w_L = %f GHz, '
-        'E0 = %d MHz')%(w_L,E0)]
-        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                            * carrier(tgrid, 'ns', w_L, 'GHz')
-    elif pulse_label == '2freq_resonant':
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = [
-        '# Guess pulse: two-frequency (resonant), E0 = %d MHz'%E0]
-        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                             * carrier(tgrid, 'ns', [6.0, w_2], 'GHz')
-    elif pulse_label.startswith('2freq_'):
-        freq_1 = kwargs['freq_1']
-        freq_2 = kwargs['freq_2']
-        phi = kwargs['phi']
-        a_1 = kwargs['a_1']
-        a_2 = kwargs['a_2']
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = [('# Guess pulse: freqs = %s GHz, '
-        'weights = %s, phase = %f pi, E0 = %d MHz')%(
-        str((freq_1,freq_2)), str((a_1,a_2)), phi, E0)]
-        pulse.amplitude = E0 * blackman(tgrid, 0, T) \
-                            * carrier(tgrid, 'ns', freq=(freq_1, freq_2),
-                                    freq_unit='GHz', weights=(a_1, a_2),
-                                    phases=(0.0, phi))
-    elif pulse_label.startswith('5freq_'):
-        freq = kwargs['freq']
-        a = kwargs['a']
-        b = kwargs['b']
-        norm_carrier = CRAB_carrier(tgrid, 'ns', freq, 'GHz', a, b,
-                                    normalize=True)
-        pulse = Pulse(tgrid=tgrid, time_unit='ns', ampl_unit='MHz')
-        pulse.preamble = [('# Guess pulse: CRAB (norm.) freqs = %s GHz, '
-        'a_n = %s, b_n = %s, E0 = %d MHz')%(nstr(freq), nstr(a), nstr(b), E0)]
-        pulse.amplitude = E0 * blackman(tgrid, 0, T) * norm_carrier
-    else:
-        raise ValueError("Unknown pulse label %s" % pulse_label)
-
-    with open(os.path.join(runfolder, 'config'), 'w') as config_fh:
-        config_fh.write(config)
-    with open(os.path.join(runfolder, 'pulse.guess.header'), 'w') as ph_fh:
-        ph_fh.write("".join(pulse.preamble) + "\n")
-    pulse.write(filename=os.path.join(temp_runfolder, 'pulse.guess'))
-
-
-def generate_runfolders(w2, wc):
-    """Generate a set of runfolders, ready for propagation. Returns a list of
-    runfolder paths. w2 and wc must be given in GHz"""
-    jobs = [] # jobs to be handled by write_run worker
+    '''.format(T=T, nt=nt, w_c=(float(wc)/1000.0), w_2=(float(w2)/1000.0)))
     runfolders = []
     random_freq = make_random_freq(w_1=6.0, w_2=w2, w_c=wc, alpha_1=0.29,
                                    alpha_2=0.31, low_freq_limit=0.02,
@@ -276,24 +156,44 @@ def generate_runfolders(w2, wc):
 
     runfolder_root = 'runs/w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000)
 
+    def runfolder_exists(runfolder):
+        return (os.path.isfile(os.path.join(runfolder, 'config'))
+            and os.path.isfile(os.path.join(runfolder, 'pulse.json')))
+
+    def write_runfolder(runfolder, analytical_pulse, config):
+        QDYN.shutil.mkdir(runfolder)
+        with open(os.path.join(runfolder, 'config'), 'w') as config_fh:
+            config_fh.write(config)
+        analytical_pulse.write(os.path.join(runfolder, 'pulse.json'),
+                               pretty=True)
+
+
     # field-free
     pulse_label = 'field_free'
     runfolder = os.path.join(runfolder_root, pulse_label)
-    temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                     "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, 0.0))
-    if not os.path.isdir(runfolder):
-        jobs.append((runfolder, temp_runfolder, {}))
-    runfolders.append((runfolder, temp_runfolder))
+    if runfolder_exists(runfolder):
+        logger.debug("%s exists (skipped)", runfolder)
+    else:
+        logger.debug("Generating %s", runfolder)
+        pulse = AnalyticalPulse('field_free', T, nt,
+                parameters={}, time_unit='ns', ampl_unit='MHz')
+        write_runfolder(runfolder, pulse, config)
+    runfolders.append(runfolder)
 
     # single-frequency (center)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
         pulse_label = '1freq_center'
         runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
-        temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                        "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
-        if not os.path.isdir(runfolder):
-            jobs.append((runfolder, temp_runfolder, {}))
-        runfolders.append((runfolder, temp_runfolder))
+        if runfolder_exists(runfolder):
+            logger.debug("%s exists (skipped)", runfolder)
+        else:
+            logger.debug("Generating %s", runfolder)
+            w_L = 0.5*(6.0 + w2)
+            pulse = AnalyticalPulse('1freq', T, nt,
+                    parameters={'E0': E0, 'T': T, 'w_L': w_L},
+                    time_unit='ns', ampl_unit='MHz')
+            write_runfolder(runfolder, pulse, config)
+        runfolders.append(runfolder)
 
     # single-frequency (random)
     for realization in xrange(10):
@@ -301,21 +201,36 @@ def generate_runfolders(w2, wc):
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             pulse_label = '1freq_%d'%(realization+1)
             runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
-            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                            "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
-            if not os.path.isdir(runfolder):
-                jobs.append((runfolder, temp_runfolder, {'w_L':w_L}))
-            runfolders.append((runfolder, temp_runfolder))
+            if runfolder_exists(runfolder):
+                logger.debug("%s exists (skipped)", runfolder)
+            else:
+                logger.debug("Generating %s", runfolder)
+                pulse = AnalyticalPulse('1freq', T, nt,
+                        parameters={'E0': E0, 'T': T, 'w_L': w_L},
+                        time_unit='ns', ampl_unit='MHz')
+                write_runfolder(runfolder, pulse, config)
+            runfolders.append(runfolder)
 
     # two-frequency (resonant)
     for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
         pulse_label = '2freq_resonant'
         runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
-        temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                        "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
-        if not os.path.isdir(runfolder):
-            jobs.append((runfolder, temp_runfolder, {}))
-        runfolders.append((runfolder, temp_runfolder))
+        if runfolder_exists(runfolder):
+            logger.debug("%s exists (skipped)", runfolder)
+        else:
+            logger.debug("Generating %s", runfolder)
+            freq_1 = 6.0
+            freq_2 = w2
+            phi = 0.0
+            a_1 = 1.0
+            a_2 = 1.0
+            pulse = AnalyticalPulse('2freq', T, nt,
+                    parameters={'E0': E0, 'T': T, 'freq_1': freq_1,
+                                'freq_2': freq_2, 'a_1': a_1, 'a_2': a_2,
+                                'phi': phi},
+                    time_unit='ns', ampl_unit='MHz')
+            write_runfolder(runfolder, pulse, config)
+        runfolders.append(runfolder)
 
     # two-frequency (random)
     for realization in xrange(10):
@@ -326,12 +241,17 @@ def generate_runfolders(w2, wc):
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             pulse_label = '2freq_%d'%(realization+1)
             runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
-            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                            "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
-            if not os.path.isdir(runfolder):
-                jobs.append((runfolder, temp_runfolder, {'freq_1': freq_1,
-                    'freq_2': freq_2, 'phi': phi, 'a_1': a_1, 'a_2': a_2}))
-            runfolders.append((runfolder, temp_runfolder))
+            if runfolder_exists(runfolder):
+                logger.debug("%s exists (skipped)", runfolder)
+            else:
+                logger.debug("Generating %s", runfolder)
+                pulse = AnalyticalPulse('2freq', T, nt,
+                        parameters={'E0': E0, 'T': T, 'freq_1': freq_1,
+                                    'freq_2': freq_2, 'a_1': a_1, 'a_2': a_2,
+                                    'phi': phi},
+                        time_unit='ns', ampl_unit='MHz')
+                write_runfolder(runfolder, pulse, config)
+            runfolders.append(runfolder)
 
     # five-frequency (random)
     for realization in xrange(10):
@@ -341,50 +261,82 @@ def generate_runfolders(w2, wc):
         for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
             pulse_label = '5freq_%d'%(realization+1)
             runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
-            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                            "stage1_%s_%d_%d_%d"%(pulse_label, w2, wc, E0))
-            if not os.path.isdir(runfolder):
-                jobs.append((runfolder, temp_runfolder, {'freq': freq.copy(),
-                            'a': a.copy(), 'b': b.copy()}))
-            runfolders.append((runfolder, temp_runfolder))
+            if runfolder_exists(runfolder):
+                logger.debug("%s exists (skipped)", runfolder)
+            else:
+                logger.debug("Generating %s", runfolder)
+                pulse = AnalyticalPulse('5freq', T, nt,
+                        parameters={'E0': E0, 'T': T, 'freq': freq,
+                                    'a': a, 'b': b},
+                        time_unit='ns', ampl_unit='MHz')
+                write_runfolder(runfolder, pulse, config)
+            runfolders.append(runfolder)
 
-    threadpool_map = make_threadpool_map(get_cpus())
-    threadpool_map(write_run, jobs)
-
+    logger.debug("Finished generate_runfolders")
     return runfolders
 
 
-def propagate(runfolder_tuple):
+def propagate(runfolder):
     """
     Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
     """
-    runfolder, temp_runfolder = runfolder_tuple
+    logger = logging.getLogger(__name__)
+    from analytical_pulses import AnalyticalPulse
+
     gatefile = os.path.join(runfolder, 'U.dat')
+    config = os.path.join(runfolder, 'config')
+    pulse_json = os.path.join(runfolder, 'pulse.json')
     if not os.path.isfile(gatefile):
-        shutil.copy(os.path.join(runfolder, 'config'), temp_runfolder)
-        env = os.environ.copy()
-        env['OMP_NUM_THREADS'] = '4'
-        with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
-            stdout.write("**** tm_en_gh -- dissipation . \n")
-            sp.call(['tm_en_gh', '--dissipation', '.'], cwd=temp_runfolder,
-                    stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** rewrite_dissipation.py. \n")
-            sp.call(['rewrite_dissipation.py',], cwd=temp_runfolder,
-                    stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** tm_en_logical_eigenstates.py . \n")
-            sp.call(['tm_en_logical_eigenstates.py', '.'], cwd=temp_runfolder,
-                    stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** tm_en_prop . \n")
-            sp.call(['tm_en_prop', '.'], cwd=temp_runfolder, env=env,
-                    stderr=sp.STDOUT, stdout=stdout)
-        if 'field_free' in runfolder:
-            sp.call('cp {temp_runfolder_all} {runfolder}'.format(
-                   temp_runfolder_all=os.path.join(temp_runfolder, '*'),
-                   runfolder=runfolder), shell=True)
-        else:
+        try:
+            assert os.path.isfile(config), \
+            "No config file in runfolder %s" % runfolder
+            assert os.path.isfile(pulse_json), \
+            "No pulse.json file in runfolder %s" % runfolder
+            w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
+            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                             "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0))
+            logger.debug("Prepararing temp_runfolder %s", temp_runfolder)
+            if os.path.isfile(temp_runfolder):
+                # This is simply to clean up after a previous bug
+                os.unlink(temp_runfolder)
+            QDYN.shutil.mkdir(temp_runfolder)
+            shutil.copy(config, temp_runfolder)
+            pulse = AnalyticalPulse.read(pulse_json).pulse()
+            pulse.write(os.path.join(temp_runfolder, 'pulse.guess'))
+            logger.info("Propagating %s", runfolder)
+            env = os.environ.copy()
+            env['OMP_NUM_THREADS'] = '4'
+            start = time.time()
+            with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
+                stdout.write("**** tm_en_gh -- dissipation . \n")
+                sp.call(['tm_en_gh', '--dissipation', '.'], cwd=temp_runfolder,
+                        stderr=sp.STDOUT, stdout=stdout)
+                stdout.write("**** rewrite_dissipation.py. \n")
+                sp.call(['rewrite_dissipation.py',], cwd=temp_runfolder,
+                        stderr=sp.STDOUT, stdout=stdout)
+                stdout.write("**** tm_en_logical_eigenstates.py . \n")
+                sp.call(['tm_en_logical_eigenstates.py', '.'],
+                        cwd=temp_runfolder, stderr=sp.STDOUT, stdout=stdout)
+                stdout.write("**** tm_en_prop . \n")
+                sp.call(['tm_en_prop', '.'], cwd=temp_runfolder, env=env,
+                        stderr=sp.STDOUT, stdout=stdout)
             shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
-        shutil.rmtree(temp_runfolder)
-    return QDYN.gate2q.Gate2Q(file=gatefile)
+            end = time.time()
+            logger.info("Successfully finished propagating %s (%d seconds)",
+                         runfolder, end-start)
+        except Exception as e:
+            logger.error(e)
+        finally:
+            shutil.rmtree(temp_runfolder)
+    else:
+        logger.info("Propagating of %s skipped (gatefile already exists)",
+                     runfolder)
+    U = None
+    try:
+        U = QDYN.gate2q.Gate2Q(file=gatefile)
+    except IOError as e:
+        logger.error(e)
+    return U
 
 
 def make_threadpool_map(p):
@@ -412,9 +364,13 @@ def make_threadpool_map(p):
 def pre_simplex_scan(w_2, w_c):
     """Perform scan for the given qubit and cavity frequency"""
     # create state 1 runfolders and propagate them
-    runfolder_tuples =  generate_runfolders(w_2, w_c)
+    logger = logging.getLogger(__name__)
+    logger.info('Running on host %s' % hostname())
+    logger.info('*** Generating Runfolders ***')
+    runfolders = generate_runfolders(w_2, w_c)
     threadpool_map = make_threadpool_map(get_cpus()/4)
-    threadpool_map(propagate, runfolder_tuples)
+    logger.info('*** Propagate ***')
+    threadpool_map(propagate, runfolders)
 
 
 def main(argv=None):

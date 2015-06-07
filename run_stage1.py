@@ -47,7 +47,7 @@ def main():
             jobname = 'w2_%dMHz_wc_%dMHz_stage1' % (w2*1000, wc*1000)
             job = Job(jobscript=jobscript(w2, wc), jobname=jobname,
                       workdir='.', time='8:00:00', nodes=1, threads=12,
-                      mem=24000, stdout='%s.out'%jobname,
+                      mem=24000, stdout='%s-%j.out'%jobname,
                       epilogue=epilogue(w2, wc))
             jobs.append(job.submit(cache_id=jobname))
             job_ids[jobs[-1].job_id] = jobname
