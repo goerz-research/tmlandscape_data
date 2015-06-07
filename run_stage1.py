@@ -2,6 +2,7 @@
 import logging
 logging.basicConfig(level=logging.ERROR)
 import sys
+import time
 from textwrap import dedent
 from clusterjob import Job
 Job.default_remote = 'kcluster'
@@ -42,15 +43,19 @@ def main():
     # select best runs for stage 2
     jobs = []
     job_ids = {}
-    for w2 in [6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0]:
-        for wc in [6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 9.6, 10.1, 10.6, 11.1]:
-            jobname = 'w2_%dMHz_wc_%dMHz_stage1' % (w2*1000, wc*1000)
-            job = Job(jobscript=jobscript(w2, wc), jobname=jobname,
-                      workdir='.', time='8:00:00', nodes=1, threads=12,
-                      mem=24000, stdout='%s-%%j.out'%jobname,
-                      epilogue=epilogue(w2, wc))
-            jobs.append(job.submit(cache_id=jobname))
-            job_ids[jobs[-1].job_id] = jobname
+    with open("stage1.log", "a") as log:
+        log.write("%s\n" % time.asctime())
+        for w2 in [6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0]:
+            for wc in [6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 9.6, 10.1, 10.6, 11.1]:
+                jobname = 'w2_%dMHz_wc_%dMHz_stage1' % (w2*1000, wc*1000)
+                job = Job(jobscript=jobscript(w2, wc), jobname=jobname,
+                        workdir='.', time='8:00:00', nodes=1, threads=12,
+                        mem=24000, stdout='%s-%%j.out'%jobname,
+                        epilogue=epilogue(w2, wc))
+                jobs.append(job.submit(cache_id=jobname))
+                job_ids[jobs[-1].job_id] = jobname
+                log.write("Submitted %s to cluster as ID %s\n"%(
+                          jobname, jobs[-1].job_id))
     for job in jobs:
         job.wait()
         if not job.successful():
