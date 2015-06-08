@@ -167,6 +167,7 @@ def generate_runfolders(w2, wc):
         analytical_pulse.write(os.path.join(runfolder, 'pulse.json'),
                                pretty=True)
 
+    amplitudes = [10, 50, 100, 200, 300, 400, 500, 700, 900]
 
     # field-free
     pulse_label = 'field_free'
@@ -181,7 +182,7 @@ def generate_runfolders(w2, wc):
     runfolders.append(runfolder)
 
     # single-frequency (center)
-    for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
+    for E0 in amplitudes:
         pulse_label = '1freq_center'
         runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
         if runfolder_exists(runfolder):
@@ -198,7 +199,7 @@ def generate_runfolders(w2, wc):
     # single-frequency (random)
     for realization in xrange(10):
         w_L = float(random_freq(1)[0])
-        for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
+        for E0 in amplitudes:
             pulse_label = '1freq_%d'%(realization+1)
             runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
             if runfolder_exists(runfolder):
@@ -212,7 +213,7 @@ def generate_runfolders(w2, wc):
             runfolders.append(runfolder)
 
     # two-frequency (resonant)
-    for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
+    for E0 in amplitudes:
         pulse_label = '2freq_resonant'
         runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
         if runfolder_exists(runfolder):
@@ -238,7 +239,7 @@ def generate_runfolders(w2, wc):
         phi = 2*random()
         a_1 = random()
         a_2 = random()
-        for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
+        for E0 in amplitudes:
             pulse_label = '2freq_%d'%(realization+1)
             runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
             if runfolder_exists(runfolder):
@@ -258,7 +259,7 @@ def generate_runfolders(w2, wc):
         freq = random_freq(3, n_low_freq=2)
         a = np.random.rand(5) - 0.5
         b = np.random.rand(5) - 0.5
-        for E0 in [10, 50, 100, 150, 200, 250, 300, 350, 400, 450]:
+        for E0 in amplitudes:
             pulse_label = '5freq_%d'%(realization+1)
             runfolder = os.path.join(runfolder_root, pulse_label, "E%03d"%E0)
             if runfolder_exists(runfolder):
