@@ -276,9 +276,30 @@ def generate_runfolders(w2, wc):
     return runfolders
 
 
-def propagate(runfolder):
+def get_temp_runfolder(runfolder):
+    """Return the path for an appropriate temporary runfolder (inside
+    $SCRATCH_ROOT) for the given "real" runfolder"""
+    assert 'SCRATCH_ROOT' in os.environ, \
+    "SCRATCH_ROOT environment variable must be defined"
+    try:
+        w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
+        temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
+                            "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0))
+    except ValueError:
+        if 'SLURM_JOB_ID' in os.environ:
+            temp_runfolder = os.environ['SLURM_JOB_ID']
+        else:
+            import uuid
+            temp_runfolder = str(uuid.uuid4())
+    return temp_runfolder
+
+
+def propagate(runfolder, keep=False):
     """
     Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
+
+    If `keep` is True, keep all files resulting from the propagation in the
+    runfolder. Otherwise, only prop.log and U.dat will be kept.
     """
     logger = logging.getLogger(__name__)
     from analytical_pulses import AnalyticalPulse
@@ -292,9 +313,7 @@ def propagate(runfolder):
             "No config file in runfolder %s" % runfolder
             assert os.path.isfile(pulse_json), \
             "No pulse.json file in runfolder %s" % runfolder
-            w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
-            temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                             "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0))
+            temp_runfolder = get_temp_runfolder(runfolder)
             logger.debug("Prepararing temp_runfolder %s", temp_runfolder)
             if os.path.isfile(temp_runfolder):
                 # This is simply to clean up after a previous bug
@@ -327,6 +346,8 @@ def propagate(runfolder):
         except Exception as e:
             logger.error(e)
         finally:
+            if keep:
+                sp.call(['rsync', '-a', '%s/'%temp_runfolder, runfolder])
             shutil.rmtree(temp_runfolder)
     else:
         logger.info("Propagating of %s skipped (gatefile already exists)",
