@@ -148,7 +148,7 @@ def generate_runfolders(w2, wc):
     kappa   = 0.05_MHz, &
     gamma_1 = 0.012_MHz, &
     gamma_2 = 0.012_MHz, &
-    '''.format(T=T, nt=nt, w_c=(float(wc)/1000.0), w_2=(float(w2)/1000.0)))
+    '''.format(T=T, nt=nt, w_c=(float(wc)*1000.0), w_2=(float(w2)*1000.0)))
     runfolders = []
     random_freq = make_random_freq(w_1=6.0, w_2=w2, w_c=wc, alpha_1=0.29,
                                    alpha_2=0.31, low_freq_limit=0.02,
