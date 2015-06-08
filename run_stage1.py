@@ -45,8 +45,8 @@ def main():
     job_ids = {}
     with open("stage1.log", "a") as log:
         log.write("%s\n" % time.asctime())
-        for w2 in [6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0]:
-            for wc in [6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 9.6, 10.1, 10.6, 11.1]:
+        for w2 in [6.0, 6.1, 6.2, 6.35, 6.5, 6.75, 7.0, 7.25, 7.5]:
+            for wc in [6.3, 6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 10.1, 11.1]:
                 if wc <= w2:
                     continue
                 jobname = 'w2_%dMHz_wc_%dMHz_stage1' % (w2*1000, wc*1000)
