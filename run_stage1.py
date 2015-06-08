@@ -9,7 +9,7 @@ Job.default_remote = 'kcluster'
 Job.default_backend = 'slurm'
 Job.default_rootdir = '~/jobs/ConstrainedTransmon'
 Job.default_opts['queue'] = 'AG-KOCH'
-Job.cache_folder='./.clusterjob_cache/'
+Job.cache_folder='./.clusterjob_cache/stage1/'
 
 
 def jobscript(w2, wc):
