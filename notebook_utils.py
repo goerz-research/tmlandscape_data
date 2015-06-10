@@ -1,6 +1,107 @@
 """
 Module containing auxilliary routines for the notebooks in this folder
 """
+import QDYN
+from glob import glob
+import re
+import os
+import numpy as np
+from matplotlib.mlab import griddata
+import matplotlib.pylab as plt
+from matplotlib.colors import LogNorm
+from mgplottools.mpl import get_color, set_axis, new_figure
+
+def get_field_free_data(runs):
+    """Return 3 numpy arrays: w_2, w_c, C, loss"""
+    rx_folder = re.compile(r'w2_(\d+)MHz_wc_(\d+)MHz/')
+    w2s    = []
+    wcs    = []
+    Cs     = []
+    losses = []
+    with QDYN.shutil.chdir(runs):
+        folders = glob('*/')
+        for folder in folders:
+            m = rx_folder.match(folder)
+            if m:
+                w2 = float(m.group(1)) / 1000.0
+                wc = float(m.group(2)) / 1000.0
+                U_file = os.path.join(folder, 'stage1', 'field_free', 'U.dat')
+                if os.path.isfile(U_file):
+                    U = QDYN.gate2q.Gate2Q(U_file)
+                else:
+                    continue
+                C = U.closest_unitary().concurrence()
+                loss = U.pop_loss()
+                w2s.append(w2)
+                wcs.append(wc)
+                Cs.append(C)
+                losses.append(loss)
+    return np.array(w2s), np.array(wcs), np.array(Cs), np.array(losses)
+
+
+def plot_field_free_data(runs):
+    """Plot field-free concurrence"""
+    plot_width      =  16.0
+    left_margin     =  1.0
+    top_margin      =  1.0
+    bottom_margin   =  1.0
+    h               =  10.0
+    w               =  10.0
+    cbar_width      =  0.3
+    cbar_gap        =  0.5
+    h_offset        =  17.0
+
+    fig_width = h_offset + 2*plot_width
+    fig_height = bottom_margin + h + top_margin
+
+    w_2, w_c, C, loss = get_field_free_data(runs)
+
+    fig = new_figure(fig_width, fig_height, quiet=True)
+
+    pos_contour = [left_margin / fig_width, bottom_margin / fig_width,
+                   w/fig_width, h/fig_height]
+    ax_contour = fig.add_axes(pos_contour)
+    pos_cbar = [(left_margin + w + cbar_gap) / fig_width,
+                bottom_margin/fig_width, cbar_width/fig_width, h/fig_height]
+    ax_cbar = fig.add_axes(pos_cbar)
+    render_values(w_2, w_c, C, fig, ax_contour, ax_cbar, vmin=0.0, vmax=1.0)
+    ax_contour.set_title("concurrence")
+
+    pos_contour = [(left_margin+h_offset)/fig_width, bottom_margin/fig_width,
+                   w/fig_width, h/fig_height]
+    ax_contour = fig.add_axes(pos_contour)
+    pos_cbar = [(left_margin+w+cbar_gap+h_offset)/fig_width,
+                bottom_margin/fig_width, cbar_width/fig_width, h/fig_height]
+    ax_cbar = fig.add_axes(pos_cbar)
+    render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar, logscale=True,
+                  vmin=1e-3, vmax=1.0)
+    ax_contour.set_title("population loss")
+
+    plt.show(fig)
+
+
+def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
+    logscale=False, vmin=None, vmax=None, n_contours=10):
+    x = np.linspace(w_2.min(), w_2.max(), density)
+    y = np.linspace(w_c.min(), w_c.max(), density)
+    z = griddata(w_2, w_c, val, x, y, interp='linear')
+    if vmin is None:
+        vmin=abs(z).min()
+    if vmax is None:
+        vmax=abs(z).max()
+    if logscale:
+        contours = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
+                                         norm=LogNorm(), vmax=vmax, vmin=vmin)
+    else:
+        if n_contours > 0:
+            ax_contour.contour(x, y, z, n_contours, linewidths=0.5, colors='k')
+        contours = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
+                                    vmax=abs(z).max(), vmin=abs(z).min())
+    ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=5, zorder=10)
+    ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
+    ax_contour.set_ylabel(r"$\omega_c$ (GHz)")
+    cbar = fig.colorbar(contours, cax=ax_cbar)
+
 
 def cutoff_worker(x):
     """
