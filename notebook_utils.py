@@ -80,6 +80,21 @@ def plot_field_free_data(runs):
     plt.show(fig)
 
 
+def find_files(directory, pattern):
+    """
+    Iterate (recursively) over all the files matching the shell pattern
+    ('*' will yield all files) in the given directory
+    """
+    import fnmatch
+    if not os.path.isdir(directory):
+        raise IOError("directory %s does not exist" % directory)
+    for root, dirs, files in os.walk(directory):
+        for basename in files:
+            if fnmatch.fnmatch(basename, pattern):
+                filename = os.path.join(root, basename)
+                yield filename
+
+
 def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
     logscale=False, vmin=None, vmax=None, n_contours=10):
     x = np.linspace(w_2.min(), w_2.max(), density)
