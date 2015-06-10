@@ -90,22 +90,32 @@ def runfolder_to_params(runfolder):
     run, e.g. '2freq_resonant'"""
     if runfolder.endswith(r'/'):
         runfolder = runfolder[:-1]
-    parts = runfolder.split(os.path.sep)
-    E0_str = parts.pop()
-    if E0_str == 'field_free':
-        E0 = 0.0
-        pulse_label = E0_str
-    else:
-        E0 = int(E0_str[1:])
-        pulse_label = parts.pop()
-    parts.pop() # discard 'stage1'
-    w2_wc_str = parts.pop()
-    w2_wc_match = re.match(r'w2_(\d+)MHz_wc_(\d+)MHz', w2_wc_str)
-    if w2_wc_match:
-        w_2 = float(w2_wc_match.group(1))
-        w_c = float(w2_wc_match.group(2))
-    else:
-        raise ValueError("Could not get w_2, w_c from %s" % w2_wc_str)
+    E0 = None
+    w_2 = None
+    w_c = None
+    pulse_label = None
+    for part in runfolder.split(os.path.sep):
+        if part == 'field_free':
+            E0 = 0.0
+            pulse_label = part
+        E0_match = re.match("E(\d+)", part)
+        if E0_match:
+            E0 = int(E0_match.group(1))
+        w2_wc_match = re.match(r'w2_(\d+)MHz_wc_(\d+)MHz', part)
+        if w2_wc_match:
+            w_2 = float(w2_wc_match.group(1))
+            w_c = float(w2_wc_match.group(2))
+        pulse_label_match = re.match(r'\dfreq_.*', part)
+        if pulse_label_match:
+            pulse_label = part
+    if E0 is None:
+        raise ValueError("Could not get E0 from %s" % runfolder)
+    if w_2 is None:
+        raise ValueError("Could not get w_2 from %s" % runfolder)
+    if w_c is None:
+        raise ValueError("Could not get w_c from %s" % runfolder)
+    if pulse_label is None:
+        raise ValueError("Could not get pulse_label from %s" % runfolder)
     return w_2, w_c, E0, pulse_label
 
 
