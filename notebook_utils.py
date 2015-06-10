@@ -135,6 +135,8 @@ def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
 def cutoff_worker(x):
     """
     Map w_L [GHz], E_0 [MHz], nt, n_q, n_c -> 2QGate
+
+    Used in Prereq_Cutoff.ipynb
     """
 
     import QDYN
