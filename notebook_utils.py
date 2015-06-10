@@ -88,11 +88,25 @@ def find_files(directory, pattern):
     import fnmatch
     if not os.path.isdir(directory):
         raise IOError("directory %s does not exist" % directory)
-    for root, dirs, files in os.walk(directory):
+    for root, __, files in os.walk(directory):
         for basename in files:
             if fnmatch.fnmatch(basename, pattern):
                 filename = os.path.join(root, basename)
                 yield filename
+
+def find_folders(directory, pattern):
+    """
+    Iterate (recursively) over all the folders matching the shell pattern
+    ('*' will yield all folders) in the given directory
+    """
+    import fnmatch
+    if not os.path.isdir(directory):
+        raise IOError("directory %s does not exist" % directory)
+    for root, dirs, __ in os.walk(directory):
+        for basename in dirs:
+            if fnmatch.fnmatch(basename, pattern):
+                foldername = os.path.join(root, basename)
+                yield foldername
 
 
 def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
