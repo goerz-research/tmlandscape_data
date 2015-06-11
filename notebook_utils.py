@@ -7,6 +7,7 @@ import re
 import os
 import numpy as np
 from matplotlib.mlab import griddata
+import pandas as pd
 import matplotlib.pylab as plt
 from matplotlib.colors import LogNorm
 from mgplottools.mpl import get_color, set_axis, new_figure
@@ -25,6 +26,8 @@ def get_field_free_data(runs):
             if m:
                 w2 = float(m.group(1)) / 1000.0
                 wc = float(m.group(2)) / 1000.0
+                if w2 == 6.0:
+                    continue
                 U_file = os.path.join(folder, 'stage1', 'field_free', 'U.dat')
                 if os.path.isfile(U_file):
                     U = QDYN.gate2q.Gate2Q(U_file)
@@ -49,7 +52,7 @@ def plot_field_free_data(runs):
     w               =  10.0
     cbar_width      =  0.3
     cbar_gap        =  0.5
-    h_offset        =  17.0
+    h_offset        =  15.0
 
     fig_width = h_offset + 2*plot_width
     fig_height = bottom_margin + h + top_margin
@@ -74,8 +77,86 @@ def plot_field_free_data(runs):
                 bottom_margin/fig_width, cbar_width/fig_width, h/fig_height]
     ax_cbar = fig.add_axes(pos_cbar)
     render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar, logscale=True,
-                  vmin=1e-3, vmax=1.0)
+                  vmin=1e-3, vmax=0.1)
     ax_contour.set_title("population loss")
+
+    plt.show(fig)
+
+
+def get_selection_plot_data(select_data, target_category):
+    w2s     = []
+    wcs     = []
+    Cs      = []
+    losses  = []
+    target_categories = ['PE_1freq_center', 'PE_1freq_random',
+            'PE_2freq_resonant', 'PE_2freq_random', 'PE_5freq_random',
+            'SQ_1freq_center', 'SQ_1freq_random', 'SQ_2freq_resonant',
+            'SQ_2freq_random', 'SQ_5freq_random']
+    assert target_category in target_categories, \
+           "target must be in %s" % str(target_categories)
+    for (w2, wc, d) in select_data:
+        w2s.append(w2)
+        wcs.append(wc)
+        Cs.append(d[target_category][0])
+        losses.append(d[target_category][1])
+    return np.array(w2s)/1000.0, np.array(wcs)/1000.0, np.array(Cs), \
+           np.array(losses)
+
+
+def plot_selection_data(select_data, target):
+    """Plot field-free concurrence"""
+    plot_width      =  16.0
+    left_margin     =  1.0
+    top_margin      =  1.0
+    bottom_margin   =  1.0
+    h               =  10.0
+    w               =  10.0
+    cbar_width      =  0.3
+    cbar_gap        =  0.5
+    h_offset        =  15.0
+    v_offset        =  11.0
+
+    assert target in ['PE', 'SQ'], "target must be 'PE', or 'SQ'"
+
+    fig_width = h_offset + 2*plot_width
+    fig_height = bottom_margin + 4*v_offset + h + top_margin
+
+    fig = new_figure(fig_width, fig_height, quiet=True)
+
+    for (target_category, n) in [
+        (target+'_1freq_center',   4),
+        (target+'_1freq_random',   3),
+        (target+'_2freq_resonant', 2),
+        (target+'_2freq_random',   1),
+        (target+'_5freq_random',   0),
+    ]:
+        w_2, w_c, C, loss = get_selection_plot_data(select_data,
+                                                    target_category)
+
+        pos_contour = [left_margin/fig_width,
+                    (bottom_margin+n*v_offset)/fig_width,
+                    w/fig_width, h/fig_height]
+        ax_contour = fig.add_axes(pos_contour)
+        pos_cbar = [(left_margin+w+cbar_gap)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_width,
+                    cbar_width/fig_width, h/fig_height]
+        ax_cbar = fig.add_axes(pos_cbar)
+        render_values(w_2, w_c, C, fig, ax_contour, ax_cbar, vmin=0.0,
+                      vmax=1.0)
+        ax_contour.set_title("concurrence (%s)"%target_category)
+
+        pos_contour = [(left_margin+h_offset)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_width,
+                    w/fig_width, h/fig_height]
+        ax_contour = fig.add_axes(pos_contour)
+        pos_cbar = [(left_margin+w+cbar_gap+h_offset)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_width,
+                    cbar_width/fig_width, h/fig_height]
+        ax_cbar = fig.add_axes(pos_cbar)
+        render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar, logscale=True,
+                    vmin=1e-3, vmax=0.1)
+        ax_contour.set_title("population loss (%s)"%target_category)
+
 
     plt.show(fig)
 
@@ -125,11 +206,44 @@ def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
         if n_contours > 0:
             ax_contour.contour(x, y, z, n_contours, linewidths=0.5, colors='k')
         contours = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
-                                    vmax=abs(z).max(), vmin=abs(z).min())
+                                    vmax=vmax, vmin=vmin)
     ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=5, zorder=10)
     ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
     ax_contour.set_ylabel(r"$\omega_c$ (GHz)")
     cbar = fig.colorbar(contours, cax=ax_cbar)
+
+
+def get_stage2_selection_table(select_data, target='PE'):
+    """Map the datastructure returned by the all_select_runs routine in
+    select_for_stage2.py to a DataFrame
+
+    target must be either 'PE' or 'SQ'
+    """
+    w2s     = []
+    wcs     = []
+    cats    = []
+    Cs      = []
+    losses  = []
+    E0s     = []
+    headers = []
+    assert target in ['PE', 'SQ'], "target must be 'PE', or 'SQ'"
+    for (w2, wc, d) in select_data:
+        for cat in d:
+            if cat.startswith(target):
+                w2s.append(w2)
+                wcs.append(wc)
+                cats.append(cat)
+                Cs.append(d[cat][0])
+                losses.append(d[cat][1])
+                E0s.append(d[cat][2])
+                headers.append(d[cat][3].header)
+    t = pd.DataFrame(
+        data={'w_2 [GHz]': w2s, 'w_c [GHz]': wcs, 'category': cats,
+              'concurrence': Cs, 'pop loss': losses, 'peak ampl [MHz]': E0s,
+              'pulse details': headers},
+        columns=['w_2 [GHz]', 'w_c [GHz]', 'category', 'concurrence',
+                 'pop loss', 'peak ampl [MHz]', 'pulse details'])
+    return t
 
 
 def cutoff_worker(x):
