@@ -1,24 +1,21 @@
 #!/usr/bin/env python
 import os
 import sys
+import QDYN.shutil as shutil
 import QDYN
 from pre_simplex_scan import runfolder_to_params
 from notebook_utils import find_files, find_folders
 from analytical_pulses import AnalyticalPulse
 
+CATEGORIES = ['PE_1freq_center', 'PE_1freq_random',
+              'PE_2freq_resonant', 'PE_2freq_random', 'PE_5freq_random',
+              'SQ_1freq_center', 'SQ_1freq_random', 'SQ_2freq_resonant',
+              'SQ_2freq_random', 'SQ_5freq_random']
+
 def select_runs(stage1_folder):
-    selected = {
-        'PE_1freq_center': None,
-        'PE_1freq_random': None,
-        'PE_2freq_resonant': None,
-        'PE_2freq_random': None,
-        'PE_5freq_random': None,
-        'SQ_1freq_center': None,
-        'SQ_1freq_random': None,
-        'SQ_2freq_resonant': None,
-        'SQ_2freq_random': None,
-        'SQ_5freq_random': None,
-    }
+    selected = {}
+    for cat in CATEGORIES:
+        selected[cat] = None
     w_2_selection = None
     w_c_selection = None
 
@@ -108,7 +105,16 @@ def all_select_runs():
 
 def main():
     """Main routine"""
-    all_select_runs()
+    select_data = all_select_runs()
+    for w2, wc, d in select_data:
+        runfolder_root = 'runs/w2_%dMHz_wc_%dMHz/stage2' % (w2, wc)
+        for cat in CATEGORIES:
+            stage1_runfolder = d[cat][4]
+            stage2_runfolder = os.path.join(runfolder_root, cat)
+            shutil.mkdir(stage2_runfolder)
+            for file in ['config', 'pulse.json']:
+                shutil.copy(os.path.join(stage1_runfolder, file),
+                            os.path.join(stage2_runfolder, file))
 
 
 if __name__ == "__main__":

@@ -88,10 +88,7 @@ def get_selection_plot_data(select_data, target_category):
     wcs     = []
     Cs      = []
     losses  = []
-    target_categories = ['PE_1freq_center', 'PE_1freq_random',
-            'PE_2freq_resonant', 'PE_2freq_random', 'PE_5freq_random',
-            'SQ_1freq_center', 'SQ_1freq_random', 'SQ_2freq_resonant',
-            'SQ_2freq_random', 'SQ_5freq_random']
+    from select_for_stage2 import CATEGORIES as target_categories
     assert target_category in target_categories, \
            "target must be in %s" % str(target_categories)
     for (w2, wc, d) in select_data:
