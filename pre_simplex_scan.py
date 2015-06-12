@@ -294,15 +294,14 @@ def get_temp_runfolder(runfolder):
     "SCRATCH_ROOT environment variable must be defined"
     try:
         w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
-        temp_runfolder = os.path.join(os.environ['SCRATCH_ROOT'],
-                            "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0))
+        temp_runfolder = "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0)
     except ValueError:
         if 'SLURM_JOB_ID' in os.environ:
             temp_runfolder = os.environ['SLURM_JOB_ID']
         else:
             import uuid
             temp_runfolder = str(uuid.uuid4())
-    return temp_runfolder
+    return os.path.join(os.environ['SCRATCH_ROOT'], temp_runfolder)
 
 
 def propagate(runfolder, keep=False):
