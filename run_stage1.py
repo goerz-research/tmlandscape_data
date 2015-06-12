@@ -46,9 +46,8 @@ def main():
     with open("stage1.log", "a") as log:
         log.write("%s\n" % time.asctime())
         for w2 in [6.0, 6.1, 6.2, 6.35, 6.5, 6.75, 7.0, 7.25, 7.5]:
-            for wc in [6.3, 6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 10.1, 11.1]:
-                if wc <= w2:
-                    continue
+            for wc in [5.0, 5.8, 6.1, 6.3, 6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 10.1,
+                       11.1]:
                 jobname = 'w2_%dMHz_wc_%dMHz_stage1' % (w2*1000, wc*1000)
                 job = Job(jobscript=jobscript(w2, wc), jobname=jobname,
                         workdir='.', time='8:00:00', nodes=1, threads=12,
