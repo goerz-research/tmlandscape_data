@@ -94,6 +94,46 @@ class AnalyticalPulse(object):
         self.freq_unit = freq_unit
         self.mode = mode
 
+    def array_to_parameters(self, array, keys=None):
+        """
+        Unpack the given array (numpy array or regular list) into the pulse
+        parameters. This is especially useful for optimizing parameters with
+        the `scipy.optimize.mimimize` routine.
+
+        For each key, set the value of the `parameters[key]` attribute by
+        popping values from the beginning of the array. If `parameters[key]` is
+        an array, pop repeatedly to set every value.
+
+        If keys is not given, all parameter keys are used, in sorted order. The
+        array must contain exactly enough parameters, otherwise an IndexError
+        is raised.
+        """
+        if keys is None:
+            keys = sorted(self.parameters.keys())
+        array = list(array)
+        for key in keys:
+            if np.isscalar(self.parameters[key]):
+                self.parameters[key] = array.pop(0)
+            else:
+                for i in range(len(self.parameters[key])):
+                    self.parameters[key][i] = array.pop(0)
+        if len(array) > 0:
+            raise IndexError("not all values in array placed in parameters")
+
+    def parameters_to_array(self, keys):
+        """Inverse method to `array_to_paramters`. Returns the "packed"
+        parameter values for the given keys as a numpy array"""
+        result = []
+        if keys is None:
+            keys = sorted(self.parameters.keys())
+        for key in keys:
+            if np.isscalar(self.parameters[key]):
+                result.append(self.parameters[key])
+            else:
+                for i in range(len(self.parameters[key])):
+                    result.append(self.parameters[key][i])
+        return np.array(result)
+
     def _check_parameters(self):
         """Raise a ValueError if self.parameters is missing any required
         parameters for the current formula. Also raise ValueError is
