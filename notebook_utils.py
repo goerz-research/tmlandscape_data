@@ -11,6 +11,9 @@ import pandas as pd
 import matplotlib.pylab as plt
 from matplotlib.colors import LogNorm
 from mgplottools.mpl import get_color, set_axis, new_figure
+from matplotlib import rcParams
+rcParams['xtick.direction'] = 'out'
+rcParams['ytick.direction'] = 'out'
 
 def get_field_free_data(runs):
     """Return 3 numpy arrays: w_2, w_c, C, loss"""
@@ -205,8 +208,17 @@ def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
         contours = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
                                     vmax=vmax, vmin=vmin)
     ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=5, zorder=10)
+    set_axis(ax_contour, 'x', 6.0, 7.5, 0.5, range=(6.1, 7.5), minor=5)
+    set_axis(ax_contour, 'y', 5.0, 11.1, 0.5, minor=5)
     ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
     ax_contour.set_ylabel(r"$\omega_c$ (GHz)")
+    # show the resonance line (cavity on resonace with qubit 2)
+    ax_contour.plot(np.linspace(5.0, 11.1, 10), np.linspace(5.0, 11.1, 10), color='white')
+    ax_contour.plot(np.linspace(6.0, 7.5, 10), 6.0*np.ones(10), color='white')
+    ax_contour.axvline(6.29, color='white', ls='--')
+    ax_contour.axvline(6.31, color='white', ls='--')
+    ax_contour.axvline(6.58, color='white', ls='--')
+    ax_contour.axvline(6.62, color='white', ls='--')
     cbar = fig.colorbar(contours, cax=ax_cbar)
 
 
