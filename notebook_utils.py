@@ -79,7 +79,7 @@ def plot_field_free_data(runs):
     pos_cbar = [(left_margin+w+cbar_gap+h_offset)/fig_width,
                 bottom_margin/fig_width, cbar_width/fig_width, h/fig_height]
     ax_cbar = fig.add_axes(pos_cbar)
-    render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar, logscale=True,
+    render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar, logscale=False,
                   vmin=1e-3, vmax=0.1)
     ax_contour.set_title("population loss")
 
@@ -87,6 +87,13 @@ def plot_field_free_data(runs):
 
 
 def get_selection_plot_data(select_data, target_category):
+    """
+    select_data is as returned by the all_select_runs routine in
+    select_for_stage2. It is an array of tuples, where each tuple is
+    (w_2, w_c, d), and d is a dictionary that maps the CATEGORIES defined in
+    the select_for_stage2 module (e.g. PE_1freq_center) to a tuple
+    (C, loss, E0, pulse, stage1 runfolder)
+    """
     w2s     = []
     wcs     = []
     Cs      = []
@@ -103,8 +110,49 @@ def get_selection_plot_data(select_data, target_category):
            np.array(losses)
 
 
+def get_selection_quality(select_data):
+    """
+    select_data is as returned by the all_select_runs routine in
+    select_for_stage2. It is an array of tuples, where each tuple is
+    (w_2, w_c, d), and d is a dictionary that maps the CATEGORIES defined in
+    the select_for_stage2 module (e.g. PE_1freq_center) to a tuple
+    (C, loss, E0, pulse, stage1 runfolder)
+
+    Return dictionary category => (w2 [GHz], wc [GHz], Quality)
+    """
+    result = {}
+    categories = ['1freq_center', '1freq_random', '2freq_resonant',
+                  '2freq_random', '5freq_random']
+    for cat in categories:
+        J = {}
+        for target in ['PE', 'SQ']:
+            target_cat = "%s_%s" % (target, cat)
+            w2s     = []
+            wcs     = []
+            Cs      = []
+            losses  = []
+            for (w2, wc, d) in select_data:
+                w2s.append(w2)
+                wcs.append(wc)
+                Cs.append(d[target_cat][0])
+                losses.append(d[target_cat][1])
+            w2s    = np.array(w2s)/1000.0
+            wcs    = np.array(wcs)/1000.0
+            Cs     = np.array(Cs)
+            losses = np.array(losses)
+            if target == 'PE':
+                J = 1.0 - Cs + losses
+                result[cat] = [w2s, wcs, 1.0 - 0.5*J]
+            elif target == 'SQ':
+                J = Cs + losses
+                result[cat][2] += -0.5*J
+    return result
+
+
 def plot_selection_data(select_data, target):
-    """Plot field-free concurrence"""
+    """Plot concurrence and loss for all the data for the given target (PE, SQ)
+    in select_data. The data is obtained from get_selection_plot_data
+    """
     plot_width      =  16.0
     left_margin     =  1.0
     top_margin      =  1.0
@@ -114,7 +162,7 @@ def plot_selection_data(select_data, target):
     cbar_width      =  0.3
     cbar_gap        =  0.5
     h_offset        =  15.0
-    v_offset        =  11.0
+    v_offset        =  12.5
 
     assert target in ['PE', 'SQ'], "target must be 'PE', or 'SQ'"
 
@@ -123,40 +171,133 @@ def plot_selection_data(select_data, target):
 
     fig = new_figure(fig_width, fig_height, quiet=True)
 
+    best_C = None # best from all categories
+    best_loss = None # best from all categories
+    best_J = None
+
+    def J(C, loss):
+        if target == 'PE':
+            return 1.0 - C + loss
+        elif target == 'SQ':
+            return C + loss
+
     for (target_category, n) in [
-        (target+'_1freq_center',   4),
-        (target+'_1freq_random',   3),
-        (target+'_2freq_resonant', 2),
-        (target+'_2freq_random',   1),
-        (target+'_5freq_random',   0),
+        (target+'_1freq_center',   5),
+        (target+'_1freq_random',   4),
+        (target+'_2freq_resonant', 3),
+        (target+'_2freq_random',   2),
+        (target+'_5freq_random',   1),
+        ('total',                  0),
     ]:
-        w_2, w_c, C, loss = get_selection_plot_data(select_data,
-                                                    target_category)
+        if target_category != 'total':
+            w_2, w_c, C, loss = get_selection_plot_data(select_data,
+                                                        target_category)
+            # collect the "best" result over all pulse categories
+            if best_C is None:
+                best_C = C.copy()
+                best_loss = loss.copy()
+                best_J = np.zeros(len(C))
+                for i in xrange(len(C)):
+                    best_J[i] = J(C[i], loss[i])
+            else:
+                for i in xrange(len(C)):
+                    if J(C[i], loss[i]) < best_J[i]:
+                        best_C[i] = C[i]
+                        best_loss[i] = loss[i]
+                        best_J[i] = J(C[i], loss[i])
 
         pos_contour = [left_margin/fig_width,
-                    (bottom_margin+n*v_offset)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_height,
                     w/fig_width, h/fig_height]
         ax_contour = fig.add_axes(pos_contour)
         pos_cbar = [(left_margin+w+cbar_gap)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_height,
                     cbar_width/fig_width, h/fig_height]
         ax_cbar = fig.add_axes(pos_cbar)
-        render_values(w_2, w_c, C, fig, ax_contour, ax_cbar, vmin=0.0,
-                      vmax=1.0)
+        if target_category == 'total':
+            render_values(w_2, w_c, best_C, fig, ax_contour, ax_cbar, vmin=0.0,
+                        vmax=1.0)
+        else:
+            render_values(w_2, w_c, C, fig, ax_contour, ax_cbar, vmin=0.0,
+                        vmax=1.0)
         ax_contour.set_title("concurrence (%s)"%target_category)
 
         pos_contour = [(left_margin+h_offset)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_height,
                     w/fig_width, h/fig_height]
         ax_contour = fig.add_axes(pos_contour)
         pos_cbar = [(left_margin+w+cbar_gap+h_offset)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_height,
                     cbar_width/fig_width, h/fig_height]
         ax_cbar = fig.add_axes(pos_cbar)
-        render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar, logscale=True,
-                    vmin=1e-3, vmax=0.1)
+        if target_category == 'total':
+            render_values(w_2, w_c, best_loss, fig, ax_contour, ax_cbar,
+                          logscale=False, vmin=0.01, vmax=0.1)
+        else:
+            render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar,
+                          logscale=False, vmin=1e-3, vmax=0.1)
         ax_contour.set_title("population loss (%s)"%target_category)
 
+
+    plt.show(fig)
+
+
+def plot_selection_quality(select_data):
+    """Plot quality for all pulse categories
+    """
+    plot_width      =  8.0
+    left_margin     =  1.0
+    top_margin      =  1.0
+    bottom_margin   =  1.0
+    h               =  10.0
+    w               =  10.0
+    cbar_width      =  0.3
+    cbar_gap        =  0.5
+    h_offset        =  0.0
+    v_offset        =  12.5
+
+    fig_width = h_offset + plot_width
+    fig_height = bottom_margin + 4*v_offset + h + top_margin
+
+    fig = new_figure(fig_width, fig_height, quiet=True)
+
+    best_Q = None # best from all categories
+
+    quality_data = get_selection_quality(select_data)
+
+    for (cat, n) in [
+        ('1freq_center',   5),
+        ('1freq_random',   4),
+        ('2freq_resonant', 3),
+        ('2freq_random',   2),
+        ('5freq_random',   1),
+        ('total',          0),
+    ]:
+        if cat != 'total':
+            w_2, w_c, Q = quality_data[cat]
+            # collect the "best" result over all pulse categories
+            if best_Q is None:
+                best_Q = Q.copy()
+            else:
+                for i in xrange(len(Q)):
+                    if Q[i] > best_Q[i]:
+                        best_Q[i] = Q[i]
+
+        pos_contour = [left_margin/fig_width,
+                    (bottom_margin+n*v_offset)/fig_height,
+                    w/fig_width, h/fig_height]
+        ax_contour = fig.add_axes(pos_contour)
+        pos_cbar = [(left_margin+w+cbar_gap)/fig_width,
+                    (bottom_margin+n*v_offset)/fig_height,
+                    cbar_width/fig_width, h/fig_height]
+        ax_cbar = fig.add_axes(pos_cbar)
+        if cat == 'total':
+            render_values(w_2, w_c, best_Q, fig, ax_contour, ax_cbar, vmin=0.0,
+                        vmax=1.0)
+        else:
+            render_values(w_2, w_c, Q, fig, ax_contour, ax_cbar, vmin=0.0,
+                        vmax=1.0)
+        ax_contour.set_title("quality (%s)"%cat)
 
     plt.show(fig)
 
@@ -217,8 +358,8 @@ def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
     ax_contour.plot(np.linspace(6.0, 7.5, 10), 6.0*np.ones(10), color='white')
     ax_contour.axvline(6.29, color='white', ls='--')
     ax_contour.axvline(6.31, color='white', ls='--')
-    ax_contour.axvline(6.58, color='white', ls='--')
-    ax_contour.axvline(6.62, color='white', ls='--')
+    #ax_contour.axvline(6.58, color='white', ls='--')
+    #ax_contour.axvline(6.62, color='white', ls='--')
     cbar = fig.colorbar(contours, cax=ax_cbar)
 
 
