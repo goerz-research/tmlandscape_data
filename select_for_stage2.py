@@ -59,36 +59,43 @@ def select_runs(stage1_folder):
         elif '5freq' in pulse_label:
             category = '5freq_random'
 
-        if loss > 0.1:
-            # we disregard any guess that leads to more than 10% loss
-            continue
-
-        # use with regard to perfect entangler
         for target, selector in [('PE', lambda C, C_prev: C > C_prev),
                                  ('SQ', lambda C, C_prev: C < C_prev)]:
+
             target_category = target+'_'+category
             if selected[target_category] is None:
                 selected[target_category] = (C, loss, E0, pulse, runfolder)
             else:
                 C_prev, loss_prev, E0_prev, __, __ = selected[target_category]
-                rel_diff = abs(C-C_prev) / abs(C)
-                if rel_diff <= 0.01:
-                    # all things being equal (i.e. less than 1% change), we
-                    # prefer pulses to be around 100 MHz amplitude -- not field
-                    # free (would lead to noisy optimized pulses later), and
-                    # not too large (optimization will generally increase
-                    # amplitude even further)
-                    if (abs(E0-100.0) < abs(E0_prev-100.0)):
+                if loss_prev > 0.1:
+                    # We only allow loss > 10% if we can't find anything better
+                    if loss < loss_prev:
                         selected[target_category] \
                         = (C, loss, E0, pulse, runfolder)
-                else:
-                    if selector(C, C_prev):
-                        selected[target_category] \
-                        = (C, loss, E0, pulse, runfolder)
+                elif loss < 0.1:
+                    rel_diff = abs(C-C_prev) / abs(C)
+                    if rel_diff <= 0.01:
+                        # all things being equal (i.e. less than 1% change), we
+                        # prefer pulses to be around 100 MHz amplitude -- not
+                        # field free (would lead to noisy optimized pulses
+                        # later), and not too large (optimization will
+                        # generally increase amplitude even further)
+                        if (abs(E0-100.0) < abs(E0_prev-100.0)):
+                            selected[target_category] \
+                            = (C, loss, E0, pulse, runfolder)
+                    else:
+                        if selector(C, C_prev):
+                            selected[target_category] \
+                            = (C, loss, E0, pulse, runfolder)
 
     if None in selected.values():
-        print("Could not find data for all categories. Please debug.")
-        from IPython.core.debugger import Tracer; Tracer()()
+        print "Incomplete data to select for stage 2 %s" % stage1_folder
+        for key in selected:
+            status = 'OK'
+            if selected[key] is None:
+                status = 'MISSING'
+            print "    %s: %s" % (key, status)
+        return None
     return w_2_selection, w_c_selection, selected
 
 
