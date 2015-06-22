@@ -59,13 +59,17 @@ def main():
                     runfolder = os.path.join(folder, subfolder)
                     if not os.path.isdir(runfolder):
                         continue
+                    pulse_opt = os.path.join(runfolder, 'pulse_opt.json')
+                    if os.path.isfile(pulse_opt):
+                        continue
+                    filename = runfolder.replace(r'/', '_')
+                    filename = filename.replace(r'.', '') + ".slr"
                     job = Job(jobscript=jobscript(runfolder), jobname='stage2',
                             workdir='.', time='90:00:00', nodes=1, threads=4,
-                            mem=4000, stdout='%j.out',
+                            mem=4000, stdout='%j.out', filename=filename,
                             epilogue=epilogue(runfolder),
                             prologue=prologue(runfolder))
-                    jobs.append(job.submit(
-                                cache_id=runfolder.replace('/','_')))
+                    jobs.append(job.submit(cache_id=filename))
                     log.write("Submitted %s to cluster as ID %s\n"%(
                             runfolder, jobs[-1].job_id))
     for job in jobs:
