@@ -599,8 +599,8 @@ def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
     ax_contour.plot(np.linspace(6.0, 7.5, 10), 6.0*np.ones(10), color='white')
     ax_contour.axvline(6.29, color='white', ls='--')
     ax_contour.axvline(6.31, color='white', ls='--')
-    #ax_contour.axvline(6.58, color='white', ls='--')
-    #ax_contour.axvline(6.62, color='white', ls='--')
+    ax_contour.axvline(6.58, color='white', ls='--')
+    ax_contour.axvline(6.62, color='white', ls='--')
     cbar = fig.colorbar(contours, cax=ax_cbar)
 
 
@@ -727,3 +727,71 @@ def cutoff_worker(x):
 
     return U
 
+
+def check_RWA(runfolder_original, runfolder):
+    from os.path import join
+    from analytical_pulses import AnalyticalPulse
+    from clusterjob.utils import read_file, write_file
+    import QDYN
+    from QDYN.shutil import mkdir, copy
+    import time
+    import subprocess as sp
+    p = AnalyticalPulse.read(
+        join(runfolder_original, 'pulse.json'))
+    w_L = p.parameters['w_L']
+    pulse = p.pulse(time_unit='ns', ampl_unit='MHz', mode='real')
+    env = os.environ.copy()
+    env['OMP_NUM_THREADS'] = '4'
+    mkdir(join(runfolder, 'RWA'))
+    mkdir(join(runfolder, 'LAB'))
+
+    # re-propagate the original frame
+    lab_runfolder = join(runfolder, 'LAB')
+    copy(join(runfolder_original, 'config'), lab_runfolder)
+    pulse.write(join(lab_runfolder, 'pulse.guess'))
+    start = time.time()
+    with open(os.path.join(lab_runfolder, 'prop.log'), 'w', 0) as stdout:
+        stdout.write("**** tm_en_gh --dissipation . \n")
+        sp.call(['tm_en_gh', '--dissipation', '.'], cwd=lab_runfolder,
+                stderr=sp.STDOUT, stdout=stdout)
+        stdout.write("**** rewrite_dissipation.py. \n")
+        sp.call(['rewrite_dissipation.py',], cwd=lab_runfolder,
+                stderr=sp.STDOUT, stdout=stdout)
+        stdout.write("**** tm_en_logical_eigenstates.py . \n")
+        sp.call(['tm_en_logical_eigenstates.py', '.'],
+                cwd=lab_runfolder, stderr=sp.STDOUT, stdout=stdout)
+        stdout.write("**** tm_en_prop . \n")
+        sp.call(['tm_en_prop', '.'], cwd=lab_runfolder, env=env,
+                stderr=sp.STDOUT, stdout=stdout)
+        end = time.time()
+        stdout.write("**** finished in %s seconds . \n"%(end-start))
+
+    # re-propagate the original frame
+    rwa_runfolder = join(runfolder, 'RWA')
+    config = read_file(join(runfolder_original, 'config'))
+    config = config.replace('w_d     = 0.0_MHz',
+                            'w_d     = %f_MHz' % (w_L*1000))
+    write_file(join(rwa_runfolder, 'config'), config)
+    p.parameters['w_L'] = 0.0
+    pulse = p.pulse(time_unit='ns', ampl_unit='MHz', mode='real')
+    pulse.write(join(rwa_runfolder, 'pulse.guess'))
+    start = time.time()
+    with open(os.path.join(rwa_runfolder, 'prop.log'), 'w', 0) as stdout:
+        stdout.write("**** tm_en_gh --rwa --dissipation . \n")
+        sp.call(['tm_en_gh', '--rwa', '--dissipation', '.'], cwd=rwa_runfolder,
+                stderr=sp.STDOUT, stdout=stdout)
+        stdout.write("**** rewrite_dissipation.py. \n")
+        sp.call(['rewrite_dissipation.py',], cwd=rwa_runfolder,
+                stderr=sp.STDOUT, stdout=stdout)
+        stdout.write("**** tm_en_logical_eigenstates.py . \n")
+        sp.call(['tm_en_logical_eigenstates.py', '.'],
+                cwd=rwa_runfolder, stderr=sp.STDOUT, stdout=stdout)
+        stdout.write("**** tm_en_prop . \n")
+        sp.call(['tm_en_prop', '.'], cwd=rwa_runfolder, env=env,
+                stderr=sp.STDOUT, stdout=stdout)
+        end = time.time()
+        stdout.write("**** finished in %s seconds . \n"%(end-start))
+
+    U_LAB = QDYN.gate2q.Gate2Q(join(lab_runfolder, 'U.dat'))
+    U_RWA = QDYN.gate2q.Gate2Q(join(rwa_runfolder, 'U.dat'))
+    return U_LAB, U_RWA
