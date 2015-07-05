@@ -7,13 +7,13 @@ import os
 import subprocess as sp
 import numpy as np
 import multiprocessing
-import re
 import shutil
 from textwrap import dedent
 from random import random
 import QDYN
 import logging
 import time
+from notebook_utils import stage1_rf_to_params
 logging.basicConfig(level=logging.INFO)
 
 
@@ -80,43 +80,6 @@ def make_random_freq(w_1, w_2, w_c, alpha_1, alpha_2, low_freq_limit,
             result.append(low_freq_limit*random())
         return np.array(result)
     return random_freq
-
-
-def runfolder_to_params(runfolder):
-    """From the full path to the runfolder, extract and return
-    (w_2, w_c, E0, pulse_label), where w_2 is the second qubit frequency in
-    MHz, w_c is the cavity frequency in MHz, E0 is the pulse amplitude in
-    MHz, and pulse_label is an indicator of the pulse structure for that
-    run, e.g. '2freq_resonant'"""
-    if runfolder.endswith(r'/'):
-        runfolder = runfolder[:-1]
-    E0 = None
-    w_2 = None
-    w_c = None
-    pulse_label = None
-    for part in runfolder.split(os.path.sep):
-        if part == 'field_free':
-            E0 = 0.0
-            pulse_label = part
-        E0_match = re.match("E(\d+)", part)
-        if E0_match:
-            E0 = int(E0_match.group(1))
-        w2_wc_match = re.match(r'w2_(\d+)MHz_wc_(\d+)MHz', part)
-        if w2_wc_match:
-            w_2 = float(w2_wc_match.group(1))
-            w_c = float(w2_wc_match.group(2))
-        pulse_label_match = re.match(r'\dfreq_.*', part)
-        if pulse_label_match:
-            pulse_label = part
-    if E0 is None:
-        raise ValueError("Could not get E0 from %s" % runfolder)
-    if w_2 is None:
-        raise ValueError("Could not get w_2 from %s" % runfolder)
-    if w_c is None:
-        raise ValueError("Could not get w_c from %s" % runfolder)
-    if pulse_label is None:
-        raise ValueError("Could not get pulse_label from %s" % runfolder)
-    return w_2, w_c, E0, pulse_label
 
 
 def generate_runfolders(w2, wc):
@@ -293,7 +256,7 @@ def get_temp_runfolder(runfolder):
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
     try:
-        w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
+        w_2, w_c, E0, pulse_label = stage1_rf_to_params(runfolder)
         temp_runfolder = "stage1_%s_%d_%d_%d"%(pulse_label, w_2, w_c, E0)
     except ValueError:
         if 'SLURM_JOB_ID' in os.environ:

@@ -50,7 +50,6 @@ def prologue(runfolder):
 
 def main():
     """Run stage 2 optimization"""
-    # run pre_simplex_scan.py for every stage-2 runfolder
     jobs = []
     with open("stage2.log", "a") as log:
         log.write("%s\n" % time.asctime())

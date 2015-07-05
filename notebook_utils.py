@@ -2,7 +2,6 @@
 Module containing auxilliary routines for the notebooks in this folder
 """
 import QDYN
-from glob import glob
 import re
 import os
 import numpy as np
@@ -10,537 +9,15 @@ from matplotlib.mlab import griddata
 import pandas as pd
 import matplotlib.pylab as plt
 from matplotlib.colors import LogNorm
-from collections import defaultdict
-from mgplottools.mpl import get_color, set_axis, new_figure
+from collections import OrderedDict
+from mgplottools.mpl import set_axis, new_figure
 from matplotlib import rcParams
-rcParams['xtick.direction'] = 'out'
-rcParams['ytick.direction'] = 'out'
-
-def get_field_free_data(runs):
-    """Return 3 numpy arrays: w_2, w_c, C, loss"""
-    rx_folder = re.compile(r'w2_(\d+)MHz_wc_(\d+)MHz/')
-    w2s    = []
-    wcs    = []
-    Cs     = []
-    losses = []
-    with QDYN.shutil.chdir(runs):
-        folders = glob('*/')
-        for folder in folders:
-            m = rx_folder.match(folder)
-            if m:
-                w2 = float(m.group(1)) / 1000.0
-                wc = float(m.group(2)) / 1000.0
-                if w2 == 6.0:
-                    continue
-                U_file = os.path.join(folder, 'stage1', 'field_free', 'U.dat')
-                if os.path.isfile(U_file):
-                    U = QDYN.gate2q.Gate2Q(U_file)
-                else:
-                    continue
-                C = U.closest_unitary().concurrence()
-                loss = U.pop_loss()
-                w2s.append(w2)
-                wcs.append(wc)
-                Cs.append(C)
-                losses.append(loss)
-    return np.array(w2s), np.array(wcs), np.array(Cs), np.array(losses)
-
-
-def plot_field_free_data(runs):
-    """Plot field-free concurrence"""
-    plot_width      =  16.0
-    left_margin     =  1.0
-    top_margin      =  1.0
-    bottom_margin   =  1.0
-    h               =  10.0
-    w               =  10.0
-    cbar_width      =  0.3
-    cbar_gap        =  0.5
-    h_offset        =  15.0
-
-    fig_width = h_offset + 2*plot_width
-    fig_height = bottom_margin + h + top_margin
-
-    w_2, w_c, C, loss = get_field_free_data(runs)
-
-    fig = new_figure(fig_width, fig_height, quiet=True)
-
-    pos_contour = [left_margin / fig_width, bottom_margin / fig_width,
-                   w/fig_width, h/fig_height]
-    ax_contour = fig.add_axes(pos_contour)
-    pos_cbar = [(left_margin + w + cbar_gap) / fig_width,
-                bottom_margin/fig_width, cbar_width/fig_width, h/fig_height]
-    ax_cbar = fig.add_axes(pos_cbar)
-    render_values(w_2, w_c, C, fig, ax_contour, ax_cbar, vmin=0.0, vmax=1.0)
-    ax_contour.set_title("concurrence")
-
-    pos_contour = [(left_margin+h_offset)/fig_width, bottom_margin/fig_width,
-                   w/fig_width, h/fig_height]
-    ax_contour = fig.add_axes(pos_contour)
-    pos_cbar = [(left_margin+w+cbar_gap+h_offset)/fig_width,
-                bottom_margin/fig_width, cbar_width/fig_width, h/fig_height]
-    ax_cbar = fig.add_axes(pos_cbar)
-    render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar, logscale=False,
-                  vmin=1e-3, vmax=0.1)
-    ax_contour.set_title("population loss")
-
-    plt.show(fig)
-
-
-def get_selection_plot_data(select_data, target_category):
-    """
-    select_data is as returned by the all_select_runs routine in
-    select_for_stage2. It is an array of tuples, where each tuple is
-    (w_2, w_c, d), and d is a dictionary that maps the CATEGORIES defined in
-    the select_for_stage2 module (e.g. PE_1freq_center) to a tuple
-    (C, loss, E0, pulse, stage1 runfolder)
-    """
-    w2s     = []
-    wcs     = []
-    Cs      = []
-    losses  = []
-    from select_for_stage2 import CATEGORIES as target_categories
-    assert target_category in target_categories, \
-           "target must be in %s" % str(target_categories)
-    for (w2, wc, d) in select_data:
-        w2s.append(w2)
-        wcs.append(wc)
-        Cs.append(d[target_category][0])
-        losses.append(d[target_category][1])
-    return np.array(w2s)/1000.0, np.array(wcs)/1000.0, np.array(Cs), \
-           np.array(losses)
-
-
-def get_selection_quality(select_data):
-    """
-    select_data is as returned by the all_select_runs routine in
-    select_for_stage2. It is an array of tuples, where each tuple is
-    (w_2, w_c, d), and d is a dictionary that maps the CATEGORIES defined in
-    the select_for_stage2 module (e.g. PE_1freq_center) to a tuple
-    (C, loss, E0, pulse, stage1 runfolder)
-
-    Return dictionary category => (w2 [GHz], wc [GHz], Quality)
-    """
-    result = {}
-    categories = ['1freq_center', '1freq_random', '2freq_resonant',
-                  '2freq_random', '5freq_random']
-    for cat in categories:
-        J = {}
-        for target in ['PE', 'SQ']:
-            target_cat = "%s_%s" % (target, cat)
-            w2s     = []
-            wcs     = []
-            Cs      = []
-            losses  = []
-            for (w2, wc, d) in select_data:
-                w2s.append(w2)
-                wcs.append(wc)
-                Cs.append(d[target_cat][0])
-                losses.append(d[target_cat][1])
-            w2s    = np.array(w2s)/1000.0
-            wcs    = np.array(wcs)/1000.0
-            Cs     = np.array(Cs)
-            losses = np.array(losses)
-            if target == 'PE':
-                J = 1.0 - Cs + losses
-                result[cat] = [w2s, wcs, 1.0 - 0.5*J]
-            elif target == 'SQ':
-                J = Cs + losses
-                result[cat][2] += -0.5*J
-    return result
-
-
-def plot_selection_data(select_data, target):
-    """Plot concurrence and loss for all the data for the given target (PE, SQ)
-    in select_data. The data is obtained from get_selection_plot_data
-    """
-    plot_width      =  16.0
-    left_margin     =  1.0
-    top_margin      =  1.0
-    bottom_margin   =  1.0
-    h               =  10.0
-    w               =  10.0
-    cbar_width      =  0.3
-    cbar_gap        =  0.5
-    h_offset        =  15.0
-    v_offset        =  12.5
-
-    assert target in ['PE', 'SQ'], "target must be 'PE', or 'SQ'"
-
-    fig_width = h_offset + 2*plot_width
-    fig_height = bottom_margin + 4*v_offset + h + top_margin
-
-    fig = new_figure(fig_width, fig_height, quiet=True)
-
-    best_C = None # best from all categories
-    best_loss = None # best from all categories
-    best_J = None
-
-    def J(C, loss):
-        if target == 'PE':
-            return 1.0 - C + loss
-        elif target == 'SQ':
-            return C + loss
-
-    for (target_category, n) in [
-        (target+'_1freq_center',   5),
-        (target+'_1freq_random',   4),
-        (target+'_2freq_resonant', 3),
-        (target+'_2freq_random',   2),
-        (target+'_5freq_random',   1),
-        ('total',                  0),
-    ]:
-        if target_category != 'total':
-            w_2, w_c, C, loss = get_selection_plot_data(select_data,
-                                                        target_category)
-            # collect the "best" result over all pulse categories
-            if best_C is None:
-                best_C = C.copy()
-                best_loss = loss.copy()
-                best_J = np.zeros(len(C))
-                for i in xrange(len(C)):
-                    best_J[i] = J(C[i], loss[i])
-            else:
-                for i in xrange(len(C)):
-                    if J(C[i], loss[i]) < best_J[i]:
-                        best_C[i] = C[i]
-                        best_loss[i] = loss[i]
-                        best_J[i] = J(C[i], loss[i])
-
-        pos_contour = [left_margin/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    w/fig_width, h/fig_height]
-        ax_contour = fig.add_axes(pos_contour)
-        pos_cbar = [(left_margin+w+cbar_gap)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    cbar_width/fig_width, h/fig_height]
-        ax_cbar = fig.add_axes(pos_cbar)
-        if target_category == 'total':
-            render_values(w_2, w_c, best_C, fig, ax_contour, ax_cbar, vmin=0.0,
-                        vmax=1.0)
-        else:
-            render_values(w_2, w_c, C, fig, ax_contour, ax_cbar, vmin=0.0,
-                        vmax=1.0)
-        ax_contour.set_title("concurrence (%s)"%target_category)
-
-        pos_contour = [(left_margin+h_offset)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    w/fig_width, h/fig_height]
-        ax_contour = fig.add_axes(pos_contour)
-        pos_cbar = [(left_margin+w+cbar_gap+h_offset)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    cbar_width/fig_width, h/fig_height]
-        ax_cbar = fig.add_axes(pos_cbar)
-        if target_category == 'total':
-            render_values(w_2, w_c, best_loss, fig, ax_contour, ax_cbar,
-                          logscale=False, vmin=0.01, vmax=0.1)
-        else:
-            render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar,
-                          logscale=False, vmin=1e-3, vmax=0.1)
-        ax_contour.set_title("population loss (%s)"%target_category)
-
-
-    plt.show(fig)
-
-
-def plot_selection_quality(select_data):
-    """Plot quality for all pulse categories
-    """
-    plot_width      =  8.0
-    left_margin     =  1.0
-    top_margin      =  1.0
-    bottom_margin   =  1.0
-    h               =  10.0
-    w               =  10.0
-    cbar_width      =  0.3
-    cbar_gap        =  0.5
-    h_offset        =  0.0
-    v_offset        =  12.5
-
-    fig_width = h_offset + plot_width
-    fig_height = bottom_margin + 4*v_offset + h + top_margin
-
-    fig = new_figure(fig_width, fig_height, quiet=True)
-
-    best_Q = None # best from all categories
-
-    quality_data = get_selection_quality(select_data)
-
-    for (cat, n) in [
-        ('1freq_center',   5),
-        ('1freq_random',   4),
-        ('2freq_resonant', 3),
-        ('2freq_random',   2),
-        ('5freq_random',   1),
-        ('total',          0),
-    ]:
-        if cat != 'total':
-            w_2, w_c, Q = quality_data[cat]
-            # collect the "best" result over all pulse categories
-            if best_Q is None:
-                best_Q = Q.copy()
-            else:
-                for i in xrange(len(Q)):
-                    if Q[i] > best_Q[i]:
-                        best_Q[i] = Q[i]
-
-        pos_contour = [left_margin/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    w/fig_width, h/fig_height]
-        ax_contour = fig.add_axes(pos_contour)
-        pos_cbar = [(left_margin+w+cbar_gap)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    cbar_width/fig_width, h/fig_height]
-        ax_cbar = fig.add_axes(pos_cbar)
-        if cat == 'total':
-            render_values(w_2, w_c, best_Q, fig, ax_contour, ax_cbar, vmin=0.0,
-                        vmax=1.0)
-        else:
-            render_values(w_2, w_c, Q, fig, ax_contour, ax_cbar, vmin=0.0,
-                        vmax=1.0)
-        ax_contour.set_title("quality (%s)"%cat)
-
-    plt.show(fig)
-
-
-def get_stage2_C_loss(folder, target_category):
-    """Find stage 2 data in the subfolders of the given folder, filter it for
-    pulses of the given category (see CATEGORIES defined in the
-    select_for_stage2 module), and return a tuple of numpy arrays:
-    w_2  [GHz], w_c [GHz], C, loss
-    """
-    from select_for_stage2 import CATEGORIES as target_categories
-    assert target_category in target_categories, \
-           "target must be in %s" % str(target_categories)
-
-    w2     = []
-    wc     = []
-    C      = []
-    loss   = []
-
-    gate_files = []
-    stage2_folders = find_folders(folder, 'stage2')
-    for stage2_folder in stage2_folders:
-        gate_files.extend(
-            U_dat for U_dat in find_files(stage2_folder, 'U.dat')
-            if target_category in U_dat)
-    for U_dat in gate_files:
-        for part in U_dat.split(os.path.sep):
-            w2_wc_match = re.match(r'w2_(\d+)MHz_wc_(\d+)MHz', part)
-            if w2_wc_match:
-                w2.append(float(w2_wc_match.group(1)) / 1000.0)
-                wc.append(float(w2_wc_match.group(2)) / 1000.0)
-                U = QDYN.gate2q.Gate2Q(U_dat)
-                C.append(U.closest_unitary().concurrence())
-                loss.append(U.pop_loss())
-
-    assert len(w2) == len(wc) == len(C) == len(loss), \
-    "Internal Error: all arrays should be of the same length"
-    return np.array(w2), np.array(wc), np.array(C), np.array(loss)
-
-
-def get_stage2_quality(folder):
-    """Find stage 2 data in the subfolders of the given folder, filter it for
-    pulses of the given category (see CATEGORIES defined in the
-    select_for_stage2 module), and return a tuple of numpy arrays:
-    w_2  [GHz], w_c [GHz], C, loss
-    """
-
-    Q = defaultdict(lambda: 0.0) # (w_2, w_c, cat) => quality
-
-    result = {}
-    categories = ['1freq_center', '1freq_random', '2freq_resonant',
-                  '2freq_random', '5freq_random']
-
-    gate_files = []
-    stage2_folders = find_folders(folder, 'stage2')
-    for stage2_folder in stage2_folders:
-        gate_files.extend(find_files(stage2_folder, 'U.dat'))
-
-    for U_dat in gate_files:
-        category = None
-        for part in U_dat.split(os.path.sep):
-            for cat in categories:
-                if cat in part:
-                    category = cat
-        assert category is not None, "Could not identify category"
-        for part in U_dat.split(os.path.sep):
-            w2_wc_match = re.match(r'w2_(\d+)MHz_wc_(\d+)MHz', part)
-            if w2_wc_match:
-                w2 = w2_wc_match.group(1)
-                wc = w2_wc_match.group(2)
-                U = QDYN.gate2q.Gate2Q(U_dat)
-                C = U.closest_unitary().concurrence()
-                loss = U.pop_loss()
-                key = (w2, wc, category)
-                if 'PE' in U_dat:
-                    J = 1.0 - C + loss
-                    Q[key] += 1.0 - 0.5*J
-                elif 'SQ' in U_dat:
-                    J = C + loss
-                    Q[key] += - 0.5*J
-    for category in categories:
-        w2s = []
-        wcs = []
-        Qs  = []
-        for key, Qval in Q.items():
-            w2, wc, cat = key
-            if cat == category:
-                w2s.append(float(w2)/1000.0)
-                wcs.append(float(wc)/1000.0)
-                Qs.append(Qval)
-        result[category] = (np.array(w2s), np.array(wcs), np.array(Qs))
-    return result
-
-
-def plot_stage2_quality(folder):
-    """Plot quality for all pulse categories
-    """
-    plot_width      =  8.0
-    left_margin     =  1.0
-    top_margin      =  1.0
-    bottom_margin   =  1.0
-    h               =  10.0
-    w               =  10.0
-    cbar_width      =  0.3
-    cbar_gap        =  0.5
-    h_offset        =  0.0
-    v_offset        =  12.5
-
-    fig_width = h_offset + plot_width
-    fig_height = bottom_margin + 4*v_offset + h + top_margin
-
-    fig = new_figure(fig_width, fig_height, quiet=True)
-
-    best_Q = defaultdict(lambda: defaultdict(lambda: 0.0)) # best_Q[w_2][w_c]
-
-    quality_data = get_stage2_quality(folder)
-
-    for (cat, n) in [
-        ('1freq_center',   5),
-        ('1freq_random',   4),
-        ('2freq_resonant', 3),
-        ('2freq_random',   2),
-        ('5freq_random',   1),
-        ('total',          0),
-    ]:
-        if cat != 'total':
-            w_2, w_c, Q = quality_data[cat]
-            # collect the "best" result over all pulse categories
-            for i in xrange(len(Q)):
-                if Q[i] > best_Q[w_2[i]][w_c[i]]:
-                    best_Q[w_2[i]][w_c[i]] = Q[i]
-        else:
-            w_2 = []; w_c = []; Q = []
-            for w_2_val in best_Q:
-                for w_c_val in best_Q[w_2_val]:
-                    w_2.append(w_2_val)
-                    w_c.append(w_c_val)
-                    Q.append(best_Q[w_2_val][w_c_val])
-            w_2 = np.array(w_2); w_c = np.array(w_c); Q = np.array(Q)
-
-        pos_contour = [left_margin/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    w/fig_width, h/fig_height]
-        ax_contour = fig.add_axes(pos_contour)
-        pos_cbar = [(left_margin+w+cbar_gap)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    cbar_width/fig_width, h/fig_height]
-        ax_cbar = fig.add_axes(pos_cbar)
-        render_values(w_2, w_c, Q, fig, ax_contour, ax_cbar, vmin=0.0,
-                      vmax=1.0)
-        ax_contour.set_title("quality (%s)"%cat)
-
-    plt.show(fig)
-
-
-
-def plot_stage2_C_loss(folder, target):
-    """For all pulse categoies, use `get_stage2_C_loss` to obtain data from the
-    concurrence and pop loss from any of of the stage 2 results in the given
-    folder and plot the data.
-    """
-    plot_width      =  16.0
-    left_margin     =  1.0
-    top_margin      =  1.0
-    bottom_margin   =  1.0
-    h               =  10.0
-    w               =  10.0
-    cbar_width      =  0.3
-    cbar_gap        =  0.5
-    h_offset        =  15.0
-    v_offset        =  12.5
-
-    assert target in ['PE', 'SQ'], "target must be 'PE', or 'SQ'"
-
-    fig_width = h_offset + 2*plot_width
-    fig_height = bottom_margin + 4*v_offset + h + top_margin
-
-    fig = new_figure(fig_width, fig_height, quiet=True)
-
-    best_C   = defaultdict(lambda: defaultdict(lambda: 0.0)) # best_C[w_2][w_c]
-    best_loss = defaultdict(lambda: defaultdict(lambda: 0.0))
-    best_J = defaultdict(lambda: defaultdict(lambda: 2.0))
-
-    def J(C, loss):
-        if target == 'PE':
-            return 1.0 - C + loss
-        elif target == 'SQ':
-            return C + loss
-
-    for (target_category, n) in [
-        (target+'_1freq_center',   5),
-        (target+'_1freq_random',   4),
-        (target+'_2freq_resonant', 3),
-        (target+'_2freq_random',   2),
-        (target+'_5freq_random',   1),
-        ('total',                  0),
-    ]:
-        if target_category != 'total':
-            w_2, w_c, C, loss = get_stage2_C_loss(folder, target_category)
-            # collect the "best" result over all pulse categories
-            for i in xrange(len(C)):
-                if J(C[i], loss[i]) < best_J[w_2[i]][w_c[i]]:
-                    best_C[w_2[i]][w_c[i]]    = C[i]
-                    best_loss[w_2[i]][w_c[i]] = loss[i]
-                    best_J[w_2[i]][w_c[i]]    = J(C[i], loss[i])
-        else:
-            w_2 = []; w_c = []; C = []; loss = []
-            for w_2_val in best_J:
-                for w_c_val in best_J[w_2_val]:
-                    w_2.append(w_2_val)
-                    w_c.append(w_c_val)
-                    C.append(best_C[w_2_val][w_c_val])
-                    loss.append(best_loss[w_2_val][w_c_val])
-            w_2 = np.array(w_2); w_c = np.array(w_c)
-            C = np.array(C); loss = np.array(loss)
-        pos_contour = [left_margin/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    w/fig_width, h/fig_height]
-        ax_contour = fig.add_axes(pos_contour)
-        pos_cbar = [(left_margin+w+cbar_gap)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    cbar_width/fig_width, h/fig_height]
-        ax_cbar = fig.add_axes(pos_cbar)
-        render_values(w_2, w_c, C, fig, ax_contour, ax_cbar, vmin=0.0,
-                    vmax=1.0)
-        ax_contour.set_title("concurrence (%s)"%target_category)
-
-        pos_contour = [(left_margin+h_offset)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    w/fig_width, h/fig_height]
-        ax_contour = fig.add_axes(pos_contour)
-        pos_cbar = [(left_margin+w+cbar_gap+h_offset)/fig_width,
-                    (bottom_margin+n*v_offset)/fig_height,
-                    cbar_width/fig_width, h/fig_height]
-        ax_cbar = fig.add_axes(pos_cbar)
-        render_values(w_2, w_c, loss, fig, ax_contour, ax_cbar,
-                        logscale=False, vmin=0.01, vmax=0.5)
-        ax_contour.set_title("population loss (%s)"%target_category)
-
-    plt.show(fig)
-
-
+#rcParams['xtick.direction'] = 'in'
+#rcParams['ytick.direction'] = 'in'
+
+###############################################################################
+#  General Tools                                                              #
+###############################################################################
 
 
 def find_files(directory, pattern):
@@ -557,6 +34,7 @@ def find_files(directory, pattern):
                 filename = os.path.join(root, basename)
                 yield filename
 
+
 def find_folders(directory, pattern):
     """
     Iterate (recursively) over all the folders matching the shell pattern
@@ -572,8 +50,178 @@ def find_folders(directory, pattern):
                 yield foldername
 
 
-def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
-    logscale=False, vmin=None, vmax=None, n_contours=10):
+def find_leaf_folders(directory):
+    """
+    Iterate (recursively) over all subfolders of the given directory that do
+    not themselves contain subdirectories.
+    """
+    if not os.path.isdir(directory):
+        raise IOError("directory %s does not exist" % directory)
+    for root, dirs, __ in os.walk(directory):
+        if not dirs:
+            yield root
+
+
+class PlotGrid(object):
+    """Collection of colormap plots, layed out on a grid of cells
+
+    Attributes
+    ----------
+
+    cell_width: float
+        width of each panel area [cm]
+    left_margin: float
+        distance from left cell edge to axes [cm]
+    top_margin: float
+        distance from top cell edge to axes [cm]
+    h: float
+        height of axes [cm]
+    w: float
+        width of axes [cm]
+    cbar_width: float
+        width of colorbar [cm]
+    cbar_gap: float
+        gap between right edge of axes and colorbar [cm]
+    density: int
+        Number of interpolated points on each axis (resolution of color plot)
+    contour_labels: boolean
+        Whether or not to label contour lines in the plot
+    """
+    def __init__(self):
+        self.cell_width      =  16.0
+        self.left_margin     =  1.0
+        self.top_margin      =  1.0
+        self.bottom_margin   =  1.0
+        self.h               =  10.0
+        self.w               =  10.0
+        self.cbar_width      =  0.3
+        self.cbar_gap        =  0.5
+        self.density         =  100
+        self.n_cols          =  2
+        self.contour_labels  = False
+        self._cells          = [] # array of cell_dicts
+
+    def add_cell(self, w2, wc, val, logscale=False, vmin=None, vmax=None,
+        contour_levels=11, title=None):
+        """Add a cell to the plot grid
+
+        All other parameters will be passed to the render_values routine
+        """
+        cell_dict = {}
+        cell_dict['w2'] = w2
+        cell_dict['wc'] = wc
+        cell_dict['val'] = val
+        cell_dict['logscale'] = logscale
+        if vmin is None:
+            cell_dict['vmin'] = np.min(val)
+        else:
+            cell_dict['vmin'] = vmin
+        if vmax is None:
+            cell_dict['vmax'] = np.max(val)
+        else:
+            cell_dict['vmax'] = vmax
+        cell_dict['contour_levels'] = contour_levels
+        cell_dict['title'] = title
+        self._cells.append(cell_dict)
+
+    def plot(self, quiet=True, show=True):
+
+        n_cells = len(self._cells)
+        assert n_cells > 0, "No cells to plot"
+        fig_width = self.n_cols * self.cell_width
+        n_cols = self.n_cols
+        n_rows = n_cells // n_cols
+        if n_rows * n_cols < n_cells:
+            n_rows += 1
+        cell_width = self.cell_width
+        cell_height = self.bottom_margin + self.h + self.top_margin
+        fig_height = n_rows * cell_height
+        fig = new_figure(fig_width, fig_height, quiet=quiet)
+
+        col = 0
+        row = 0
+
+        for i, cell_dict in enumerate(self._cells):
+
+            pos_contour = [(col*cell_width + self.left_margin)/fig_width,
+                           ((n_rows-row-1)*cell_height
+                            + self.bottom_margin)/fig_height,
+                            self.w/fig_width, self.h/fig_height]
+            ax_contour = fig.add_axes(pos_contour)
+
+            pos_cbar = [(col*cell_width + self.left_margin + self.w
+                         + self.cbar_gap)/fig_width,
+                        ((n_rows-row-1)*cell_height
+                            + self.bottom_margin)/fig_height,
+                            self.cbar_width/fig_width, self.h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+
+            render_values(cell_dict['w2'], cell_dict['wc'], cell_dict['val'],
+                          ax_contour, ax_cbar, density=self.density,
+                          logscale=cell_dict['logscale'],
+                          vmin=cell_dict['vmin'], vmax=cell_dict['vmax'],
+                          contour_levels=cell_dict['contour_levels'],
+                          contour_labels=self.contour_labels)
+
+            # show the resonance line (cavity on resonace with qubit 2)
+            ax_contour.plot(np.linspace(5.0, 11.1, 10),
+                            np.linspace(5.0, 11.1, 10), color='white')
+            ax_contour.plot(np.linspace(6.0, 7.5, 10),
+                            6.0*np.ones(10), color='white')
+            ax_contour.axvline(6.29, color='white', ls='--')
+            ax_contour.axvline(6.31, color='white', ls='--')
+            ax_contour.axvline(6.58, color='white', ls='--')
+            ax_contour.axvline(6.62, color='white', ls='--')
+            # ticks and axis labels
+            set_axis(ax_contour, 'x', 6.0, 7.5, 0.5, range=(6.1, 7.5), minor=5)
+            set_axis(ax_contour, 'y', 5.0, 11.1, 0.5, minor=5)
+            ax_contour.tick_params(which='both', direction='out')
+
+            if cell_dict['title'] is not None:
+                ax_contour.set_title(cell_dict['title'])
+
+            col += 1
+            if col == self.n_cols:
+                col = 0
+                row += 1
+
+        if show:
+            plt.show(fig)
+        else:
+            return fig
+
+
+def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
+    logscale=False, vmin=None, vmax=None, contour_levels=11,
+    contour_labels=False):
+    """Render the given data onto the given axes
+
+    Parameters
+    ----------
+
+    w_2: array
+        Array of w_2 values, in GHz (x-axis)
+    w_c: array
+        Array of w_c values, in GHz (y-axis)
+    val: array
+        Array of values (z-axis)
+    ax_contour: matplotlib.axes.Axes instance
+        Axes onto which to render the contour plot for (w_2, w_c, val)
+    ax_cbar: matplotlib.axes.Axes instance
+        Axes onto which to render the color bar describing the contour plot
+    vmin: float
+        Bottom value of the z-axis (colorbar range). Defaults to the minimum
+        value in the val array
+    vmax: float
+        Top value of the z-axis (colorbar range). Defaults to the maximum
+        value in the val array
+    contour_levels: int, array of floats
+        Contour lines to draw. If given as an integer, number of lines to be
+        drawn between vmin and vmax. If given as array, values at which contour
+        lines should be drawn. Set to 0 or [] to suppress drawing of contour lines
+    contour_labels: boolean
+        If True, add textual labels to the contour lines
+    """
     x = np.linspace(w_2.min(), w_2.max(), density)
     y = np.linspace(w_c.min(), w_c.max(), density)
     z = griddata(w_2, w_c, val, x, y, interp='linear')
@@ -582,59 +230,315 @@ def render_values(w_2, w_c, val, fig, ax_contour, ax_cbar, density=100,
     if vmax is None:
         vmax=abs(z).max()
     if logscale:
-        contours = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
+        cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
                                          norm=LogNorm(), vmax=vmax, vmin=vmin)
     else:
-        if n_contours > 0:
-            ax_contour.contour(x, y, z, n_contours, linewidths=0.5, colors='k')
-        contours = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
-                                    vmax=vmax, vmin=vmin)
+        if isinstance(contour_levels, int):
+            levels = np.linspace(vmin, vmax, contour_levels)
+        else:
+            levels = contour_levels
+        if len(levels) > 0:
+            contour = ax_contour.contour(x, y, z, levels=levels,
+                                         linewidths=0.5, colors='k')
+            if contour_labels:
+                ax_contour.clabel(contour, fontsize='smaller', lineine=1,
+                                fmt='%g')
+        cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
+                                      vmax=vmax, vmin=vmin)
     ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=5, zorder=10)
-    set_axis(ax_contour, 'x', 6.0, 7.5, 0.5, range=(6.1, 7.5), minor=5)
-    set_axis(ax_contour, 'y', 5.0, 11.1, 0.5, minor=5)
     ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
     ax_contour.set_ylabel(r"$\omega_c$ (GHz)")
-    # show the resonance line (cavity on resonace with qubit 2)
-    ax_contour.plot(np.linspace(5.0, 11.1, 10), np.linspace(5.0, 11.1, 10), color='white')
-    ax_contour.plot(np.linspace(6.0, 7.5, 10), 6.0*np.ones(10), color='white')
-    ax_contour.axvline(6.29, color='white', ls='--')
-    ax_contour.axvline(6.31, color='white', ls='--')
-    ax_contour.axvline(6.58, color='white', ls='--')
-    ax_contour.axvline(6.62, color='white', ls='--')
-    cbar = fig.colorbar(contours, cax=ax_cbar)
+    fig = ax_cbar.figure
+    cbar = fig.colorbar(cmesh, cax=ax_cbar)
 
 
-def get_stage2_selection_table(select_data, target='PE'):
-    """Map the datastructure returned by the all_select_runs routine in
-    select_for_stage2.py to a DataFrame
+def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0):
+    """Plot concurrence and loss for all the categories in the given
+    target_table.
 
-    target must be either 'PE' or 'SQ'
+    The target_table must contain the columns 'w1 [GHz]', 'w2 [GHz]',
+    'wc [GHz]', 'C', 'loss', 'category', 'J_PE', 'J_SQ'
+
+    It is assumed that the table contains results selected towards a specific
+    target ('PE', or 'SQ'). That is, there must be a most one row for any tuple
+    (w1, w2, wc, category). Specifically, the table returned by the
+    get_stage2_table routine must be split before passing it to this routine.
+
+    The 'target' parameter is only used to select for the final 'total' plot:
+    if it is 'PE', rows with minimal value of 'J_PE' are selected, or minimal
+    value of 'J_SQ' for 'SQ'.
     """
-    w2s     = []
-    wcs     = []
-    cats    = []
-    Cs      = []
-    losses  = []
-    E0s     = []
-    headers = []
-    assert target in ['PE', 'SQ'], "target must be 'PE', or 'SQ'"
-    for (w2, wc, d) in select_data:
-        for cat in d:
-            if cat.startswith(target):
-                w2s.append(w2)
-                wcs.append(wc)
-                cats.append(cat)
-                Cs.append(d[cat][0])
-                losses.append(d[cat][1])
-                E0s.append(d[cat][2])
-                headers.append(d[cat][3].header)
-    t = pd.DataFrame(
-        data={'w_2 [GHz]': w2s, 'w_c [GHz]': wcs, 'category': cats,
-              'concurrence': Cs, 'pop loss': losses, 'peak ampl [MHz]': E0s,
-              'pulse details': headers},
-        columns=['w_2 [GHz]', 'w_c [GHz]', 'category', 'concurrence',
-                 'pop loss', 'peak ampl [MHz]', 'pulse details'])
-    return t
+    plots = PlotGrid()
+    table_grouped = target_table.groupby('category')
+    for category in ['1freq_center', '1freq_random', '2freq_resonant',
+    '2freq_random', '5freq_random', 'total']:
+        if category == 'total':
+            table = target_table\
+                    .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'],
+                             as_index=False)\
+                    .apply(lambda df: df.sort('J_%s'%target).head(1))\
+                    .reset_index(level=0, drop=True)
+        else:
+            table = table_grouped.get_group(category)
+        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['C'],
+                       vmin=0.0, vmax=1.0, contour_levels=11,
+                       title='concurrence (%s_%s)'%(target, category))
+        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['loss'],
+                       vmin=loss_min, vmax=loss_max,
+                       contour_levels=11,
+                       title='population loss (%s_%s)'%(target, category))
+    plots.plot(quiet=True, show=True)
+
+
+def plot_quality(t_PE, t_SQ):
+    """Plot quality obtained from the two given tables.
+
+    The tables t_PE and t_SQ must meet the requirements for the get_Q_table
+    routine.
+    """
+    plots = PlotGrid()
+    plots.n_cols = 2
+    Q_table = get_Q_table(t_PE, t_SQ)
+    table_grouped = Q_table.groupby('category')
+    for category in ['1freq_center', '1freq_random', '2freq_resonant',
+    '2freq_random', '5freq_random', 'total']:
+        if category == 'total':
+            table_grouped = Q_table.groupby(
+            ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)
+            table = Q_table\
+                    .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'],
+                             as_index=False)\
+                    .apply(lambda df: df.sort('Q').tail(1))\
+                    .reset_index(level=0, drop=True)
+        else:
+            table = table_grouped.get_group(category)
+        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['Q'],
+                       vmin=0.0, vmax=1.0, contour_levels=11,
+                       title='quality (%s)'%(category,))
+    plots.plot(quiet=True, show=True)
+
+
+###############################################################################
+#  Stage 1 Analysis                                                           #
+###############################################################################
+
+
+def stage1_rf_to_params(runfolder):
+    """From the full path to a stage 1 runfolder, extract and return
+    (w_2, w_c, E0, pulse_label), where w_2 is the second qubit frequency in
+    MHz, w_c is the cavity frequency in MHz, E0 is the pulse amplitude in
+    MHz, and pulse_label is an indicator of the pulse structure for that
+    run, e.g. '2freq_resonant'
+
+    Assumes that the runfolder path contains the structure
+
+        w2_[w2]MHz_wc_[wc]MHz/stage1/[pulse label]
+
+    If the pulse label is not 'field_free', then there must be a further
+    subfolder "E[E0 in MHz]"
+    """
+    if runfolder.endswith(r'/'):
+        runfolder = runfolder[:-1]
+    E0 = None
+    w_2 = None
+    w_c = None
+    pulse_label = None
+    for part in runfolder.split(os.path.sep):
+        if part == 'field_free':
+            E0 = 0.0
+            pulse_label = part
+        E0_match = re.match("E(\d+)", part)
+        if E0_match:
+            E0 = int(E0_match.group(1))
+        w2_wc_match = re.match(r'w2_(\d+)MHz_wc_(\d+)MHz', part)
+        if w2_wc_match:
+            w_2 = float(w2_wc_match.group(1))
+            w_c = float(w2_wc_match.group(2))
+        pulse_label_match = re.match(r'\dfreq_.*', part)
+        if pulse_label_match:
+            pulse_label = part
+    if E0 is None:
+        raise ValueError("Could not get E0 from %s" % runfolder)
+    if w_2 is None:
+        raise ValueError("Could not get w_2 from %s" % runfolder)
+    if w_c is None:
+        raise ValueError("Could not get w_c from %s" % runfolder)
+    if pulse_label is None:
+        raise ValueError("Could not get pulse_label from %s" % runfolder)
+    return w_2, w_c, E0, pulse_label
+
+
+def get_stage1_table(runs):
+    """Summarize the results of the stage1 calculations in a DataFrame table.
+
+    Assumes that the runfolder structure is
+
+        [runs]/w2_[w2]MHz_wc_[wc]MHz/stage1/[pulse label]/E[E0 in MHz]
+
+    except that the pulse amplitude subfolder is missing if the pulse label is
+    'field free'.  Each runfolder must contain a file U.dat (resulting from
+    propagation of pulse)
+
+    The resulting table will have the columns
+
+    'w1 [GHz]': value of left qubit frequency
+    'w2 [GHz]': value of right qubit frequency
+    'wc [GHz]': value of cavity frequency
+    'C'       : Concurrence
+    'loss',   : Loss from the logical subspace
+    'E0 [MHz]': Peak amplitude of pulse
+    'category': 'field_free', '1freq_center', '1freq_random', '2freq_resonant',
+                '2freq_random', '5freq_random'
+    'J_PE'    : Value of functional for perfect-entangler target
+    'J_SQ'    : Value of functional for single-qubit target
+    """
+    runfolders = []
+    for folder in find_folders(runs, 'stage1'):
+        for subfolder in find_leaf_folders(folder):
+            if os.path.isfile(os.path.join(subfolder, 'U.dat')):
+                runfolders.append(subfolder)
+    w1_s       = pd.Series(6.0, index=runfolders)
+    w2_s       = pd.Series(index=runfolders)
+    wc_s       = pd.Series(index=runfolders)
+    C_s        = pd.Series(index=runfolders)
+    loss_s     = pd.Series(index=runfolders)
+    E0_s       = pd.Series(index=runfolders)
+    category_s = pd.Series('', index=runfolders)
+    for i, folder in enumerate(runfolders):
+        w2, wc, E0, pulse_label = stage1_rf_to_params(folder)
+        w2_s[i] = w2
+        wc_s[i] = wc
+        E0_s[i] = E0
+        U_dat = os.path.join(folder, 'U.dat')
+        U = QDYN.gate2q.Gate2Q(U_dat)
+        C = U.closest_unitary().concurrence()
+        loss = U.pop_loss()
+        C_s[i] = C
+        loss_s[i] = loss
+        category_s[i] = re.sub('_\d+$', '_random', pulse_label)
+    table = pd.DataFrame(OrderedDict([
+                ('w1 [GHz]', w1_s),
+                ('w2 [GHz]', w2_s/1000.0),
+                ('wc [GHz]', wc_s/1000.0),
+                ('C',        C_s),
+                ('loss',     loss_s),
+                ('E0 [MHz]', E0_s),
+                ('category', category_s),
+                ('J_PE',     1.0 - C_s + loss_s),
+                ('J_SQ',     C_s + loss_s),
+            ]))
+    return table
+
+
+###############################################################################
+#  Stage 2 Analysis
+###############################################################################
+
+def get_stage2_table(runs):
+    """Summarize the results of the stage2 calculations in a DataFrame table
+
+    Assumes that the runfolder structure is
+    [runs]/w2_[w2]MHz_wc_[wc]MHz/stage2/[target]_[category]/
+
+    Each runfolder must contain a file U.dat (resulting from
+    propagation of pulse_opt.json)
+
+    The resulting table will have the columns
+
+    'w1 [GHz]': value of left qubit frequency
+    'w2 [GHz]': value of right qubit frequency
+    'wc [GHz]': value of cavity frequency
+    'C'       : Concurrence
+    'loss',   : Loss from the logical subspace
+    'category': 'field_free', '1freq_center', '1freq_random', '2freq_resonant',
+                '2freq_random', '5freq_random'
+    'target'  : 'PE', 'SQ'
+    'J_PE'    : Value of functional for perfect-entangler target
+    'J_SQ'    : Value of functional for single-qubit target
+    """
+    runfolders = []
+    for folder in find_folders(runs, 'stage2'):
+        for subfolder in find_leaf_folders(folder):
+            if os.path.isfile(os.path.join(subfolder, 'U.dat')):
+                runfolders.append(subfolder)
+    w1_s       = pd.Series(6.0, index=runfolders)
+    w2_s       = pd.Series(index=runfolders)
+    wc_s       = pd.Series(index=runfolders)
+    C_s        = pd.Series(index=runfolders)
+    loss_s     = pd.Series(index=runfolders)
+    category_s = pd.Series('', index=runfolders)
+    target_s   = pd.Series('', index=runfolders)
+    rx_folder = re.compile(r'''
+                \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
+                \/stage2
+                \/(?P<target>PE|SQ)
+                  _(?P<category>1freq_center|1freq_random|2freq_resonant
+                    |2freq_random|5freq_random)
+                ''', re.X)
+    for i, folder in enumerate(runfolders):
+        m_folder = rx_folder.search(folder)
+        if not m_folder:
+            raise ValueError("%s does not match rx_folder" % folder)
+        w2_s[i] = float(m_folder.group('w2'))
+        wc_s[i] = float(m_folder.group('wc'))
+        U_dat = os.path.join(folder, 'U.dat')
+        U = QDYN.gate2q.Gate2Q(U_dat)
+        C = U.closest_unitary().concurrence()
+        loss = U.pop_loss()
+        C_s[i] = C
+        loss_s[i] = loss
+        category_s[i] = m_folder.group('category')
+        target_s[i] = m_folder.group('target')
+    table = pd.DataFrame(OrderedDict([
+                ('w1 [GHz]', w1_s),
+                ('w2 [GHz]', w2_s/1000.0),
+                ('wc [GHz]', wc_s/1000.0),
+                ('C',        C_s),
+                ('loss',     loss_s),
+                ('category', category_s),
+                ('target',   target_s),
+                ('J_PE',     1.0 - C_s + loss_s),
+                ('J_SQ',     C_s + loss_s),
+            ]))
+    return table
+
+
+def get_Q_table(t_PE, t_SQ):
+    """Combine two tables to calculate the overall "quality" function that
+    expresses how well entanglement can both created and destroyed for a given
+    parameter set.
+
+    Arguments
+    ---------
+
+    t_PE: pandas.DataFrame
+        Table containing (at least) columns 'w1 [GHz]', 'w2 [GHz]', 'wc [GHz]',
+        'category', 'J_PE'
+
+    t_SQ: pandas.DataFrame
+        Table containing (at least) columns 'w1 [GHz]', 'w2 [GHz]', 'wc [GHz]',
+        'category', 'J_SQ'
+
+    Returns
+    -------
+
+    Q_table: pandas.DataFrame
+        Table containing columns 'w1 [GHz]', 'w2 [GHz]', 'wc [GHz]',
+        'category', 'J_PE', 'J_SQ', 'Q', where 'Q' is 1 - (J_PE + J_SQ)/2
+    """
+    Q_table = pd.concat(
+        [t_PE[['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category', 'J_PE']]
+         .set_index(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category']),
+         t_SQ[['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category', 'J_SQ']]
+         .set_index(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category'])
+        ], axis=1).reset_index()
+    Q_table['Q'] = 1 - 0.5*(Q_table['J_PE'] + Q_table['J_SQ'])
+    return Q_table
+
+
+###############################################################################
+#  Workers                                                                    #
+###############################################################################
 
 
 def cutoff_worker(x):

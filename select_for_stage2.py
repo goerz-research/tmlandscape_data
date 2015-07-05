@@ -1,128 +1,112 @@
 #!/usr/bin/env python
+"""Select best runs from stage 1, create stage 2 runfolders"""
 import os
 import sys
-import QDYN.shutil as shutil
-import QDYN
-from pre_simplex_scan import runfolder_to_params
-from notebook_utils import find_files, find_folders
-from analytical_pulses import AnalyticalPulse
+import logging
+from QDYN import shutil
+import filecmp
 
-CATEGORIES = ['PE_1freq_center', 'PE_1freq_random',
-              'PE_2freq_resonant', 'PE_2freq_random', 'PE_5freq_random',
-              'SQ_1freq_center', 'SQ_1freq_random', 'SQ_2freq_resonant',
-              'SQ_2freq_random', 'SQ_5freq_random']
+def select_for_stage2(stage1_table, target='PE'):
+    """For each choice of (w2, wc, category), keep only the row that best
+    fulfills the target (PE or SQ)
 
-def select_runs(stage1_folder):
-    selected = {}
-    for cat in CATEGORIES:
-        selected[cat] = None
-    w_2_selection = None
-    w_c_selection = None
+    stage1_table must contain the columns 'w_2 [GHz]', 'w_c [GHz]', 'category',
+    'C', 'loss', 'E0 [MHz]', and use the stage1 runfolder as an index
+    """
+    field_filter = stage1_table['category'] != 'field_free'
 
-    for gatefile in find_files(stage1_folder, 'U.dat'):
+    selector = {
+        'PE': lambda C, C_prev: C > C_prev,
+        'SQ': lambda C, C_prev: C < C_prev,
+    }
 
-        # get the relevant parameters
-        runfolder, U_dat = os.path.split(gatefile)
-        w_2, w_c, E0, pulse_label = runfolder_to_params(runfolder)
-        if w_2_selection is None:
-            w_2_selection = w_2
-        else:
-            assert(w_2_selection == w_2), \
-            "All subfolders must be for the same qubit parameters"
-        if w_c_selection is None:
-            w_c_selection = w_c
-        else:
-            assert(w_c_selection == w_c), \
-            "All subfolders must be for the same qubit parameters"
-        U = QDYN.gate2q.Gate2Q(file=gatefile)
-        C = U.closest_unitary().concurrence()
-        loss = U.pop_loss()
-        pulse = AnalyticalPulse.read(os.path.join(runfolder, 'pulse.json'))
+    table_grouped = stage1_table[field_filter].groupby(
+                    ['w2 [GHz]', 'wc [GHz]', 'category'], as_index=False)
 
-        # The exact resonant result returned broken results (norm increase,
-        # probably due to bug in choice of logical eigenstates). We skip it
-        if w_2 == 6000:
-            return None
-
-        # select the relevant category (key in `selected`)
-        if '1freq' in pulse_label:
-            if '1freq_center' in pulse_label:
-                category = '1freq_center'
+    def find_best(df):
+        """For the given dataframe (group in stage1_table, with matching w2,
+        wc, category), keep only the row that best fits the target"""
+        index_s = df.index
+        C_s     = df['C']
+        loss_s  = df['loss']
+        E0_s    = df['E0 [MHz]']
+        selected = None
+        for i in xrange(len(index_s)):
+            if selected is None:
+                selected = (index_s[i], C_s[i], loss_s[i], E0_s[i])
             else:
-                category = '1freq_random'
-        elif '2freq' in pulse_label:
-            if '2freq_resonant' in pulse_label:
-                category = '2freq_resonant'
-            else:
-                category = '2freq_random'
-            pass
-        elif '5freq' in pulse_label:
-            category = '5freq_random'
-
-        for target, selector in [('PE', lambda C, C_prev: C > C_prev),
-                                 ('SQ', lambda C, C_prev: C < C_prev)]:
-
-            target_category = target+'_'+category
-            if selected[target_category] is None:
-                selected[target_category] = (C, loss, E0, pulse, runfolder)
-            else:
-                C_prev, loss_prev, E0_prev, __, __ = selected[target_category]
+                __, C_prev, loss_prev, E0_prev = selected
+                C, loss, E0 = C_s[i], loss_s[i], E0_s[i]
                 if loss_prev > 0.1:
-                    # We only allow loss > 10% if we can't find anything better
+                    # We only allow loss > 10% if we can't find anything
+                    # better
                     if loss < loss_prev:
-                        selected[target_category] \
-                        = (C, loss, E0, pulse, runfolder)
+                        selected = (index_s[i], C, loss, E0)
                 elif loss < 0.1:
                     rel_diff = abs(C-C_prev) / abs(C)
                     if rel_diff <= 0.01:
-                        # all things being equal (i.e. less than 1% change), we
-                        # prefer pulses to be around 100 MHz amplitude -- not
-                        # field free (would lead to noisy optimized pulses
-                        # later), and not too large (optimization will
-                        # generally increase amplitude even further)
+                        # all things being equal (i.e. less than 1%
+                        # change), we prefer pulses to be around 100 MHz
+                        # amplitude -- not field free (would lead to noisy
+                        # optimized pulses later), and not too large
+                        # (optimization will generally increase amplitude
+                        # even further)
                         if (abs(E0-100.0) < abs(E0_prev-100.0)):
-                            selected[target_category] \
-                            = (C, loss, E0, pulse, runfolder)
+                            selected = (index_s[i], C, loss, E0)
                     else:
-                        if selector(C, C_prev):
-                            selected[target_category] \
-                            = (C, loss, E0, pulse, runfolder)
+                        if selector[target](C, C_prev):
+                            selected = (index_s[i], C, loss, E0)
+        return df[df.index == selected[0]]
 
-    if None in selected.values():
-        print "Incomplete data to select for stage 2 %s" % stage1_folder
-        for key in selected:
-            status = 'OK'
-            if selected[key] is None:
-                status = 'MISSING'
-            print "    %s: %s" % (key, status)
-        return None
-    return w_2_selection, w_c_selection, selected
+    return table_grouped.apply(find_best).reset_index(level=0,drop=True)
 
 
-def all_select_runs():
+def all_select_runs(dry_run=False):
     """Analyze the runfolders generated by run_state1.py, select the best runs
     in preparation for stage 2"""
-    results = []
-    for stage1_folder in list(find_folders("runs", "stage1")):
-        selection = select_runs(stage1_folder)
-        if selection is not None:
-            results.append(selection)
-    return results
-
-
-def main():
-    """Main routine"""
-    select_data = all_select_runs()
-    for w2, wc, d in select_data:
-        runfolder_root = 'runs/w2_%dMHz_wc_%dMHz/stage2' % (w2, wc)
-        for cat in CATEGORIES:
-            stage1_runfolder = d[cat][4]
-            stage2_runfolder = os.path.join(runfolder_root, cat)
-            shutil.mkdir(stage2_runfolder)
-            for file in ['config', 'pulse.json']:
-                shutil.copy(os.path.join(stage1_runfolder, file),
+    from notebook_utils import get_stage1_table
+    from os.path import join, isfile
+    logger = logging.getLogger(__name__)
+    stage1_table = get_stage1_table('./runs')
+    for target in ['PE', 'SQ']:
+        table = select_for_stage2(stage1_table,  target)
+        for stage1_runfolder, row in table.iterrows():
+            stage2_runfolder = 'runs/w2_%dMHz_wc_%dMHz/stage2/%s_%s' \
+                               % (row['w2 [GHz]']*1000, row['wc [GHz]']*1000,
+                                  target, row['category'])
+            if isfile(join(stage2_runfolder, 'pulse.json')):
+                if (not filecmp.cmp(join(stage1_runfolder, 'pulse.json'),
+                                    join(stage2_runfolder, 'pulse.json'))):
+                    logger.warn("%s does not match %s",
+                                join(stage1_runfolder, 'pulse.json'),
+                                join(stage2_runfolder, 'pulse.json'))
+            else:
+                shutil.mkdir(stage2_runfolder)
+                for file in ['config', 'pulse.json']:
+                    if dry_run:
+                        print "Copy %s -> %s" % (
+                            os.path.join(stage1_runfolder, file),
                             os.path.join(stage2_runfolder, file))
+                    else:
+                        shutil.copy(os.path.join(stage1_runfolder, file),
+                                    os.path.join(stage2_runfolder, file))
+
+
+def main(argv=None):
+    """Main routine"""
+    from optparse import OptionParser
+    if argv is None:
+        argv = sys.argv
+    arg_parser = OptionParser(
+    usage = "usage: %prog [options] arg1 arg2",
+    description = __doc__)
+    arg_parser.add_option(
+        '-n', action='store_true', dest='dry_run',
+        default=False, help="Perform dry-run")
+    options, args = arg_parser.parse_args(argv)
+    all_select_runs(dry_run=options.dry_run)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     sys.exit(main())
