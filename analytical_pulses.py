@@ -82,7 +82,6 @@ class AnalyticalPulse(object):
         """Instantiate a new analytical pulse"""
         if not formula in self._formulas:
             raise ValueError("Unkown formula '%s'" % formula)
-        #from IPython.core.debugger import Tracer; Tracer()() # DEBUG
         self._formula = formula
         self.parameters = parameters
         self._check_parameters()
@@ -159,10 +158,8 @@ class AnalyticalPulse(object):
         """The callable that numerically evaluates the used formula"""
         return self._formulas[self._formula]
 
-
-    def write(self, filename, pretty=False):
-        """Write the analytica pulse to the given filename as a json data
-        structure"""
+    def to_json(self, pretty=True):
+        """Return a json representation of the pulse"""
         self._check_parameters()
         json_opts = {'indent': None, 'separators':(',',':'), 'sort_keys': True}
         if pretty:
@@ -170,9 +167,18 @@ class AnalyticalPulse(object):
                          'sort_keys': True}
         attributes = self.__dict__.copy()
         attributes['formula'] = attributes.pop('_formula')
+        return json.dumps(attributes, cls=NumpyAwareJSONEncoder,
+                          **json_opts)
+
+    def __str__(self):
+        """Return string representation (JSON)"""
+        return self.to_json(pretty=True)
+
+    def write(self, filename, pretty=True):
+        """Write the analytica pulse to the given filename as a json data
+        structure"""
         with open(filename, 'w') as out_fh:
-            json.dump(attributes, out_fh, cls=NumpyAwareJSONEncoder,
-                      **json_opts)
+            out_fh.write(self.to_json(pretty=pretty))
 
     @property
     def header(self):
@@ -223,13 +229,20 @@ class AnalyticalPulse(object):
                 mode = 'real'
             else:
                 mode = 'complex'
+        else:
+            if mode == 'real' and not np.isrealobj(amplitude):
+                if np.max(np.abs(amplitude.imag)) > 0.0:
+                    raise ValueError("mode is 'real', but amplitude has "
+                                     "non-zero imaginary part")
+
         pulse = Pulse(tgrid=tgrid, amplitude=amplitude, time_unit=time_unit,
                       ampl_unit=ampl_unit, freq_unit=freq_unit, mode=mode)
         pulse.preamble = [self.header, ]
         return pulse
 
 
-def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False):
+def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False,
+    complex=False):
     r'''
     Construct a "carrier" based on the CRAB formula
 
@@ -256,6 +269,11 @@ def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False):
     normalize: logical, optional
         If True, normalize the resulting carrier such that its values are in
         [-1,1]
+    complex: logical, optional
+        If True, oscillate in the complex plane
+
+        .. math::
+        E(t) = \sum_{n} (a_n - i b_n) \exp(i \omega_n t)
 
     Notes
     -----
@@ -273,7 +291,10 @@ def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False):
     "freq, a, b must all be of the same length"
     signal = np.zeros(len(t), dtype=np.float64)
     for w_n, a_n, b_n in zip(freq, a, b):
-        signal += a_n * np.cos(c*w_n*t) + b_n * np.sin(c*w_n*t)
+        if complex:
+            signal += (a_n -1j*b_n) * np.exp(1j*c*w_n*t)
+        else:
+            signal += a_n * np.cos(c*w_n*t) + b_n * np.sin(c*w_n*t)
     if normalize:
         signal *= 1.0 / (np.abs(signal).max())
     return signal
@@ -286,6 +307,11 @@ def ampl_field_free(tgrid):
 def ampl_1freq(tgrid, E0, T, w_L):
     return E0 * blackman(tgrid, 0, T) * carrier(tgrid, 'ns', w_L, 'GHz').real
 
+def ampl_1freq_rwa(tgrid, E0, T, w_L, w_d):
+    # note: amplitude reduction by 1/2 is included in construction of ham
+    return E0 * blackman(tgrid, 0, T) \
+           * carrier(tgrid, 'ns', (w_L-w_d), 'GHz', complex=True)
+
 
 def ampl_1freq_0(tgrid, E0, T, w_L=0.0):
     return E0 * blackman(tgrid, 0, T) * carrier(tgrid, 'ns', w_L, 'GHz').real
@@ -297,6 +323,13 @@ def ampl_2freq(tgrid, E0, T, freq_1, freq_2, a_1, a_2, phi):
                      freq_unit='GHz', weights=(a_1, a_2),
                      phases=(0.0, phi)).real
 
+def ampl_2freq_rwa(tgrid, E0, T, freq_1, freq_2, a_1, a_2, phi, w_d):
+    # note: amplitude reduction by 1/2 is included in construction of ham
+    return E0 * blackman(tgrid, 0, T) \
+           * carrier(tgrid, 'ns', freq=(freq_1-w_d, freq_2-w_d),
+                     freq_unit='GHz', weights=(a_1, a_2),
+                     phases=(0.0, phi), complex=True)
+
 
 def ampl_5freq(tgrid, E0, T, freq, a, b):
     norm_carrier = CRAB_carrier(tgrid, 'ns', freq, 'GHz', a, b,
@@ -304,10 +337,20 @@ def ampl_5freq(tgrid, E0, T, freq, a, b):
     return E0 * blackman(tgrid, 0, T) * norm_carrier
 
 
+def ampl_5freq_rwa(tgrid, E0, T, freq, a, b, w_d):
+    norm_carrier = CRAB_carrier(tgrid, 'ns', freq-w_d, 'GHz', a, b,
+                                normalize=True, complex=True)
+    # note: amplitude reduction by 1/2 is included in construction of ham
+    return E0 * blackman(tgrid, 0, T) * norm_carrier
+
+
 AnalyticalPulse.register_formula('field_free', ampl_field_free)
 AnalyticalPulse.register_formula('1freq',      ampl_1freq)
 AnalyticalPulse.register_formula('2freq',      ampl_2freq)
 AnalyticalPulse.register_formula('5freq',      ampl_5freq)
+AnalyticalPulse.register_formula('1freq_rwa',  ampl_1freq_rwa)
+AnalyticalPulse.register_formula('2freq_rwa',  ampl_2freq_rwa)
+AnalyticalPulse.register_formula('5freq_rwa',  ampl_5freq_rwa)
 
 
 
