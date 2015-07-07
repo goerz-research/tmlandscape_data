@@ -562,7 +562,7 @@ def cutoff_worker(x):
     1 : t_start = 0.0, t_stop = 200_ns, nt = {nt}
 
     pulse: n = 1
-    1: type = file, filename = pulse.guess, id = 1, &
+    1: type = file, filename = pulse.guess, id = 1, check_tgrid = F, &
     oct_increase_factor = 5.0, oct_outfile = pulse.dat, oct_lambda_a = 1.0e6, time_unit = ns, ampl_unit = MHz, &
     oct_shape = flattop, t_rise = 10_ns, t_fall = 10_ns, is_complex = F
 
@@ -632,70 +632,246 @@ def cutoff_worker(x):
     return U
 
 
-def check_RWA(runfolder_original, runfolder):
+def avg_freq(analytical_pulse):
+    """Given an analytical pulse, return the average frequency in GHz"""
+    import numpy as np
+    p = analytical_pulse.parameters
+    if analytical_pulse.formula_name == '1freq':
+        return p['w_L']
+    elif analytical_pulse.formula_name == '2freq':
+        s = abs(p['a_1']) + abs(p['a_2'])
+        return (p['freq_1'] * abs(p['a_1']) + p['freq_2'] * abs(p['a_2']))/s
+    elif analytical_pulse.formula_name == '5freq':
+        weights = np.sqrt(np.abs(p['a'])**2 + np.abs(p['b'])**2)
+        weights *= 1.0/np.sum(weights)
+        return np.sum(weights * p['freq'])
+    else:
+        raise ValueError("Unknown formula name")
+
+
+def max_freq_delta(analytical_pulse, w_L):
+    """Return the maximum frequency that must be resolved for the given pulse
+    in a rotating frame wL"""
+    import numpy as np
+    p = analytical_pulse.parameters
+    if analytical_pulse.formula_name == '1freq':
+        return abs(w_L - p['w_L'])
+    elif analytical_pulse.formula_name == '2freq':
+        return max(abs(w_L - p['freq_1']),  abs(w_L - p['freq_2']))
+    elif analytical_pulse.formula_name == '5freq':
+        return np.max(np.abs(w_L - p['freq']))
+    else:
+        raise ValueError("Unknown formula name")
+
+
+
+def prop_RWA(config_file, pulse_json, outfolder, runfolder=None):
+    """Given a config file and pulse file in the lab frame, modify them to be
+    in the RWA and propagate. The propagation will take place in the given
+    runfolder. If no runfolder is given, create a temporary runfolder which
+    will be deleted after the propagation has finished. The file U.dat
+    resulting from the propagation is copied to the given outfolder, as
+    U_RWA.dat. Also, a file 'rwa_info.dat' is also written to the outfolder,
+    detailing some of the parameters of the rotating frame. The outfolder may
+    be identical to the runfolder.
+    """
+    import os
+    import re
     from os.path import join
     from analytical_pulses import AnalyticalPulse
+    from notebook_utils import avg_freq, max_freq_delta
     from clusterjob.utils import read_file, write_file
+    from QDYN.shutil import mkdir, copy, rmtree
+    import time
+    import subprocess as sp
+    import uuid
+
+    p = AnalyticalPulse.read(pulse_json)
+    config = read_file(config_file)
+
+    rwa_info = ''
+    w_d = avg_freq(p)
+    rwa_info += "w_d = %f GHz\n" % w_d
+    w_max = max_freq_delta(p, w_d)
+    rwa_info += "max Delta = %f GHz\n" % w_max
+    nt = max(1000, 100 * w_max * p.T) # 100 points per cycle
+    p.nt = nt
+    rwa_info += "nt = %d\n" % nt
+    p._formula += '_rwa'
+    p.parameters['w_d'] = w_d
+
+    env = os.environ.copy()
+    env['OMP_NUM_THREADS'] = '4'
+
+    if runfolder is None:
+        temp_runfolder = join(os.environ['SCRATCH_ROOT'], str(uuid.uuid4()))
+    else:
+        temp_runfolder = runfolder
+    mkdir(temp_runfolder)
+    mkdir(outfolder)
+    try:
+        config = re.sub('w_d\s*=\s*[\d.]+_MHz', 'w_d = %f_MHz' % (w_d*1000),
+                        config)
+        config = re.sub('nt\s*=\s*\d+', 'nt = %d'%nt,
+                        config)
+        config = re.sub(r'1: type = file, filename = pulse.guess, id = 1,\s*&',
+                        r'1: type = file, filename = pulse.guess, id = 1, '
+                        'check_tgrid = F, &', config)
+        config = re.sub('is_complex\s*=\s*F', 'is_complex = T', config)
+
+        write_file(join(temp_runfolder, 'config'), config)
+        p.write(join(temp_runfolder, 'pulse.guess.json'), pretty=True)
+        pulse = p.pulse(time_unit='ns', ampl_unit='MHz')
+        pulse.write(join(temp_runfolder, 'pulse.guess'))
+        start = time.time()
+        with open(join(temp_runfolder, 'prop.log'), 'w', 0) as stdout:
+            stdout.write("**** tm_en_gh --rwa --dissipation . \n")
+            sp.call(['tm_en_gh', '--rwa', '--dissipation', '.'],
+                    cwd=temp_runfolder, stderr=sp.STDOUT, stdout=stdout)
+            stdout.write("**** rewrite_dissipation.py. \n")
+            sp.call(['rewrite_dissipation.py',], cwd=temp_runfolder,
+                    stderr=sp.STDOUT, stdout=stdout)
+            stdout.write("**** tm_en_logical_eigenstates.py . \n")
+            sp.call(['tm_en_logical_eigenstates.py', '.'],
+                    cwd=temp_runfolder, stderr=sp.STDOUT, stdout=stdout)
+            stdout.write("**** tm_en_prop . \n")
+            sp.call(['tm_en_prop', '.'], cwd=temp_runfolder, env=env,
+                    stderr=sp.STDOUT, stdout=stdout)
+            end = time.time()
+            stdout.write("**** finished in %s seconds . \n"%(end-start))
+            rwa_info += "propagation time: %d seconds\n" % (end-start)
+            copy(join(temp_runfolder, 'U.dat'), join(outfolder, 'U_RWA.dat'))
+            copy(join(temp_runfolder, 'prop.log'),
+                 join(outfolder, 'prop_rwa.dat'))
+        write_file(join(outfolder, 'rwa_info.dat'), rwa_info)
+    except Exception as e:
+        print e
+    finally:
+        if runfolder is None:
+            rmtree(temp_runfolder)
+
+
+def compare_RWA_prop(runfolder_original, run_root, use_pulse='pulse_opt.json'):
+    """
+    Take the file 'config' and the file given by `use_pulse` inside the given
+    `runfolder_original`. Assume these files are in the lab frame, and
+    (re-)propagate them both in the lab and in the RWA frame. The runfolders
+    for these new propagations are subfolders for run_root, 'LAB' for the lab
+    frame, and 'RWA' for the RWA frame.
+    """
+    from os.path import join
+    from analytical_pulses import AnalyticalPulse
     import QDYN
     from QDYN.shutil import mkdir, copy
     import time
     import subprocess as sp
     p = AnalyticalPulse.read(
-        join(runfolder_original, 'pulse.json'))
-    w_L = p.parameters['w_L']
-    pulse = p.pulse(time_unit='ns', ampl_unit='MHz', mode='real')
+        join(runfolder_original, use_pulse))
+    pulse = p.pulse(time_unit='ns', ampl_unit='MHz')
     env = os.environ.copy()
     env['OMP_NUM_THREADS'] = '4'
-    mkdir(join(runfolder, 'RWA'))
-    mkdir(join(runfolder, 'LAB'))
+    lab_runfolder = join(run_root, 'LAB')
+    rwa_runfolder = join(run_root, 'RWA')
+    mkdir(lab_runfolder)
+    mkdir(rwa_runfolder)
 
     # re-propagate the original frame
-    lab_runfolder = join(runfolder, 'LAB')
-    copy(join(runfolder_original, 'config'), lab_runfolder)
-    pulse.write(join(lab_runfolder, 'pulse.guess'))
-    start = time.time()
-    with open(os.path.join(lab_runfolder, 'prop.log'), 'w', 0) as stdout:
-        stdout.write("**** tm_en_gh --dissipation . \n")
-        sp.call(['tm_en_gh', '--dissipation', '.'], cwd=lab_runfolder,
-                stderr=sp.STDOUT, stdout=stdout)
-        stdout.write("**** rewrite_dissipation.py. \n")
-        sp.call(['rewrite_dissipation.py',], cwd=lab_runfolder,
-                stderr=sp.STDOUT, stdout=stdout)
-        stdout.write("**** tm_en_logical_eigenstates.py . \n")
-        sp.call(['tm_en_logical_eigenstates.py', '.'],
-                cwd=lab_runfolder, stderr=sp.STDOUT, stdout=stdout)
-        stdout.write("**** tm_en_prop . \n")
-        sp.call(['tm_en_prop', '.'], cwd=lab_runfolder, env=env,
-                stderr=sp.STDOUT, stdout=stdout)
-        end = time.time()
-        stdout.write("**** finished in %s seconds . \n"%(end-start))
+    def worker(mode):
+        if mode == 'LAB':
+            copy(join(runfolder_original, 'config'), lab_runfolder)
+            pulse.write(join(lab_runfolder, 'pulse.guess'))
+            start = time.time()
+            with open(os.path.join(lab_runfolder, 'prop.log'), 'w', 0) \
+            as stdout:
+                stdout.write("**** tm_en_gh --dissipation . \n")
+                sp.call(['tm_en_gh', '--dissipation', '.'], cwd=lab_runfolder,
+                        stderr=sp.STDOUT, stdout=stdout)
+                stdout.write("**** rewrite_dissipation.py. \n")
+                sp.call(['rewrite_dissipation.py',], cwd=lab_runfolder,
+                        stderr=sp.STDOUT, stdout=stdout)
+                stdout.write("**** tm_en_logical_eigenstates.py . \n")
+                sp.call(['tm_en_logical_eigenstates.py', '.'],
+                        cwd=lab_runfolder, stderr=sp.STDOUT, stdout=stdout)
+                stdout.write("**** tm_en_prop . \n")
+                sp.call(['tm_en_prop', '.'], cwd=lab_runfolder, env=env,
+                        stderr=sp.STDOUT, stdout=stdout)
+                end = time.time()
+                stdout.write("**** finished in %s seconds . \n"%(end-start))
+        elif mode == 'RWA':
+            # re-propagate the RWA
+            prop_RWA(join(runfolder_original, 'config'),
+                     join(runfolder_original, use_pulse),
+                     outfolder=rwa_runfolder, runfolder=rwa_runfolder)
+        else:
+            raise ValueError("Invalide mode: %s" % mode)
 
-    # re-propagate the original frame
-    rwa_runfolder = join(runfolder, 'RWA')
-    config = read_file(join(runfolder_original, 'config'))
-    config = config.replace('w_d     = 0.0_MHz',
-                            'w_d     = %f_MHz' % (w_L*1000))
-    write_file(join(rwa_runfolder, 'config'), config)
-    p.parameters['w_L'] = 0.0
-    pulse = p.pulse(time_unit='ns', ampl_unit='MHz', mode='real')
-    pulse.write(join(rwa_runfolder, 'pulse.guess'))
-    start = time.time()
-    with open(os.path.join(rwa_runfolder, 'prop.log'), 'w', 0) as stdout:
-        stdout.write("**** tm_en_gh --rwa --dissipation . \n")
-        sp.call(['tm_en_gh', '--rwa', '--dissipation', '.'], cwd=rwa_runfolder,
-                stderr=sp.STDOUT, stdout=stdout)
-        stdout.write("**** rewrite_dissipation.py. \n")
-        sp.call(['rewrite_dissipation.py',], cwd=rwa_runfolder,
-                stderr=sp.STDOUT, stdout=stdout)
-        stdout.write("**** tm_en_logical_eigenstates.py . \n")
-        sp.call(['tm_en_logical_eigenstates.py', '.'],
-                cwd=rwa_runfolder, stderr=sp.STDOUT, stdout=stdout)
-        stdout.write("**** tm_en_prop . \n")
-        sp.call(['tm_en_prop', '.'], cwd=rwa_runfolder, env=env,
-                stderr=sp.STDOUT, stdout=stdout)
-        end = time.time()
-        stdout.write("**** finished in %s seconds . \n"%(end-start))
+    worker('RWA')
+    worker('LAB')
 
     U_LAB = QDYN.gate2q.Gate2Q(join(lab_runfolder, 'U.dat'))
     U_RWA = QDYN.gate2q.Gate2Q(join(rwa_runfolder, 'U.dat'))
     return U_LAB, U_RWA
+
+
+def get_RWA_table(runs):
+    """Summarize the results of the RWA propagation
+
+    Looks for U_RWA.dat in all the subfolders of the given `runs` folder
+
+    The resulting table will have the columns
+
+    'C (RWA)'              : Concurrence
+    'loss (RWA)',          : Loss from the logical subspace
+    'nt (RWA)',            : Numer of time steps used
+    'wd [GHz]'             : Frequency of rotating frame
+    'max Delta (RWA) [GHz]': Max. required frequency in rotating frame
+    'prop time (RWA) [s]'  : Seconds required for propagation
+
+    and use the runfolder name as the index
+    """
+    runfolders = []
+    for U_RWA_dat in find_files(runs, 'U_RWA.dat'):
+        runfolders.append(os.path.split(U_RWA_dat)[0])
+    C_s         = pd.Series(index=runfolders)
+    loss_s      = pd.Series(index=runfolders)
+    nt_s        = pd.Series(index=runfolders, dtype=np.int)
+    wd_s        = pd.Series(index=runfolders)
+    max_delta_s = pd.Series(index=runfolders)
+    prop_time_s = pd.Series(index=runfolders)
+    i = 0
+    for i, folder in enumerate(runfolders):
+        U_dat = os.path.join(folder, 'U_RWA.dat')
+        U = QDYN.gate2q.Gate2Q(U_dat)
+        try:
+            C = U.closest_unitary().concurrence()
+            loss = U.pop_loss()
+            C_s[i] = C
+            loss_s[i] = loss
+        except ValueError:
+            print "%s is invalid" % U_dat
+        info_dat = os.path.join(folder, 'rwa_info.dat')
+        if not os.path.isfile(info_dat):
+            continue
+        with open(info_dat) as info:
+            for line in info:
+                m = re.match('w_d\s*=\s*([\d.]+)\s*GHz', line)
+                if m:
+                    wd_s[i] = float(m.group(1))
+                m = re.match('max Delta\s*=\s*([\d.]+)\s*GHz', line)
+                if m:
+                    max_delta_s[i] = float(m.group(1))
+                m = re.match('nt\s*=\s*(\d+)', line)
+                if m:
+                    nt_s[i] = int(m.group(1))
+                m = re.match('propagation time:\s*(\d+)\s*seconds', line)
+                if m:
+                    prop_time_s[i] = float(m.group(1))
+    table = pd.DataFrame(OrderedDict([
+                ('C (RWA)',               C_s),
+                ('loss (RWA)',            loss_s),
+                ('nt (RWA)',              nt_s),
+                ('wd (RWA) [GHz]',        wd_s),
+                ('max Delta (RWA) [GHz]', max_delta_s),
+                ('prop time (RWA) [s]',   prop_time_s),
+            ]))
+    return table

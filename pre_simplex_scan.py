@@ -95,7 +95,7 @@ def generate_runfolders(w2, wc):
     1 : t_start = 0.0, t_stop = {T}_ns, nt = {nt}
 
     pulse: n = 1
-    1: type = file, filename = pulse.guess, id = 1,  &
+    1: type = file, filename = pulse.guess, id = 1, check_tgrid = F, &
        time_unit = ns, ampl_unit = MHz, is_complex = F
 
     misc: prop = newton, mass = 1.0
