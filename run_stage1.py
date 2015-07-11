@@ -1,8 +1,11 @@
 #!/usr/bin/env python
+"""Run stage 1 optimization"""
 import logging
 logging.basicConfig(level=logging.ERROR)
+import os
 import sys
 import time
+import hashlib
 from textwrap import dedent
 from clusterjob import Job
 Job.default_remote = 'kcluster'
@@ -12,7 +15,16 @@ Job.default_opts['queue'] = 'AG-KOCH'
 Job.cache_folder='./.clusterjob_cache/stage1/'
 
 
-def jobscript(w2, wc):
+def split_seq(seq, n_chunks):
+    """Split the given sequence into n_chunks"""
+    newseq = []
+    splitsize = 1.0/n_chunks*len(seq)
+    for i in range(n_chunks):
+        newseq.append(seq[int(round(i*splitsize)):int(round((i+1)*splitsize))])
+    return newseq
+
+
+def jobscript(commands, parallel):
     jobscript = dedent(r'''
     source /usr/share/Modules/init/bash
     module load intel/14.0.3
@@ -20,49 +32,106 @@ def jobscript(w2, wc):
     export PATH=$PREFIX/bin:$PATH
     export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
 
-    python -u ./pre_simplex_scan.py {w2} {wc}
+    xargs -L1 -P{parallel} python -u  <<EOF
     '''.format(
-        PREFIX='$HOME/jobs/ConstrainedTransmon/venv',
-        w2=str(w2), wc=str(wc)
+        PREFIX=os.path.join(Job.default_rootdir, 'venv'),
+        parallel=parallel
     ))
+    for command in commands:
+        jobscript += command + "\n"
+    jobscript += "EOF\n"
     return jobscript
 
 
-def epilogue(w2, wc):
+def epilogue(runs):
+    assert runs.startswith("./"), "runs must be to current directory"
+    runs = runs[2:]         # strip leading ./
+    if runs.endswith(r'/'): # strip trailing slash
+        runs = runs[:-1]
     epilogue = dedent(r'''
     #!/bin/bash
-    mkdir -p ./runs/
-    rsync -av {remote}:{rootdir}/runs/w2_%dMHz_wc_%dMHz ./runs/
-    ''' % (w2*1000, wc*1000))
+    mkdir -p ./{runs}
+    rsync -av {{remote}}:{{rootdir}}/{runs}/ ./{runs}
+    '''.format(runs=runs))
     return epilogue
 
 
-def main():
-    """Run stage 1 optimization"""
-    # run pre_simplex_scan.py for every parameter point
-    # select best runs for stage 2
+def main(argv=None):
+    """Run stage 1"""
+    from optparse import OptionParser
+    if argv is None:
+        argv = sys.argv
+    arg_parser = OptionParser(
+    usage = "usage: %prog [options] RUNS",
+    description = __doc__)
+    arg_parser.add_option(
+        '--rwa', action='store_true', dest='rwa',
+        default=False, help="Perform all calculations in the RWA.")
+    arg_parser.add_option(
+        '--duration', action='store', dest='T', type=float,
+        default=200.0, help="Gate duration, in ns [200]")
+    arg_parser.add_option(
+        '--parallel', action='store', dest='parallel', type=int,
+        default=3, help="Number of parallel processes per job [3]")
+    arg_parser.add_option(
+        '--jobs', action='store', dest='jobs', type=int,
+        default=10, help="Number of jobs [10]")
+    options, args = arg_parser.parse_args(argv)
+    try:
+        runs = os.path.join('.', os.path.normpath(args[1]))
+    except IndexError:
+        arg_parser.error("You must give RUNS")
+    if not os.path.isdir(runs):
+        arg_parser.error("RUNS must be a folder (%s)" % runs)
+    if not runs.startswith(r'./'):
+        arg_parser.error('RUNS must be relative to current folder, '
+                         'e.g. ./runs')
+    rwa = ''
+    if options.rwa:
+        rwa = '--rwa'
+    submitted = []
     jobs = []
     job_ids = {}
+    w1 = 6.0
     with open("stage1.log", "a") as log:
         log.write("%s\n" % time.asctime())
-        for w2 in [5.0, 5.5, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.29, 6.30, 6.31, 6.35, 6.5, 6.58, 6.0, 6.62, 6.75, 7.0, 7.25, 7.5]:
+        w2_wc = []
+        for w2 in [5.0, 5.5, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.29, 6.30, 6.31,
+        6.35, 6.5, 6.58, 6.0, 6.62, 6.75, 7.0, 7.25, 7.5]:
             for wc in [5.0, 5.8, 6.1, 6.3, 6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 10.1,
-                       11.1]:
-                jobname = 'w2_%dMHz_wc_%dMHz_stage1' % (w2*1000, wc*1000)
-                job = Job(jobscript=jobscript(w2, wc), jobname=jobname,
-                        workdir='.', time='8:00:00', nodes=1, threads=12,
-                        mem=24000, stdout='%s-%%j.out'%jobname,
-                        epilogue=epilogue(w2, wc))
-                jobs.append(job.submit(cache_id=jobname))
-                job_ids[jobs[-1].job_id] = jobname
+            11.1]:
+                if (   (abs(w1-w2) <= 1.8)
+                    or (abs(wc-w2) <= 1.8)
+                    or (abs(wc-w1) <= 1.8)
+                ):
+                    w2_wc.append((w2, wc))
+        w2_wc.append((7.5, 11.1))
+        w2_wc = w2_wc[:2] # DEBUG
+        for (w2, wc) in w2_wc:
+            command = './pre_simplex_scan {rwa} {runs} {w2} {wc} {T}'.format(
+                      rwa=rwa, runs=runs, w2=w2, wc=wc, T=options.T)
+            jobs.append(command)
+            for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
+                if len(commands) == 0:
+                    continue
+                jobname = 'stage1_%02d' % (i_job+1)
+                job = Job(jobscript=jobscript(commands, options.parallel),
+                        jobname=jobname, workdir='.', time='200:00:00',
+                        nodes=1, threads=4*options.parallel,
+                        mem=40000, stdout='%s-%%j.out'%jobname,
+                        epilogue=epilogue(runs))
+                cache_id = '%s_%s' % (
+                           jobname, hashlib.sha256(str(argv)).hexdigest())
+                submitted.append(job.submit(cache_id=cache_id))
+                job_ids[submitted[-1].job_id] = jobname
                 log.write("Submitted %s to cluster as ID %s\n"%(
-                          jobname, jobs[-1].job_id))
-    for job in jobs:
+                         jobname, submitted[-1].job_id))
+    return 1 # DEBUG
+    for job in submitted:
         job.wait()
         if not job.successful():
             print "job '%s' did not finish successfully" % job_ids[job.job_id]
 
-
-
 if __name__ == "__main__":
     sys.exit(main())
+
