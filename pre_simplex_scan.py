@@ -127,7 +127,8 @@ def generate_runfolders(runs, w2, wc, T, rwa=False):
     random_freq = make_random_freq(w_1=6.0, w_2=w2, w_c=wc, alpha_1=0.29,
                                    alpha_2=0.31, sidebands=True)
 
-    runfolder_root = 'runs/w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000)
+    runfolder_root = os.path.join(runs,
+                     'w2_%dMHz_wc_%dMHz/stage1' % (w2*1000, wc*1000))
 
     def runfolder_exists(runfolder):
         return (os.path.isfile(os.path.join(runfolder, 'config'))
@@ -320,9 +321,10 @@ def propagate(runfolder, rwa, keep=False):
                 os.unlink(temp_runfolder)
             QDYN.shutil.mkdir(temp_runfolder)
             shutil.copy(config, temp_runfolder)
-            pulse = AnalyticalPulse.read(pulse_json).pulse()
-            if pulse.formula_name.endswith('_rwa'):
+            analytical_pulse = AnalyticalPulse.read(pulse_json)
+            if analytical_pulse.formula_name.endswith('_rwa'):
                 assert rwa, "RWA pulse must be propagated in RWA"
+            pulse = analytical_pulse.pulse()
             pulse.write(os.path.join(temp_runfolder, 'pulse.guess'))
             logger.info("Propagating %s", runfolder)
             env = os.environ.copy()
