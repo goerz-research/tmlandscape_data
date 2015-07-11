@@ -110,21 +110,21 @@ def main(argv=None):
             command = './pre_simplex_scan.py {rwa} {runs} {w2} {wc} {T}'\
                       .format(rwa=rwa, runs=runs, w2=w2, wc=wc, T=options.T)
             jobs.append(command)
-            for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
-                if len(commands) == 0:
-                    continue
-                jobname = 'stage1_%02d' % (i_job+1)
-                job = Job(jobscript=jobscript(commands, options.parallel),
-                        jobname=jobname, workdir='.', time='200:00:00',
-                        nodes=1, threads=4*options.parallel,
-                        mem=40000, stdout='%s-%%j.out'%jobname,
-                        epilogue=epilogue(runs))
-                cache_id = '%s_%s' % (
-                           jobname, hashlib.sha256(str(argv)).hexdigest())
-                submitted.append(job.submit(cache_id=cache_id))
-                job_ids[submitted[-1].job_id] = jobname
-                log.write("Submitted %s to cluster as ID %s\n"%(
-                         jobname, submitted[-1].job_id))
+        for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
+            if len(commands) == 0:
+                continue
+            jobname = 'stage1_%02d' % (i_job+1)
+            job = Job(jobscript=jobscript(commands, options.parallel),
+                    jobname=jobname, workdir='.', time='200:00:00',
+                    nodes=1, threads=4*options.parallel,
+                    mem=40000, stdout='%s-%%j.out'%jobname,
+                    epilogue=epilogue(runs))
+            cache_id = '%s_%s' % (
+                        jobname, hashlib.sha256(str(argv)).hexdigest())
+            submitted.append(job.submit(cache_id=cache_id))
+            job_ids[submitted[-1].job_id] = jobname
+            log.write("Submitted %s to cluster as ID %s\n"%(
+                        jobname, submitted[-1].job_id))
     for job in submitted:
         job.wait()
         if not job.successful():
