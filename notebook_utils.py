@@ -644,9 +644,9 @@ def avg_freq(analytical_pulse):
         s = abs(p['a_1']) + abs(p['a_2'])
         return (p['freq_1'] * abs(p['a_1']) + p['freq_2'] * abs(p['a_2']))/s
     elif analytical_pulse.formula_name == '5freq':
-        weights = np.sqrt(np.abs(p['a'])**2 + np.abs(p['b'])**2)
+        weights = np.sqrt(np.abs(p['a_high'])**2 + np.abs(p['b_high'])**2)
         weights *= 1.0/np.sum(weights)
-        return np.sum(weights * p['freq'])
+        return np.sum(weights * p['freq_high'])
     else:
         raise ValueError("Unknown formula name")
 
@@ -663,7 +663,7 @@ def max_freq_delta(analytical_pulse, w_L):
     elif analytical_pulse.formula_name == '2freq':
         return max(abs(w_L - p['freq_1']),  abs(w_L - p['freq_2']))
     elif analytical_pulse.formula_name == '5freq':
-        return np.max(np.abs(w_L - p['freq']))
+        return np.max(np.abs(w_L - p['freq_high']))
     else:
         raise ValueError("Unknown formula name")
 
