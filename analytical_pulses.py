@@ -331,17 +331,23 @@ def ampl_2freq_rwa(tgrid, E0, T, freq_1, freq_2, a_1, a_2, phi, w_d):
                      phases=(0.0, phi), complex=True)
 
 
-def ampl_5freq(tgrid, E0, T, freq, a, b):
-    norm_carrier = CRAB_carrier(tgrid, 'ns', freq, 'GHz', a, b,
+def ampl_5freq(tgrid, E0, T, freq_low, a_low, b_low, freq_high, a_high,
+    b_high):
+    norm_carrier = CRAB_carrier(tgrid, 'ns', freq_high, 'GHz', a_high, b_high,
                                 normalize=True)
-    return E0 * blackman(tgrid, 0, T) * norm_carrier
+    crab_shape = CRAB_carrier(tgrid, 'ns', freq_low, 'GHz', a_low, b_low,
+                              normalize=True)
+    return E0 * blackman(tgrid, 0, T) * crab_shape * norm_carrier
 
 
-def ampl_5freq_rwa(tgrid, E0, T, freq, a, b, w_d):
-    norm_carrier = CRAB_carrier(tgrid, 'ns', freq-w_d, 'GHz', a, b,
-                                normalize=True, complex=True)
+def ampl_5freq_rwa(tgrid, E0, T, freq_low, a_low, b_low, freq_high, a_high,
+    b_high, w_d):
+    norm_carrier = CRAB_carrier(tgrid, 'ns', freq_high-w_d, 'GHz', a_high,
+                                b_high, normalize=True, complex=True)
+    crab_shape = CRAB_carrier(tgrid, 'ns', freq_low, 'GHz', a_low, b_low,
+                              normalize=True)
     # note: amplitude reduction by 1/2 is included in construction of ham
-    return E0 * blackman(tgrid, 0, T) * norm_carrier
+    return E0 * blackman(tgrid, 0, T) * crab_shape * norm_carrier
 
 
 AnalyticalPulse.register_formula('field_free', ampl_field_free)
