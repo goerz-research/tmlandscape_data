@@ -287,11 +287,11 @@ def get_temp_runfolder(runfolder):
     $SCRATCH_ROOT) for the given "real" runfolder"""
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
+    import uuid
+    temp_runfolder = str(uuid.uuid4())
     if 'SLURM_JOB_ID' in os.environ:
-        temp_runfolder = os.environ['SLURM_JOB_ID']
-    else:
-        import uuid
-        temp_runfolder = str(uuid.uuid4())
+        temp_runfolder = os.path.join(os.environ['SLURM_JOB_ID'],
+                                      temp_runfolder)
     return os.path.join(os.environ['SCRATCH_ROOT'], temp_runfolder)
 
 
