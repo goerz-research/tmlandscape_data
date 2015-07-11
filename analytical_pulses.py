@@ -340,7 +340,8 @@ def ampl_5freq(tgrid, E0, T, freq_low, a_low, b_low, freq_high, a_high,
                                 normalize=True)
     crab_shape = CRAB_carrier(tgrid, 'ns', freq_low, 'GHz', a_low, b_low,
                               normalize=True)
-    return E0 * blackman(tgrid, 0, T) * crab_shape * norm_carrier
+    a = blackman(tgrid, 0, T) * crab_shape * norm_carrier
+    return E0 * a / np.max(np.abs(a))
 
 
 def ampl_5freq_rwa(tgrid, E0, T, freq_low, a_low, b_low, freq_high, a_high,
@@ -350,7 +351,8 @@ def ampl_5freq_rwa(tgrid, E0, T, freq_low, a_low, b_low, freq_high, a_high,
     crab_shape = CRAB_carrier(tgrid, 'ns', freq_low, 'GHz', a_low, b_low,
                               normalize=True)
     # note: amplitude reduction by 1/2 is included in construction of ham
-    return E0 * blackman(tgrid, 0, T) * crab_shape * norm_carrier
+    a = blackman(tgrid, 0, T) * crab_shape * norm_carrier
+    return E0 * a / np.max(np.abs(a))
 
 
 AnalyticalPulse.register_formula('field_free', ampl_field_free)
