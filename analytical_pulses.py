@@ -289,7 +289,10 @@ def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False,
     c = convert.to_au(1, time_unit) * convert.to_au(1, freq_unit)
     assert len(a) == len(b) == len(freq), \
     "freq, a, b must all be of the same length"
-    signal = np.zeros(len(t), dtype=np.float64)
+    if complex:
+        signal = np.zeros(len(t), dtype=np.complex128)
+    else:
+        signal = np.zeros(len(t), dtype=np.float64)
     for w_n, a_n, b_n in zip(freq, a, b):
         if complex:
             signal += (a_n -1j*b_n) * np.exp(1j*c*w_n*t)
