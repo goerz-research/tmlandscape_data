@@ -106,10 +106,9 @@ def main(argv=None):
                 ):
                     w2_wc.append((w2, wc))
         w2_wc.append((7.5, 11.1))
-        w2_wc = w2_wc[:2] # DEBUG
         for (w2, wc) in w2_wc:
-            command = './pre_simplex_scan {rwa} {runs} {w2} {wc} {T}'.format(
-                      rwa=rwa, runs=runs, w2=w2, wc=wc, T=options.T)
+            command = './pre_simplex_scan.py {rwa} {runs} {w2} {wc} {T}'\
+                      .format(rwa=rwa, runs=runs, w2=w2, wc=wc, T=options.T)
             jobs.append(command)
             for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
                 if len(commands) == 0:
@@ -126,7 +125,6 @@ def main(argv=None):
                 job_ids[submitted[-1].job_id] = jobname
                 log.write("Submitted %s to cluster as ID %s\n"%(
                          jobname, submitted[-1].job_id))
-    return 1 # DEBUG
     for job in submitted:
         job.wait()
         if not job.successful():
