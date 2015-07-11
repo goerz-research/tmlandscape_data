@@ -636,7 +636,9 @@ def avg_freq(analytical_pulse):
     """Given an analytical pulse, return the average frequency in GHz"""
     import numpy as np
     p = analytical_pulse.parameters
-    if analytical_pulse.formula_name == '1freq':
+    if analytical_pulse.formula_name == 'field_free':
+        return 6.0 # arbitrary (left qubit frequency)
+    elif analytical_pulse.formula_name == '1freq':
         return p['w_L']
     elif analytical_pulse.formula_name == '2freq':
         s = abs(p['a_1']) + abs(p['a_2'])
@@ -654,7 +656,9 @@ def max_freq_delta(analytical_pulse, w_L):
     in a rotating frame wL"""
     import numpy as np
     p = analytical_pulse.parameters
-    if analytical_pulse.formula_name == '1freq':
+    if analytical_pulse.formula_name == 'field_free':
+        return 0.0
+    elif analytical_pulse.formula_name == '1freq':
         return abs(w_L - p['w_L'])
     elif analytical_pulse.formula_name == '2freq':
         return max(abs(w_L - p['freq_1']),  abs(w_L - p['freq_2']))
