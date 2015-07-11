@@ -402,7 +402,7 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False):
     runfolders = generate_runfolders(runs, w2, wc, T, rwa=rwa)
     threadpool_map = make_threadpool_map(get_cpus()/4)
     logger.info('*** Propagate ***')
-    worker = partial(propagate, rwa=rwa, keep=True) # DEBUG
+    worker = partial(propagate, rwa=rwa, keep=False)
     threadpool_map(worker, runfolders)
 
 
