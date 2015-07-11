@@ -10,6 +10,7 @@ import multiprocessing
 import shutil
 from textwrap import dedent
 from random import random
+from functools import partial
 import QDYN
 import logging
 import time
@@ -399,7 +400,8 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False):
     runfolders = generate_runfolders(runs, w2, wc, T, rwa=rwa)
     threadpool_map = make_threadpool_map(get_cpus()/4)
     logger.info('*** Propagate ***')
-    threadpool_map(propagate, rwa, runfolders, keep=True) # DEBUG
+    worker = partial(propagate, rwa=rwa, keep=True) # DEBUG
+    threadpool_map(worker, runfolders)
 
 
 def main(argv=None):
