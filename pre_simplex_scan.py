@@ -354,7 +354,7 @@ def propagate(runfolder, rwa, keep=False):
                             stderr=sp.STDOUT, stdout=stdout)
             shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
             end = time.time()
-            logger.info("Successfully finished propagating %s (%d seconds)",
+            logger.info("Finished propagating %s (%d seconds)",
                          runfolder, end-start)
         except Exception as e:
             logger.error(e)
@@ -368,6 +368,8 @@ def propagate(runfolder, rwa, keep=False):
     U = None
     try:
         U = QDYN.gate2q.Gate2Q(file=gatefile)
+        if np.isnan(U).any():
+            logger.error("gate %s contains NaN", gatefile)
     except IOError as e:
         logger.error(e)
     return U
