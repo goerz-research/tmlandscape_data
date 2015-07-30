@@ -13,9 +13,9 @@ mkdir -p ./venv/src
 
 (cd $PREFIX/bin/ && ln -s ../../rewrite_dissipation.py)
 
-(cd $PREFIX/src/qdyn && git checkout master && ./configure --prefix=$PREFIX --no-hooks && make install)
+(cd $PREFIX/src/qdyn && git checkout 28d4b4650ec062f00c8ff11179aa276a5cffa9bc && ./configure --prefix=$PREFIX --no-hooks && make install)
 (cd $PREFIX/src/qdynpylib && git checkout master && pip install -e .)
-(cd $PREFIX/src/transmon_oct && git checkout master && ./configure --prefix=$PREFIX && make install)
+(cd $PREFIX/src/transmon_oct && git checkout 3b6bed6875dbfbbe49d616717bc3f330cdb2709f && ./configure --prefix=$PREFIX && make install)
 (cd $PREFIX/src/QDYNTransmonLib && git checkout master && pip install -e .)
 
 pip install mgplottools
