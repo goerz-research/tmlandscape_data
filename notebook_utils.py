@@ -173,7 +173,7 @@ class PlotGrid(object):
             ax_contour.axvline(6.58, color='white', ls='--')
             ax_contour.axvline(6.62, color='white', ls='--')
             # ticks and axis labels
-            set_axis(ax_contour, 'x', 6.0, 7.5, 0.5, range=(6.1, 7.5), minor=5)
+            set_axis(ax_contour, 'x', 5.0, 7.5, 0.5, minor=5)
             set_axis(ax_contour, 'y', 5.0, 11.1, 0.5, minor=5)
             ax_contour.tick_params(which='both', direction='out')
 
@@ -411,8 +411,13 @@ def get_stage1_table(runs):
         E0_s[i] = E0
         U_dat = os.path.join(folder, 'U.dat')
         U = QDYN.gate2q.Gate2Q(U_dat)
-        C = U.closest_unitary().concurrence()
-        loss = U.pop_loss()
+        if np.isnan(U).any():
+            print "ERROR: NaN in %s" % U_dat
+            C = 0.0
+            loss = 1.0
+        else:
+            C = U.closest_unitary().concurrence()
+            loss = U.pop_loss()
         C_s[i] = C
         loss_s[i] = loss
         category_s[i] = re.sub('_\d+$', '_random', pulse_label)
