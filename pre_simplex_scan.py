@@ -86,6 +86,15 @@ def generate_runfolders(runs, w2, wc, T, rwa=False):
     wc:   cavity frequency [GHz]
     T:    gate duration [ns]
     rwa:  if True, write runs in the rotating wave approximation
+
+    Runfolders are created according to the pattern
+    [runs]/w2_[w2]MHz_wc_[wc]MHz/stage1/[pulse_label]/E[E0]/
+
+    If pulse_label is 'field_free', there are no subfolders for the various
+    peak amplitudes. In each runfolder, the files 'pulse.json' and 'config' are
+    written. If these files already exist, they will NOT be overwritten. All
+    runfolders will in the output list, regardless of whether they are newly
+    created or not.
     """
     from analytical_pulses import AnalyticalPulse
     logger = logging.getLogger(__name__)
@@ -399,9 +408,13 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False):
     logger = logging.getLogger(__name__)
     logger.info('Running on host %s' % hostname())
     logger.info('*** Generating Runfolders ***')
+    # Ensure that all runfolders exist and contain the files 'pulse.json' and
+    # 'config'
     runfolders = generate_runfolders(runs, w2, wc, T, rwa=rwa)
     threadpool_map = make_threadpool_map(get_cpus()/4)
     logger.info('*** Propagate ***')
+    # Ensure that all runfolders contain the file 'U.dat'
+    # 'config'
     worker = partial(propagate, rwa=rwa, keep=False)
     threadpool_map(worker, runfolders)
 
