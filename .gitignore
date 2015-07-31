@@ -4,6 +4,7 @@
 *.log
 *.bak
 *.pyc
+*.png
 oct_pulses
 .ipynb_checkpoints
 /venv/
