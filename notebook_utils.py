@@ -252,7 +252,8 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     cbar = fig.colorbar(cmesh, cax=ax_cbar)
 
 
-def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0):
+def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
+    outfile=None):
     """Plot concurrence and loss for all the categories in the given
     target_table.
 
@@ -267,6 +268,8 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0):
     The 'target' parameter is only used to select for the final 'total' plot:
     if it is 'PE', rows with minimal value of 'J_PE' are selected, or minimal
     value of 'J_SQ' for 'SQ'.
+
+    If outfile is given, write to outfile instead of showing plot.
     """
     plots = PlotGrid()
     table_grouped = target_table.groupby('category')
@@ -287,14 +290,21 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0):
                        vmin=loss_min, vmax=loss_max,
                        contour_levels=11,
                        title='population loss (%s_%s)'%(target, category))
-    plots.plot(quiet=True, show=True)
+    if outfile is None:
+        plots.plot(quiet=True, show=True)
+    else:
+        fig = plots.plot(quiet=True, show=False)
+        fig.savefig(outfile)
+        plt.close(fig)
 
 
-def plot_quality(t_PE, t_SQ):
+def plot_quality(t_PE, t_SQ, outfile=None):
     """Plot quality obtained from the two given tables.
 
     The tables t_PE and t_SQ must meet the requirements for the get_Q_table
     routine.
+
+    If outfile is given, write to outfile instead of showing plot.
     """
     plots = PlotGrid()
     plots.n_cols = 2
@@ -315,7 +325,12 @@ def plot_quality(t_PE, t_SQ):
         plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['Q'],
                        vmin=0.0, vmax=1.0, contour_levels=11,
                        title='quality (%s)'%(category,))
-    plots.plot(quiet=True, show=True)
+    if outfile is None:
+        plots.plot(quiet=True, show=True)
+    else:
+        fig = plots.plot(quiet=True, show=False)
+        fig.savefig(outfile)
+        plt.close(fig)
 
 
 ###############################################################################
