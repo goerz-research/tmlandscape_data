@@ -443,6 +443,26 @@ def stage1_rf_to_params(runfolder):
     return w_2, w_c, E0, pulse_label
 
 
+def J_target(target, concurrence, loss):
+    """Figure of meriit, for PE or SQ target"""
+    if target == 'PE':
+        return J_PE(concurrence, loss)
+    elif target == 'SQ':
+        return J_SQ(concurrence, loss)
+    else:
+        raise ValueError("target must be PE, SQ")
+
+
+def J_PE(concurrence, loss):
+    """Perfect entangler figure of merit"""
+    return 1.0 - concurrence + concurrence*loss
+
+
+def J_SQ(concurrence, loss):
+    """Single qubit figure of merit"""
+    return loss + concurrence - concurrence*loss
+
+
 def get_stage1_table(runs):
     """Summarize the results of the stage1 calculations in a DataFrame table.
 
@@ -509,8 +529,8 @@ def get_stage1_table(runs):
                 ('max loss', max_loss_s),
                 ('E0 [MHz]', E0_s),
                 ('category', category_s),
-                ('J_PE',     1.0        - C_s + C_s*max_loss_s),
-                ('J_SQ',     max_loss_s + C_s - C_s*max_loss_s),
+                ('J_PE',     J_PE(C_s, max_loss_s)),
+                ('J_SQ',     J_SQ(C_s, max_loss_s)),
             ]))
     return table[~table.index.isin(errors)]
 
