@@ -258,7 +258,7 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
     target_table.
 
     The target_table must contain the columns 'w1 [GHz]', 'w2 [GHz]',
-    'wc [GHz]', 'C', 'loss', 'category', 'J_PE', 'J_SQ'
+    'wc [GHz]', 'C', 'max loss', 'category', 'J_PE', 'J_SQ'
 
     It is assumed that the table contains results selected towards a specific
     target ('PE', or 'SQ'). That is, there must be a most one row for any tuple
@@ -286,7 +286,7 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
         plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['C'],
                        vmin=0.0, vmax=1.0, contour_levels=11,
                        title='concurrence (%s_%s)'%(target, category))
-        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['loss'],
+        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['max loss'],
                        vmin=loss_min, vmax=loss_max,
                        contour_levels=11,
                        title='population loss (%s_%s)'%(target, category))
