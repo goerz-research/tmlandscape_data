@@ -11,54 +11,14 @@ def select_for_stage2(stage1_table, target='PE'):
     fulfills the target (PE or SQ)
 
     stage1_table must contain the columns 'w_2 [GHz]', 'w_c [GHz]', 'category',
-    'C', 'loss', 'E0 [MHz]', and use the stage1 runfolder as an index
+    'J_PE', and 'J_SQ', and use the stage1 runfolder as an index
     """
     field_filter = stage1_table['category'] != 'field_free'
 
-    selector = {
-        'PE': lambda C, C_prev: C > C_prev,
-        'SQ': lambda C, C_prev: C < C_prev,
-    }
-
-    table_grouped = stage1_table[field_filter].groupby(
-                    ['w2 [GHz]', 'wc [GHz]', 'category'], as_index=False)
-
-    def find_best(df):
-        """For the given dataframe (group in stage1_table, with matching w2,
-        wc, category), keep only the row that best fits the target"""
-        index_s = df.index
-        C_s     = df['C']
-        loss_s  = df['loss']
-        E0_s    = df['E0 [MHz]']
-        selected = None
-        for i in xrange(len(index_s)):
-            if selected is None:
-                selected = (index_s[i], C_s[i], loss_s[i], E0_s[i])
-            else:
-                __, C_prev, loss_prev, E0_prev = selected
-                C, loss, E0 = C_s[i], loss_s[i], E0_s[i]
-                if loss_prev > 0.1:
-                    # We only allow loss > 10% if we can't find anything
-                    # better
-                    if loss < loss_prev:
-                        selected = (index_s[i], C, loss, E0)
-                elif loss < 0.1:
-                    rel_diff = abs(C-C_prev) / abs(C)
-                    if rel_diff <= 0.01:
-                        # all things being equal (i.e. less than 1%
-                        # change), we prefer pulses to be around 100 MHz
-                        # amplitude -- not field free (would lead to noisy
-                        # optimized pulses later), and not too large
-                        # (optimization will generally increase amplitude
-                        # even further)
-                        if (abs(E0-100.0) < abs(E0_prev-100.0)):
-                            selected = (index_s[i], C, loss, E0)
-                    else:
-                        if selector[target](C, C_prev):
-                            selected = (index_s[i], C, loss, E0)
-        return df[df.index == selected[0]]
-
-    return table_grouped.apply(find_best).reset_index(level=0,drop=True)
+    return stage1_table[field_filter]\
+        .groupby(['w2 [GHz]', 'wc [GHz]', 'category'], as_index=False)\
+        .apply(lambda df: df[df.index==df['J_%s'%target].idxmin()])\
+        .reset_index(level=0,drop=True)
 
 
 def all_select_runs(dry_run=False):
