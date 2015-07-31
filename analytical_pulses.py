@@ -49,7 +49,34 @@ class NumpyAwareJSONDecoder(json.JSONDecoder):
 
 
 class AnalyticalPulse(object):
-    """Representation of a pulse determined by an analtyical formula"""
+    """Representation of a pulse determined by an analytical formula
+
+    Attributes
+    ----------
+
+    t0: float
+        Starting point of the pulse. When converting an analytical pulse to a
+        numerical pulse, the first pulse value is at t0 + dt/2)
+    nt: integer
+        Number of time grid points. When converting an analytical pulse to a
+        numerical pulse, the pulse will have nt-1 values
+    T: float
+        End point of the pulse. When converting an analytical pulse to a
+        numerical pulse, the last pulse value is at T - dt/2
+    parameters: dict
+        Dictionary of values for the pulse formula
+    time_unit: str
+        Unit in which t0 and T are given
+    ampl_unit: str
+        Unit in which the amplitude is defined. It is assumed that the formula
+        gives values in the correct amplitude.
+    freq_unit: str, None
+        Preferred unit for pulse spectra
+    mode: "real", "complex", or None
+        If None, the mode will be selected depending on the whether the formula
+        returns real or complex values. When set explicitly, the formula *must*
+        give matching values
+    """
     _formulas = {} # formula name => formula callable, see `register_formula()`
     _allowed_args = {}  # formula name => allowed arguments
     _required_args = {} # formula name => required arguments
