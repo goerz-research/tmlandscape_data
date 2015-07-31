@@ -33,7 +33,7 @@ def get_temp_runfolder(runfolder):
     return os.path.join(os.environ['SCRATCH_ROOT'], temp_runfolder)
 
 
-def run_simplex(runfolder, target):
+def run_simplex(runfolder, target, rwa=False):
     """Run a simplex over all the pulse parameters, optimizing towards the
     given target ('PE' or 'SQ')
     Write the optimized pulse out as pulse.dat
@@ -55,22 +55,23 @@ def run_simplex(runfolder, target):
 
     @QDYN.memoize.memoize
     def get_U(x, pulse):
-        """Return the resulting gate for the given pulse
+        """Return the resulting gate for the given pulse. The argument 'x' is
+           not used except as a key for memoize
         """
         pulse.pulse().write(os.path.join(temp_runfolder, 'pulse.guess'))
-        with open(os.path.join(temp_runfolder, 'prop.log'), 'w', 0) as stdout:
-            stdout.write("**** tm_en_gh -- dissipation . \n")
-            sp.call(['tm_en_gh', '--dissipation', '.'], cwd=temp_runfolder,
-                    stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** rewrite_dissipation.py. \n")
-            sp.call(['rewrite_dissipation.py',], cwd=temp_runfolder,
-                    stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** tm_en_logical_eigenstates.py . \n")
-            sp.call(['tm_en_logical_eigenstates.py', '.'],
-                    cwd=temp_runfolder, stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** tm_en_prop . \n")
-            sp.call(['tm_en_prop', '.'], cwd=temp_runfolder, env=env,
-                    stderr=sp.STDOUT, stdout=stdout)
+        with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
+            cmds = []
+            if (rwa):
+                cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+            else:
+                cmds.append(['tm_en_gh', '--dissipation', '.'])
+            cmds.append(['rewrite_dissipation.py',])
+            cmds.append(['tm_en_logical_eigenstates.py', '.'])
+            cmds.append(['tm_en_prop', '.'])
+            for cmd in cmds:
+                stdout.write("**** " + " ".join(cmd) +"\n")
+                sp.call(cmd , cwd=temp_runfolder, env=env,
+                        stderr=sp.STDOUT, stdout=stdout)
         U = QDYN.gate2q.Gate2Q(file=os.path.join(temp_runfolder, 'U.dat'))
         return U
     get_U.load(cachefile)
@@ -136,6 +137,9 @@ def main(argv=None):
     arg_parser = OptionParser(
     usage = "%prog [options] <runfolder>",
     description = __doc__)
+    arg_parser.add_option(
+        '--rwa', action='store_true', dest='rwa',
+        default=False, help="Perform all calculations in the RWA.")
     options, args = arg_parser.parse_args(argv)
     try:
         runfolder = args[1]
@@ -146,7 +150,7 @@ def main(argv=None):
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
     os.path.split
-    run_simplex(runfolder, get_target(runfolder))
+    run_simplex(runfolder, get_target(runfolder), rwa=options.rwa)
 
 
 if __name__ == "__main__":
