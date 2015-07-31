@@ -157,7 +157,7 @@ def generate_runfolders(runs, w2, wc, T, rwa=False):
             from notebook_utils import avg_freq, max_freq_delta
             w_d = avg_freq(analytical_pulse) # GHz
             w_max = max_freq_delta(analytical_pulse, w_d) # GHZ
-            nt_rwa = int(max(1000, 100 * w_max * analytical_pulse.T))
+            nt_rwa = int(max(2000, 100 * w_max * analytical_pulse.T))
             # transform pulse
             analytical_pulse.nt = nt_rwa
             if analytical_pulse._formula != 'field_free':
