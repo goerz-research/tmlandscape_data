@@ -195,15 +195,14 @@ class PlotGrid(object):
             return fig
 
 
-def pulse_config_compat(pulse_json_file, config_file, adapt_config=False):
+def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
     """Ensure that the given config file matches the time grid and RWA
-    parameters for the given analytical pulse file, or raise an AssertionError
+    parameters for the given analytical pulse, or raise an AssertionError
     otherwise. If adapt_config is True, instead of raising an error, try to
     rewrite the config file to match the pulse.
     """
-    analytical_pulse = AnalyticalPulse.read(pulse_json_file)
-    # time grid
     try:
+        # time grid
         config_tgrid, time_unit = tgrid_from_config(config_file,
                                                     pulse_grid=False)
         assert time_unit == analytical_pulse.time_unit, \
