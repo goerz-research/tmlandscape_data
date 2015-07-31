@@ -12,6 +12,10 @@ from matplotlib.colors import LogNorm
 from collections import OrderedDict
 from mgplottools.mpl import set_axis, new_figure
 from matplotlib import rcParams
+from analytical_pulses import AnalyticalPulse
+from QDYN.pulse import tgrid_from_config
+from QDYN.shutil import copy
+import re
 #rcParams['xtick.direction'] = 'in'
 #rcParams['ytick.direction'] = 'in'
 
@@ -189,6 +193,63 @@ class PlotGrid(object):
             plt.show(fig)
         else:
             return fig
+
+
+def pulse_config_compat(pulse_json_file, config_file, adapt_config=False):
+    """Ensure that the given config file matches the time grid and RWA
+    parameters for the given analytical pulse file, or raise an AssertionError
+    otherwise. If adapt_config is True, instead of raising an error, try to
+    rewrite the config file to match the pulse.
+    """
+    analytical_pulse = AnalyticalPulse.read(pulse_json_file)
+    # time grid
+    try:
+        config_tgrid, time_unit = tgrid_from_config(config_file,
+                                                    pulse_grid=False)
+        assert time_unit == analytical_pulse.time_unit, \
+            "time_unit does not match"
+        assert len(config_tgrid) == analytical_pulse.nt, \
+            "nt does not match"
+        assert (abs(config_tgrid[-1] - analytical_pulse.T) < 1.0e-8), \
+            "T does not match"
+        # RWA parameters
+        if 'rwa' in analytical_pulse.formula_name:
+            config_w_d = None
+            with open(config_file) as in_fh:
+                for line in in_fh:
+                    m = re.match(r'w_d\s*=\s*([\d.]+)_MHz', line)
+                    if m:
+                        config_w_d = float(m.group(1))
+            assert config_w_d is not None, "config does not contain w_d"
+            assert 'w_d' in analytical_pulse.parameters
+            pulse_w_d = analytical_pulse.parameters['w_d'] * 1000.0 # MHz
+            assert (abs(config_w_d - pulse_w_d) < 1.0e-8), 'w_d does not match'
+    except AssertionError:
+        if adapt_config:
+            copy(config_file, config_file + '~')
+            T = analytical_pulse.T
+            t0 = analytical_pulse.t0
+            assert t0 == 0.0, "t0 is not 0.0"
+            nt = analytical_pulse.nt
+            unit = analytical_pulse.time_unit
+            with open(config_file+'~') as in_fh, \
+            open(config_file, 'w') as out_fh:
+                for line in in_fh:
+                    line = re.sub(r't_start\s*=\s*[\d.]+(_\w+)?',
+                                 't_start = 0.0', line)
+                    line = re.sub(r't_stop\s*=\s*[\d.]+(_\w+)?',
+                                  't_stop = %.1f_%s' % (T, unit), line)
+                    line = re.sub(r'nt\s*=\s*\d+', 'nt = %d' % nt, line)
+                    if 'rwa' in analytical_pulse.formula_name:
+                        if 'w_d' in line:
+                            pulse_w_d = analytical_pulse.parameters['w_d'] \
+                                        * 1000.0 # MHz
+                            line = re.sub(r'w_d\s*=\s*([\d.]+)_MHz',
+                                          r'w_d = %f_MHz' % pulse_w_d, line)
+                    out_fh.write(line)
+        else:
+            raise
+    return True
 
 
 def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
