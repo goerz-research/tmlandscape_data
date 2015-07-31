@@ -404,6 +404,7 @@ def get_stage1_table(runs):
     loss_s     = pd.Series(index=runfolders)
     E0_s       = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
+    errors = []
     for i, folder in enumerate(runfolders):
         w2, wc, E0, pulse_label = stage1_rf_to_params(folder)
         w2_s[i] = w2
@@ -413,13 +414,13 @@ def get_stage1_table(runs):
         U = QDYN.gate2q.Gate2Q(U_dat)
         if np.isnan(U).any():
             print "ERROR: NaN in %s" % U_dat
-            C = 0.0
-            loss = 1.0
+            errors.append(folder)
+        elif np.max(U.logical_pops()) > 1.0:
+            print "ERROR: increase of norm in %s" % U_dat
+            errors.append(folder)
         else:
-            C = U.closest_unitary().concurrence()
-            loss = U.pop_loss()
-        C_s[i] = C
-        loss_s[i] = loss
+            C_s[i] = U.closest_unitary().concurrence()
+            loss_s[i] = U.pop_loss()
         category_s[i] = re.sub('_\d+$', '_random', pulse_label)
     table = pd.DataFrame(OrderedDict([
                 ('w1 [GHz]', w1_s),
@@ -432,7 +433,7 @@ def get_stage1_table(runs):
                 ('J_PE',     1.0 - C_s + loss_s),
                 ('J_SQ',     C_s + loss_s),
             ]))
-    return table
+    return table[~table.index.isin(errors)]
 
 
 ###############################################################################
