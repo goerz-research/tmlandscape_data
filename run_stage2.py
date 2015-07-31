@@ -63,7 +63,7 @@ def main(argv=None):
     jobs = []
     job_ids = {}
 
-    with open("stage1.log", "a") as log:
+    with open("stage2.log", "a") as log:
         log.write("%s\n" % time.asctime())
         for folder in find_folders(runs, 'stage2'):
             for subfolder in os.listdir(folder):
@@ -89,7 +89,7 @@ def main(argv=None):
                     jobname=jobname, workdir='.', time='200:00:00',
                     nodes=1, threads=4*options.parallel,
                     mem=10000, stdout='%s-%%j.out'%jobname,
-                    epilogue=epilogue(runs))
+                    prologue=prologue(runs), epilogue=epilogue(runs))
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             submitted.append(job.submit(cache_id=cache_id))
