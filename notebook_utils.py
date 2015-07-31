@@ -396,16 +396,17 @@ def get_stage1_table(runs):
 
     The resulting table will have the columns
 
-    'w1 [GHz]': value of left qubit frequency
-    'w2 [GHz]': value of right qubit frequency
-    'wc [GHz]': value of cavity frequency
-    'C'       : Concurrence
-    'loss',   : Loss from the logical subspace
-    'E0 [MHz]': Peak amplitude of pulse
-    'category': 'field_free', '1freq_center', '1freq_random', '2freq_resonant',
-                '2freq_random', '5freq_random'
-    'J_PE'    : Value of functional for perfect-entangler target
-    'J_SQ'    : Value of functional for single-qubit target
+    'w1 [GHz]'  : value of left qubit frequency
+    'w2 [GHz]'  : value of right qubit frequency
+    'wc [GHz]'  : value of cavity frequency
+    'C'         : Concurrence
+    'avg loss', : Average loss from the logical subspace
+    'max loss', : Maximal  loss from the logical subspace
+    'E0 [MHz]'  : Peak amplitude of pulse
+    'category'  : 'field_free', '1freq_center', '1freq_random',
+                  '2freq_resonant', '2freq_random', '5freq_random'
+    'J_PE'      : Value of functional for perfect-entangler target
+    'J_SQ'      : Value of functional for single-qubit target
     """
     runfolders = []
     for folder in find_folders(runs, 'stage1'):
@@ -416,7 +417,8 @@ def get_stage1_table(runs):
     w2_s       = pd.Series(index=runfolders)
     wc_s       = pd.Series(index=runfolders)
     C_s        = pd.Series(index=runfolders)
-    loss_s     = pd.Series(index=runfolders)
+    avg_loss_s = pd.Series(index=runfolders)
+    max_loss_s = pd.Series(index=runfolders)
     E0_s       = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
     errors = []
@@ -435,18 +437,20 @@ def get_stage1_table(runs):
             errors.append(folder)
         else:
             C_s[i] = U.closest_unitary().concurrence()
-            loss_s[i] = U.pop_loss()
+            avg_loss_s[i] = U.pop_loss()
+            max_loss_s[i] = np.max(1.0 - U.logical_pops())
         category_s[i] = re.sub('_\d+$', '_random', pulse_label)
     table = pd.DataFrame(OrderedDict([
                 ('w1 [GHz]', w1_s),
                 ('w2 [GHz]', w2_s/1000.0),
                 ('wc [GHz]', wc_s/1000.0),
                 ('C',        C_s),
-                ('loss',     loss_s),
+                ('avg loss', avg_loss_s),
+                ('max loss', max_loss_s),
                 ('E0 [MHz]', E0_s),
                 ('category', category_s),
-                ('J_PE',     1.0 - C_s + loss_s),
-                ('J_SQ',     C_s + loss_s),
+                ('J_PE',     1.0        - C_s + C_s*max_loss_s),
+                ('J_SQ',     max_loss_s + C_s - C_s*max_loss_s),
             ]))
     return table[~table.index.isin(errors)]
 
@@ -466,16 +470,16 @@ def get_stage2_table(runs):
 
     The resulting table will have the columns
 
-    'w1 [GHz]': value of left qubit frequency
-    'w2 [GHz]': value of right qubit frequency
-    'wc [GHz]': value of cavity frequency
-    'C'       : Concurrence
-    'loss',   : Loss from the logical subspace
-    'category': 'field_free', '1freq_center', '1freq_random', '2freq_resonant',
-                '2freq_random', '5freq_random'
-    'target'  : 'PE', 'SQ'
-    'J_PE'    : Value of functional for perfect-entangler target
-    'J_SQ'    : Value of functional for single-qubit target
+    'w1 [GHz]'  : value of left qubit frequency
+    'w2 [GHz]'  : value of right qubit frequency
+    'wc [GHz]'  : value of cavity frequency
+    'C'         : Concurrence
+    'avg loss', : Loss from the logical subspace
+    'category'  : 'field_free', '1freq_center', '1freq_random',
+                  '2freq_resonant', '2freq_random', '5freq_random'
+    'target'    : 'PE', 'SQ'
+    'J_PE'      : Value of functional for perfect-entangler target
+    'J_SQ'      : Value of functional for single-qubit target
     """
     runfolders = []
     for folder in find_folders(runs, 'stage2'):
@@ -486,7 +490,8 @@ def get_stage2_table(runs):
     w2_s       = pd.Series(index=runfolders)
     wc_s       = pd.Series(index=runfolders)
     C_s        = pd.Series(index=runfolders)
-    loss_s     = pd.Series(index=runfolders)
+    avg_loss_s = pd.Series(index=runfolders)
+    max_loss_s = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
     target_s   = pd.Series('', index=runfolders)
     rx_folder = re.compile(r'''
@@ -505,9 +510,9 @@ def get_stage2_table(runs):
         U_dat = os.path.join(folder, 'U.dat')
         U = QDYN.gate2q.Gate2Q(U_dat)
         C = U.closest_unitary().concurrence()
-        loss = U.pop_loss()
         C_s[i] = C
-        loss_s[i] = loss
+        avg_loss_s[i] = U.pop_loss()
+        max_loss_s[i] = np.max(1.0 - U.logical_pops())
         category_s[i] = m_folder.group('category')
         target_s[i] = m_folder.group('target')
     table = pd.DataFrame(OrderedDict([
@@ -515,11 +520,12 @@ def get_stage2_table(runs):
                 ('w2 [GHz]', w2_s/1000.0),
                 ('wc [GHz]', wc_s/1000.0),
                 ('C',        C_s),
-                ('loss',     loss_s),
+                ('avg loss', avg_loss_s),
+                ('max loss', max_loss_s),
                 ('category', category_s),
                 ('target',   target_s),
-                ('J_PE',     1.0 - C_s + loss_s),
-                ('J_SQ',     C_s + loss_s),
+                ('J_PE',     1.0        - C_s + C_s*max_loss_s),
+                ('J_SQ',     max_loss_s + C_s - C_s*max_loss_s),
             ]))
     return table
 
