@@ -68,10 +68,6 @@ def main(argv=None):
         for folder in find_folders(runs, 'stage2'):
             for subfolder in os.listdir(folder):
                 runfolder = os.path.join(folder, subfolder)
-                if '2freq' in runfolder: # DEBUG
-                    continue # DEBUG
-                if '5freq' in runfolder: # DEBUG
-                    continue # DEBUG
                 if not os.path.isdir(runfolder):
                     continue
                 pulse_opt = os.path.join(runfolder, 'pulse_opt.json')
