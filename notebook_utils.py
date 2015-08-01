@@ -745,12 +745,12 @@ def avg_freq(analytical_pulse):
     p = analytical_pulse.parameters
     if analytical_pulse.formula_name == 'field_free':
         return 6.0 # arbitrary (left qubit frequency)
-    elif analytical_pulse.formula_name == '1freq':
+    elif analytical_pulse.formula_name in ['1freq', '1freq_rwa']:
         return p['w_L']
-    elif analytical_pulse.formula_name == '2freq':
+    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa']:
         s = abs(p['a_1']) + abs(p['a_2'])
         return (p['freq_1'] * abs(p['a_1']) + p['freq_2'] * abs(p['a_2']))/s
-    elif analytical_pulse.formula_name == '5freq':
+    elif analytical_pulse.formula_name in ['5freq', '5freq_rwa']:
         weights = np.sqrt(np.abs(p['a_high'])**2 + np.abs(p['b_high'])**2)
         weights *= 1.0/np.sum(weights)
         return np.sum(weights * p['freq_high'])
@@ -765,11 +765,11 @@ def max_freq_delta(analytical_pulse, w_L):
     p = analytical_pulse.parameters
     if analytical_pulse.formula_name == 'field_free':
         return 0.0
-    elif analytical_pulse.formula_name == '1freq':
+    elif analytical_pulse.formula_name in ['1freq', '1freq_rwa']:
         return abs(w_L - p['w_L'])
-    elif analytical_pulse.formula_name == '2freq':
+    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa']:
         return max(abs(w_L - p['freq_1']),  abs(w_L - p['freq_2']))
-    elif analytical_pulse.formula_name == '5freq':
+    elif analytical_pulse.formula_name in ['5freq', '5freq_rwa']:
         return np.max(np.abs(w_L - p['freq_high']))
     else:
         raise ValueError("Unknown formula name")
