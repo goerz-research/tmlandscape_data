@@ -366,7 +366,7 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
 
 
 def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
-    outfile=None):
+    outfile=None, include_total=True):
     """Plot concurrence and loss for all the categories in the given
     target_table.
 
@@ -386,16 +386,22 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
     """
     plots = PlotGrid()
     table_grouped = target_table.groupby('category')
-    for category in ['1freq_center', '1freq_random', '2freq_resonant',
-    '2freq_random', '5freq_random', 'total']:
-        if category == 'total':
-            table = target_table\
-                    .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'],
-                             as_index=False)\
-                    .apply(lambda df: df.sort('J_%s'%target).head(1))\
-                    .reset_index(level=0, drop=True)
-        else:
-            table = table_grouped.get_group(category)
+    categories = ['1freq_center', '1freq_random', '2freq_resonant',
+    '2freq_random', '5freq_random']
+    if include_total:
+        categories.append('total')
+    for category in categories:
+        try:
+            if category == 'total':
+                table = target_table\
+                        .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'],
+                                as_index=False)\
+                        .apply(lambda df: df.sort('J_%s'%target).head(1))\
+                        .reset_index(level=0, drop=True)
+            else:
+                table = table_grouped.get_group(category)
+        except KeyError:
+            continue
         plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['C'],
                        vmin=0.0, vmax=1.0, contour_levels=11,
                        title='concurrence (%s_%s)'%(target, category))
@@ -411,7 +417,7 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
         plt.close(fig)
 
 
-def plot_quality(t_PE, t_SQ, outfile=None):
+def plot_quality(t_PE, t_SQ, outfile=None, include_total=True):
     """Plot quality obtained from the two given tables.
 
     The tables t_PE and t_SQ must meet the requirements for the get_Q_table
@@ -423,18 +429,24 @@ def plot_quality(t_PE, t_SQ, outfile=None):
     plots.n_cols = 2
     Q_table = get_Q_table(t_PE, t_SQ)
     table_grouped = Q_table.groupby('category')
-    for category in ['1freq_center', '1freq_random', '2freq_resonant',
-    '2freq_random', '5freq_random', 'total']:
-        if category == 'total':
-            table_grouped = Q_table.groupby(
-            ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)
-            table = Q_table\
-                    .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'],
-                             as_index=False)\
-                    .apply(lambda df: df.sort('Q').tail(1))\
-                    .reset_index(level=0, drop=True)
-        else:
-            table = table_grouped.get_group(category)
+    categories = ['1freq_center', '1freq_random', '2freq_resonant',
+    '2freq_random', '5freq_random']
+    if include_total:
+        categories.append('total')
+    for category in categories:
+        try:
+            if category == 'total':
+                table_grouped = Q_table.groupby(
+                ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)
+                table = Q_table\
+                        .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'],
+                                as_index=False)\
+                        .apply(lambda df: df.sort('Q').tail(1))\
+                        .reset_index(level=0, drop=True)
+            else:
+                table = table_grouped.get_group(category)
+        except KeyError:
+            continue
         plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['Q'],
                        vmin=0.0, vmax=1.0, contour_levels=11,
                        title='quality (%s)'%(category,))
@@ -657,8 +669,8 @@ def get_stage2_table(runs):
                 ('max loss', max_loss_s),
                 ('category', category_s),
                 ('target',   target_s),
-                ('J_PE',     1.0        - C_s + C_s*max_loss_s),
-                ('J_SQ',     max_loss_s + C_s - C_s*max_loss_s),
+                ('J_PE',     J_PE(C_s, max_loss_s)),
+                ('J_SQ',     J_SQ(C_s, max_loss_s)),
             ]))
     return table
 
