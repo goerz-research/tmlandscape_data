@@ -11,8 +11,10 @@ import QDYN
 import logging
 import scipy.optimize
 from analytical_pulses import AnalyticalPulse
+from notebook_utils import pulse_config_compat, avg_freq, max_freq_delta, \
+                           J_target
+from QDYNTransmonLib.io import read_params
 logging.basicConfig(level=logging.INFO)
-
 
 def hostname():
     """Return the hostname"""
@@ -33,6 +35,41 @@ def get_temp_runfolder(runfolder):
     return os.path.join(os.environ['SCRATCH_ROOT'], temp_runfolder)
 
 
+def pulse_frequencies_ok(analytical_pulse, system_params):
+    """Return True if all the frequencies in the analytical pulse are within a
+    reasonable interval around the system frequencies, False otherwise"""
+    w_1 = system_params['w_1'] # GHZ
+    w_2 = system_params['w_2'] # GHZ
+    w_c = system_params['w_c'] # GHZ
+    alpha_1 = system_params['alpha_1'] # GHZ
+    alpha_2 = system_params['alpha_2'] # GHZ
+    delta = abs(w_2 - w_1) # GHz
+    p = analytical_pulse.parameters
+    if analytical_pulse.formula_name == 'field_free':
+        return True
+    elif analytical_pulse.formula_name in ['1freq', '1freq_rwa']:
+        if w_1-1.2*abs(alpha_1) <= p['w_L'] <= w_2+0.2*abs(alpha_2):
+            return True
+        if w_c-1.2*delta <= p['w_L'] <= w_c+1.2*delta:
+            return True
+    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa']:
+        for param in ['freq_1', 'freq_2']:
+            if w_1-1.2*abs(alpha_1) <= p[param] <= w_2+0.2*abs(alpha_2):
+                return True
+            if w_c-1.2*delta <= p[param] <= w_c+1.2*delta:
+                return True
+    elif analytical_pulse.formula_name in ['5freq', '5freq_rwa']:
+        for w in p['freq_high']:
+            if w_1-1.2*abs(alpha_1) <= w <= w_2+0.2*abs(alpha_2):
+                return True
+            if w_c-1.2*delta <= w <= w_c+1.2*delta:
+                return True
+    else:
+        raise ValueError("Unknown formula name: %s"
+                         % analytical_pulse.formula_name)
+    return False
+
+
 def run_simplex(runfolder, target, rwa=False):
     """Run a simplex over all the pulse parameters, optimizing towards the
     given target ('PE' or 'SQ')
@@ -42,6 +79,10 @@ def run_simplex(runfolder, target, rwa=False):
     logger = logging.getLogger(__name__)
     cachefile = os.path.join(runfolder, 'get_U.cache')
     config = os.path.join(runfolder, 'config')
+    # We need the system parameters to ensure that the pulse frequencies stay
+    # in a reasonable range. They don't change over the course of the simplex,
+    # so we can get get them once in the beginning.
+    system_params = read_params(config, 'GHz')
     pulse0 = os.path.join(runfolder, 'pulse.json')
     assert os.path.isfile(config), "Runfolder must contain config"
     assert os.path.isfile(pulse0), "Runfolder must contain pulse.json"
@@ -49,7 +90,8 @@ def run_simplex(runfolder, target, rwa=False):
     QDYN.shutil.mkdir(temp_runfolder)
     QDYN.shutil.copy(config, temp_runfolder)
     pulse = AnalyticalPulse.read(pulse0)
-    parameters = [p for p in sorted(pulse.parameters.keys()) if p != 'T']
+    parameters = [p for p in sorted(pulse.parameters.keys())
+                  if p not in ['T', 'w_d']]
     env = os.environ.copy()
     env['OMP_NUM_THREADS'] = '4'
 
@@ -59,6 +101,9 @@ def run_simplex(runfolder, target, rwa=False):
            not used except as a key for memoize
         """
         pulse.pulse().write(os.path.join(temp_runfolder, 'pulse.guess'))
+        # rewrite config file to match pulse (time grid and w_d)
+        pulse_config_compat(pulse, os.path.join(temp_runfolder, 'config'),
+                            adapt_config=True)
         with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
             cmds = []
             if (rwa):
@@ -77,17 +122,25 @@ def run_simplex(runfolder, target, rwa=False):
     get_U.load(cachefile)
 
     def f(x, log_fh=None):
-        """function to minimize"""
+        """function to minimize. Modifies 'pulse' from outer scope based on x
+        array, then call get_U to obtain figure of merit"""
         pulse.array_to_parameters(x, parameters)
+        if ( (not pulse_frequencies_ok(pulse, system_params)) \
+        or (abs(pulse.parameters['E0']) > 1500.0) ):
+            J = 10.0 # infinitely bad
+            logger.info("%s -> %f", pulse.header, J)
+            if log_fh is not None:
+                log_fh.write("%s -> %f\n" % (pulse.header, J))
+                return J
+        if rwa:
+            w_d = avg_freq(pulse) # GHz
+            w_max = max_freq_delta(pulse, w_d) # GHZ
+            pulse.parameters['w_d'] = w_d
+            pulse.nt = int(max(2000, 100 * w_max * pulse.T))
         U = get_U(x, pulse)
         C = U.closest_unitary().concurrence()
-        loss = U.pop_loss()
-        if target == 'PE':
-            J = 1.0 - C + loss
-        elif target == 'SQ':
-            J = C + loss
-        else:
-            raise ValueError("Invalid target: %s" % target)
+        max_loss = np.max(1.0 - U.logical_pops())
+        J = J_target(target, C, max_loss)
         logger.info("%s -> %f", pulse.header, J)
         if log_fh is not None:
             log_fh.write("%s -> %f\n" % (pulse.header, J))
@@ -101,13 +154,14 @@ def run_simplex(runfolder, target, rwa=False):
         with open(os.path.join(runfolder, 'simplex.log'), 'a', 0) as log_fh:
             log_fh.write("%s\n" % time.asctime())
             res = scipy.optimize.minimize(f, x0, method='Nelder-Mead',
-                  options={'maxfev': 100*len(parameters), 'ftol': 0.01},
+                  options={'maxfev': 100*len(parameters), 'xtol': 0.1,
+                           'ftol': 0.05},
                   args=(log_fh, ), callback=dump_cache)
         pulse.array_to_parameters(res.x, parameters)
         get_U.func(res.x, pulse) # memoization disabled
+        QDYN.shutil.copy(os.path.join(temp_runfolder, 'config'), runfolder)
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
         pulse.write(os.path.join(runfolder, 'pulse_opt.json'), pretty=True)
-        QDYN.shutil.copy(os.path.join(temp_runfolder, 'prop.log'), runfolder)
     finally:
         get_U.dump(cachefile)
         QDYN.shutil.rmtree(temp_runfolder)
