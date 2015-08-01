@@ -86,9 +86,9 @@ def main(argv=None):
             jobname = '%s_stage2_%02d' % (
                       runs.replace('.','').replace('/',''), i_job+1)
             job = Job(jobscript=jobscript(commands, options.parallel),
-                    jobname=jobname, workdir='.', time='200:00:00',
+                    jobname=jobname, workdir='.', time='48:00:00',
                     nodes=1, threads=4*options.parallel,
-                    mem=10000, stdout='%s-%%j.out'%jobname,
+                    mem=1000, stdout='%s-%%j.out'%jobname,
                     prologue=prologue(runs), epilogue=epilogue(runs))
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
