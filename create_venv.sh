@@ -15,7 +15,7 @@ mkdir -p ./venv/src
 
 (cd $PREFIX/src/qdyn && git checkout 28d4b4650ec062f00c8ff11179aa276a5cffa9bc && ./configure --prefix=$PREFIX --no-hooks && make install)
 (cd $PREFIX/src/qdynpylib && git checkout master && pip install -e .)
-(cd $PREFIX/src/transmon_oct && git checkout 3b6bed6875dbfbbe49d616717bc3f330cdb2709f && ./configure --prefix=$PREFIX && make install)
+(cd $PREFIX/src/transmon_oct && git checkout 9b30562ad57603a91a4e193c3c80daa05898c938 && ./configure --prefix=$PREFIX && make install)
 (cd $PREFIX/src/QDYNTransmonLib && git checkout master && pip install -e .)
 
 pip install mgplottools
