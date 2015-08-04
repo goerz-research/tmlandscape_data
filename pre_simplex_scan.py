@@ -310,6 +310,9 @@ def propagate(runfolder, rwa, keep=False):
 
     If `keep` is True, keep all files resulting from the propagation in the
     runfolder. Otherwise, only prop.log and U.dat will be kept.
+
+    Assumes the runfolder contains a file pulse.json with the pulse to be
+    propagated and a matching config file.
     """
     logger = logging.getLogger(__name__)
     from analytical_pulses import AnalyticalPulse
