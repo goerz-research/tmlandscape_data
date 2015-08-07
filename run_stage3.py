@@ -35,7 +35,7 @@ def main(argv=None):
         default=10, help="Number of jobs [10]")
     arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
-        default=10, help="Perform a dry run")
+        help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = os.path.join('.', os.path.normpath(args[1]))
