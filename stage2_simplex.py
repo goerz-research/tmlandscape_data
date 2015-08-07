@@ -30,7 +30,7 @@ def get_temp_runfolder(runfolder):
     import uuid
     temp_runfolder = str(uuid.uuid4())
     if 'SLURM_JOB_ID' in os.environ:
-        temp_runfolder = "%s_$s" % (os.environ['SLURM_JOB_ID'], temp_runfolder)
+        temp_runfolder = "%s_%s" % (os.environ['SLURM_JOB_ID'], temp_runfolder)
     return os.path.join(os.environ['SCRATCH_ROOT'], temp_runfolder)
 
 
