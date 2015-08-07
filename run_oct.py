@@ -1,0 +1,257 @@
+#!/usr/bin/env python
+"""Run an Optimiztion on the given runfolder"""
+
+import time
+import sys
+import os
+import re
+import subprocess as sp
+import QDYN
+import logging
+import numpy as np
+from clusterjob.utils import read_file
+from stage2_simplex import get_temp_runfolder
+logging.basicConfig(level=logging.INFO)
+from QDYN.pulse import Pulse
+
+
+def run_oct(runfolder, rwa=False):
+    """Run optimal control on the given runfolder. Adjust lambda_a if
+    necessary. """
+    logger = logging.getLogger(__name__)
+    temp_runfolder = get_temp_runfolder(runfolder)
+    QDYN.shutil.mkdir(temp_runfolder)
+    for file in ['config', 'pulse.guess', 'pulse.dat']:
+        if os.path.isfile(os.path.join(runfolder, file)):
+            QDYN.shutil.copy(os.path.join(runfolder, file), temp_runfolder)
+            logger.debug("%s to temp_runfolder %s", file, temp_runfolder)
+        else:
+            if file in ['config', 'pulse.guess']:
+                raise IOError("%s does not exist in %s" % (file, runfolder))
+    temp_config = os.path.join(temp_runfolder, 'config')
+    temp_pulse_dat = os.path.join(temp_runfolder, 'pulse.dat')
+    logger.info("Starting optimization of %s (in %s)", runfolder,
+                temp_runfolder)
+    with open(os.path.join(runfolder, 'oct.log'), 'w', 0) as stdout:
+        cmds = []
+        if (rwa):
+            cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+        else:
+            cmds.append(['tm_en_gh', '--dissipation', '.'])
+        cmds.append(['rewrite_dissipation.py',])
+        cmds.append(['tm_en_logical_eigenstates.py', '.'])
+        env = os.environ.copy()
+        env['OMP_NUM_THREADS'] = '4'
+        for cmd in cmds:
+            stdout.write("**** " + " ".join(cmd) +"\n")
+            sp.call(cmd , cwd=temp_runfolder, env=env,
+                    stderr=sp.STDOUT, stdout=stdout)
+        # we assume that the value for lambda_a is badly chosen and iterate
+        # over optimizations until we find a good value
+        bad_lambda = True
+        pulse_explosion = False
+        while bad_lambda:
+            oct_proc = sp.Popen(['tm_en_oct', '.'], cwd=temp_runfolder,
+                                env=env, stdout=sp.PIPE)
+            while True: # monitor STDOUT from oct
+                line = oct_proc.stdout.readline()
+                iter = 0
+                g_a_int = 0.0
+                if line != '':
+                    stdout.write(line)
+                    m = re.search(r'^\s*(\d+) \| [\d.E+-]+ \| ([\d.E+-]+) \|',
+                                  line)
+                    if m:
+                        iter = int(m.group(1))
+                        g_a_int = float(m.group(2))
+                    # if the pulse changes in first iteration are too small, we
+                    # lower lambda_a, unless lambda_a was previously adjusted
+                    # to avoid exploding pulse values
+                    if iter == 1 and g_a_int < 1.0e-5 and not pulse_explosion:
+                        logger.debug("pulse update too small")
+                        logger.debug("Kill %d" % oct_proc.pid)
+                        oct_proc.kill()
+                        scale_lambda_a(temp_config, 0.5)
+                        os.unlink(temp_pulse_dat)
+                        break # next bad_lambda loop
+                    # if the pulse update explodes, we increase lambda_a (and
+                    # prevent it from decreasing again)
+                    if ( ('amplitude exceeds maximum value' in line)
+                    or   ('Loss of monotonic convergence' in line)
+                    or   (g_a_int > 1.0e-1)):
+                        pulse_explosion = True
+                        logger.debug("pulse explosion")
+                        logger.debug("Kill %d" % oct_proc.pid)
+                        oct_proc.kill()
+                        scale_lambda_a(temp_config, 1.25)
+                        os.unlink(temp_pulse_dat)
+                        break # next bad_lambda loop
+                else: # line == ''
+                    # OCT finished
+                    bad_lambda = False
+                    break # effectively break from bad_lambda loop
+    for file in ['pulse.dat', 'oct_iters.dat', 'config']:
+        if os.path.isfile(os.path.join(temp_runfolder, file)):
+            QDYN.shutil.copy(os.path.join(temp_runfolder, file), runfolder)
+    QDYN.shutil.rmtree(temp_runfolder)
+    logger.debug("Removed temp_runfolder %s", temp_runfolder)
+    logger.info("Finished optimization")
+
+
+def scale_lambda_a(config, factor):
+    """Scale lambda_a in the given config file with the given factor"""
+    QDYN.shutil.copy(config, '%s~'%config)
+    logger = logging.getLogger(__name__)
+    lambda_a_pt = r'oct_lambda_a\s*=\s*([\deE.+-]+)'
+    with open('%s~'%config) as in_fh, open(config, 'w') as out_fh:
+        lambda_a = None
+        for line in in_fh:
+            m = re.search(lambda_a_pt, line)
+            if m:
+                lambda_a = float(m.group(1))
+                lambda_a_new = lambda_a * factor
+                logger.info("%s: lambda_a: %.2e -> %.2e"
+                            % (config, lambda_a, lambda_a_new))
+                line = re.sub(lambda_a_pt,
+                              'oct_lambda_a = %.2e'%(lambda_a_new), line)
+            out_fh.write(line)
+        if lambda_a is None:
+            raise ValueError("no lambda_a in %s" % config)
+
+
+def propagate(runfolder, rwa, keep=False):
+    """
+    Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
+
+    If `keep` is True, keep all files resulting from the propagation in the
+    runfolder. Otherwise, only prop.log and U.dat will be kept.
+
+    Assumes the runfolder contains a file pulse.dat or pulse.guess with the
+    pulse to be propagated (pulse.guess is only used if no pulse.dat exists).
+    The folder must also contain a matching config file.
+    """
+    logger = logging.getLogger(__name__)
+
+    gatefile = os.path.join(runfolder, 'U.dat')
+    config = os.path.join(runfolder, 'config')
+    if re.search('prop_guess\s*=\s*T', read_file(config)):
+        raise ValueError("prop_guess must be set to F in %s" % config)
+    pulse_dat = os.path.join(runfolder, 'pulse.dat')
+    pulse_guess = os.path.join(runfolder, 'pulse.guess')
+    if not os.path.isfile(gatefile):
+        try:
+            assert os.path.isfile(config), \
+            "No config file in runfolder %s" % runfolder
+            temp_runfolder = get_temp_runfolder(runfolder)
+            logger.debug("Prepararing temp_runfolder %s", temp_runfolder)
+            QDYN.shutil.mkdir(temp_runfolder)
+            QDYN.shutil.copy(pulse_guess, temp_runfolder)
+            if os.path.isfile(pulse_dat):
+                QDYN.shutil.copy(pulse_dat, temp_runfolder)
+            else:
+                QDYN.shutil.copy(pulse_guess,
+                                 os.path.join(temp_runfolder, 'pulse.dat'))
+            QDYN.shutil.copy(config, temp_runfolder)
+            logger.info("Propagating %s", runfolder)
+            env = os.environ.copy()
+            env['OMP_NUM_THREADS'] = '4'
+            start = time.time()
+            with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
+                cmds = []
+                if (rwa):
+                    cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+                else:
+                    cmds.append(['tm_en_gh', '--dissipation', '.'])
+                cmds.append(['rewrite_dissipation.py',])
+                cmds.append(['tm_en_logical_eigenstates.py', '.'])
+                cmds.append(['tm_en_prop', '.'])
+                for cmd in cmds:
+                    stdout.write("**** " + " ".join(cmd) +"\n")
+                    sp.call(cmd , cwd=temp_runfolder, env=env,
+                            stderr=sp.STDOUT, stdout=stdout)
+            QDYN.shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
+            end = time.time()
+            logger.info("Finished propagating %s (%d seconds)",
+                         runfolder, end-start)
+        except Exception as e:
+            logger.error(e)
+        finally:
+            if keep:
+                sp.call(['rsync', '-a', '%s/'%temp_runfolder, runfolder])
+            QDYN.shutil.rmtree(temp_runfolder)
+    else:
+        logger.info("Propagating of %s skipped (gatefile already exists)",
+                     runfolder)
+    U = None
+    try:
+        U = QDYN.gate2q.Gate2Q(file=gatefile)
+        if np.isnan(U).any():
+            logger.error("gate %s contains NaN", gatefile)
+    except IOError as e:
+        logger.error(e)
+    return U
+
+
+def get_iter_stop(config):
+    """Extract the value of iter_stop from the given config file"""
+    with open(config) as in_fh:
+        for line in in_fh:
+            m = re.search(r'iter_stop\s*=\s*(\d+)', line)
+            if m:
+                return int(m.group(1))
+    return None
+
+
+def main(argv=None):
+    """Main routine"""
+    from optparse import OptionParser
+    logger = logging.getLogger(__name__)
+    if argv is None:
+        argv = sys.argv
+    arg_parser = OptionParser(
+    usage = "%prog [options] <runfolder>",
+    description = __doc__)
+    arg_parser.add_option(
+        '--rwa', action='store_true', dest='rwa',
+        default=False, help="Perform all calculations in the RWA.")
+    arg_parser.add_option(
+        '--continue', action='store_true', dest='cont',
+        default=False, help="Continue from an existing pulse.dat")
+    options, args = arg_parser.parse_args(argv)
+    try:
+        runfolder = args[1]
+        if not os.path.isdir(runfolder):
+            arg_parser.error("runfolder %s does not exist"%runfolder)
+    except IndexError:
+        arg_parser.error("runfolder be given")
+    assert 'SCRATCH_ROOT' in os.environ, \
+    "SCRATCH_ROOT environment variable must be defined"
+    iter_stop = get_iter_stop(os.path.join(runfolder, 'config'))
+    pulse_file = (os.path.join(runfolder, 'pulse.dat'))
+    if os.path.isfile(pulse_file):
+        pulse = Pulse(pulse_file)
+        if pulse.oct_iter <= 1:
+            os.unlink(pulse_file)
+            logger.debug("pulse.dat in %s removed as invalid", runfolder)
+        else:
+            if pulse.oct_iter == iter_stop:
+                logger.info("OCT for %s already complete", runfolder)
+            else:
+                if options.cont:
+                    logger.info("OCT for %s continues from existing "
+                                 "pulse.dat", runfolder)
+                else:
+                    os.unlink(pulse_file)
+                    logger.debug("pulse.dat in %s removed as incomplete",
+                                runfolder)
+    if not os.path.isfile(pulse_file):
+        if os.path.isfile(os.path.join(runfolder, 'U.dat')):
+            # if we're doing a new oct, we should delete U.dat
+            os.unlink(os.path.join(runfolder, 'U.dat'))
+        run_oct(runfolder, rwa=options.rwa)
+    if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
+        propagate(runfolder, rwa=options.rwa)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
