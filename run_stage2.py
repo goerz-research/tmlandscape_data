@@ -63,7 +63,7 @@ def main(argv=None):
     jobs = []
     job_ids = {}
 
-    with open("stage2.log", "a") as log:
+    with open(os.path.join(runs, "stage2.log"), "a") as log:
         log.write("%s\n" % time.asctime())
         for folder in find_folders(runs, 'stage2'):
             for subfolder in os.listdir(folder):
