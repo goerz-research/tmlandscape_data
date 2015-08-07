@@ -58,7 +58,7 @@ def main(argv=None):
         for folder in find_folders(runs, 'stage3'):
             for subfolder in os.listdir(folder):
                 runfolder = os.path.join(folder, subfolder)
-                command = './run_oct.py {rwa} {runfolder}'\
+                command = './run_oct.py --continue {rwa} {runfolder}'\
                           .format(rwa=rwa, runfolder=runfolder)
                 jobs.append(command)
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
