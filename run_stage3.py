@@ -69,7 +69,7 @@ def main(argv=None):
             job = Job(jobscript=jobscript(commands, options.parallel),
                     jobname=jobname, workdir='.', time='48:00:00',
                     nodes=1, threads=4*options.parallel,
-                    mem=1000, stdout='%s-%%j.out'%jobname,
+                    mem=10000, stdout='%s-%%j.out'%jobname,
                     prologue=prologue(runs), epilogue=epilogue(runs))
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
