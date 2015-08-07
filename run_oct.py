@@ -86,6 +86,14 @@ def run_oct(runfolder, rwa=False):
                         scale_lambda_a(temp_config, 1.25)
                         os.unlink(temp_pulse_dat)
                         break # next bad_lambda loop
+                    # if there are no significant pulse changes anymore, we
+                    # stop the optimization prematurely
+                    if iter > 10 and g_a_int < 1.0e-8:
+                        logger.debug("pulse update insignificant (converged)")
+                        logger.debug("Kill %d" % oct_proc.pid)
+                        oct_proc.kill()
+                        bad_lambda = False
+                        break # effectively break from bad_lambda loop
                 else: # line == ''
                     # OCT finished
                     bad_lambda = False
