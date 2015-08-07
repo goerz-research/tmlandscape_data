@@ -366,7 +366,7 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
 
 
 def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
-    outfile=None, include_total=True):
+    outfile=None, include_total=True, categories=None):
     """Plot concurrence and loss for all the categories in the given
     target_table.
 
@@ -383,11 +383,18 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
     value of 'J_SQ' for 'SQ'.
 
     If outfile is given, write to outfile instead of showing plot.
+
+    If include_total is True, show the best values from any category in a panel
+
+    By default, the list of categories are those used in stage2 (simplex
+    optimization). The list of categories may be overrriden by passing it to
+    this routine.
     """
     plots = PlotGrid()
     table_grouped = target_table.groupby('category')
-    categories = ['1freq_center', '1freq_random', '2freq_resonant',
-    '2freq_random', '5freq_random']
+    if categories is None:
+        categories = ['1freq_center', '1freq_random', '2freq_resonant',
+        '2freq_random', '5freq_random']
     if include_total:
         categories.append('total')
     for category in categories:
@@ -706,6 +713,80 @@ def get_Q_table(t_PE, t_SQ):
         ], axis=1).reset_index()
     Q_table['Q'] = 1 - 0.5*(Q_table['J_PE'] + Q_table['J_SQ'])
     return Q_table
+
+
+###############################################################################
+#  Stage 3 Analysis
+###############################################################################
+
+
+def get_stage3_table(runs):
+    """Summarize the results of the stage3 calculations in a DataFrame table
+
+    Assumes that the runfolder structure is
+    [runs]/w2_[w2]MHz_wc_[wc]MHz/stage3/[target]_[category]/
+
+    Each runfolder must contain a file U.dat (resulting from
+    propagation of pulse_opt.json)
+
+    The resulting table will have the columns
+
+    'w1 [GHz]'  : value of left qubit frequency
+    'w2 [GHz]'  : value of right qubit frequency
+    'wc [GHz]'  : value of cavity frequency
+    'C'         : Concurrence
+    'avg loss', : Loss from the logical subspace
+    'category'  : '1freq', '2freq', '5freq'
+    'target'    : 'PE', 'SQ'
+    'J_PE'      : Value of functional for perfect-entangler target
+    'J_SQ'      : Value of functional for single-qubit target
+    """
+    runfolders = []
+    for folder in find_folders(runs, 'stage2'):
+        for subfolder in find_leaf_folders(folder):
+            if os.path.isfile(os.path.join(subfolder, 'U.dat')):
+                runfolders.append(subfolder)
+    w1_s       = pd.Series(6.0, index=runfolders)
+    w2_s       = pd.Series(index=runfolders)
+    wc_s       = pd.Series(index=runfolders)
+    C_s        = pd.Series(index=runfolders)
+    avg_loss_s = pd.Series(index=runfolders)
+    max_loss_s = pd.Series(index=runfolders)
+    category_s = pd.Series('', index=runfolders)
+    target_s   = pd.Series('', index=runfolders)
+    rx_folder = re.compile(r'''
+                \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
+                \/stage2
+                \/(?P<target>PE|SQ)
+                  _(?P<category>1freq|2freq|5freq)
+                ''', re.X)
+    for i, folder in enumerate(runfolders):
+        m_folder = rx_folder.search(folder)
+        if not m_folder:
+            raise ValueError("%s does not match rx_folder" % folder)
+        w2_s[i] = float(m_folder.group('w2'))
+        wc_s[i] = float(m_folder.group('wc'))
+        U_dat = os.path.join(folder, 'U.dat')
+        U = QDYN.gate2q.Gate2Q(U_dat)
+        C = U.closest_unitary().concurrence()
+        C_s[i] = C
+        avg_loss_s[i] = U.pop_loss()
+        max_loss_s[i] = np.max(1.0 - U.logical_pops())
+        category_s[i] = m_folder.group('category')
+        target_s[i] = m_folder.group('target')
+    table = pd.DataFrame(OrderedDict([
+                ('w1 [GHz]', w1_s),
+                ('w2 [GHz]', w2_s/1000.0),
+                ('wc [GHz]', wc_s/1000.0),
+                ('C',        C_s),
+                ('avg loss', avg_loss_s),
+                ('max loss', max_loss_s),
+                ('category', category_s),
+                ('target',   target_s),
+                ('J_PE',     J_PE(C_s, max_loss_s)),
+                ('J_SQ',     J_SQ(C_s, max_loss_s)),
+            ]))
+    return table
 
 
 ###############################################################################
