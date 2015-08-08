@@ -424,20 +424,24 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
         plt.close(fig)
 
 
-def plot_quality(t_PE, t_SQ, outfile=None, include_total=True):
+def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
+    categories=None):
     """Plot quality obtained from the two given tables.
 
     The tables t_PE and t_SQ must meet the requirements for the get_Q_table
     routine.
 
     If outfile is given, write to outfile instead of showing plot.
+
+    If not given, the categories default to those used in stage2
     """
     plots = PlotGrid()
     plots.n_cols = 2
     Q_table = get_Q_table(t_PE, t_SQ)
     table_grouped = Q_table.groupby('category')
-    categories = ['1freq_center', '1freq_random', '2freq_resonant',
-    '2freq_random', '5freq_random']
+    if categories is None:
+        categories = ['1freq_center', '1freq_random', '2freq_resonant',
+        '2freq_random', '5freq_random']
     if include_total:
         categories.append('total')
     for category in categories:
@@ -742,7 +746,7 @@ def get_stage3_table(runs):
     'J_SQ'      : Value of functional for single-qubit target
     """
     runfolders = []
-    for folder in find_folders(runs, 'stage2'):
+    for folder in find_folders(runs, 'stage3'):
         for subfolder in find_leaf_folders(folder):
             if os.path.isfile(os.path.join(subfolder, 'U.dat')):
                 runfolders.append(subfolder)
@@ -756,7 +760,7 @@ def get_stage3_table(runs):
     target_s   = pd.Series('', index=runfolders)
     rx_folder = re.compile(r'''
                 \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
-                \/stage2
+                \/stage3
                 \/(?P<target>PE|SQ)
                   _(?P<category>1freq|2freq|5freq)
                 ''', re.X)
