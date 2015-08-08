@@ -355,8 +355,14 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
             if contour_labels:
                 ax_contour.clabel(contour, fontsize='smaller', lineine=1,
                                 fmt='%g')
-        cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
-                                      vmax=vmax, vmin=vmin)
+        if vmin < 0.0 and vmax > 0.0:
+            # divergent colormap
+            cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.RdBu,
+                                        vmax=vmax, vmin=vmin)
+        else:
+            # sequential colormap
+            cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
+                                        vmax=vmax, vmin=vmin)
     ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
                        linewidth=0.1*scatter_size, zorder=10)
     ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
