@@ -303,7 +303,7 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
 
 def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     logscale=False, vmin=None, vmax=None, contour_levels=11,
-    contour_labels=False, scatter_size=5):
+    contour_labels=False, scatter_size=5, clip=True):
     """Render the given data onto the given axes
 
     Parameters
@@ -333,10 +333,14 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         If True, add textual labels to the contour lines
     scatter_size: float
         Size of the scatter points
+    clip: boolean
+        If True, clip val to the range [vmin:vmax]
     """
     x = np.linspace(w_2.min(), w_2.max(), density)
     y = np.linspace(w_c.min(), w_c.max(), density)
     z = griddata(w_2, w_c, val, x, y, interp='linear')
+    if clip:
+        np.clip(z, vmin, vmax, out=z)
     if vmin is None:
         vmin=abs(z).min()
     if vmax is None:
@@ -357,7 +361,7 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
                                 fmt='%g')
         if vmin < 0.0 and vmax > 0.0:
             # divergent colormap
-            cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.RdBu,
+            cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.RdYlBu_r,
                                         vmax=vmax, vmin=vmin)
         else:
             # sequential colormap
@@ -371,13 +375,17 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     fig.colorbar(cmesh, cax=ax_cbar)
 
 
-def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
-    outfile=None, include_total=True, categories=None):
+def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
+    loss_min=0.0, loss_max=1.0, outfile=None, include_total=True,
+    categories=None, show_oct_improvement=False, scale=1.0, logscale=False):
     """Plot concurrence and loss for all the categories in the given
     target_table.
 
     The target_table must contain the columns 'w1 [GHz]', 'w2 [GHz]',
     'wc [GHz]', 'C', 'max loss', 'category', 'J_PE', 'J_SQ'
+
+    If show_oct_improvement is True, is must also contain the columns
+    'C (guess)', 'max loss (guess)'
 
     It is assumed that the table contains results selected towards a specific
     target ('PE', or 'SQ'). That is, there must be a most one row for any tuple
@@ -395,6 +403,12 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
     By default, the list of categories are those used in stage2 (simplex
     optimization). The list of categories may be overrriden by passing it to
     this routine.
+
+    If show_oct_imrpovment is True, show the improvement made by OCT are shown
+    instead of the actual values.
+
+    The scale factor scales all shown values. If given, it will usually take
+    the value -1
     """
     plots = PlotGrid()
     table_grouped = target_table.groupby('category')
@@ -402,7 +416,8 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
         categories = ['1freq_center', '1freq_random', '2freq_resonant',
         '2freq_random', '5freq_random']
     if include_total:
-        categories.append('total')
+        if not show_oct_improvement:
+            categories.append('total')
     for category in categories:
         try:
             if category == 'total':
@@ -415,13 +430,44 @@ def plot_C_loss(target_table, target='PE', loss_min=0.0, loss_max=1.0,
                 table = table_grouped.get_group(category)
         except KeyError:
             continue
-        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['C'],
-                       vmin=0.0, vmax=1.0, contour_levels=11,
-                       title='concurrence (%s_%s)'%(target, category))
-        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['max loss'],
-                       vmin=loss_min, vmax=loss_max,
-                       contour_levels=11,
-                       title='population loss (%s_%s)'%(target, category))
+        if show_oct_improvement:
+            if target == 'SQ':
+                title = 'decrease C (%s_%s)'%(target, category)
+                if scale != 1.0:
+                    title += ' scaled by %g' % scale
+                plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+                        scale*(table['C (guess)']-table['C']),
+                        vmin=C_min, vmax=C_max, contour_levels=11,
+                        logscale=logscale, title=title)
+            else:
+                title = 'increase C (%s_%s)'%(target, category)
+                if scale != 1.0:
+                    title += ' scaled by %g' % scale
+                plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+                        scale*(table['C']-table['C (guess)']),
+                        vmin=C_min, vmax=C_max, contour_levels=11,
+                        logscale=logscale, title=title)
+            title = 'decrease pop loss (%s_%s)'%(target, category)
+            if scale != 1.0:
+                title += ' scaled by %g' % scale
+            plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+                       scale*(table['max loss (guess)']-table['max loss']),
+                       logscale=logscale, vmin=loss_min, vmax=loss_max,
+                       contour_levels=11, title=title)
+        else:
+            title = 'concurrence (%s_%s)'%(target, category)
+            if scale != 1.0:
+                title += ' scaled by %g' % scale
+            plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+                        scale*table['C'], vmin=C_min, vmax=C_max,
+                        contour_levels=11, logscale=logscale, title=title)
+            title='population loss (%s_%s)'%(target, category)
+            if scale != 1.0:
+                title += ' scaled by %g' % scale
+            plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+                        scale*table['max loss'], vmin=loss_min, vmax=loss_max,
+                        contour_levels=11, logscale=logscale, title=title)
+
     if outfile is None:
         plots.plot(quiet=True, show=True)
     else:
@@ -729,6 +775,24 @@ def get_Q_table(t_PE, t_SQ):
 #  Stage 3 Analysis
 ###############################################################################
 
+def get_stage3_input_table(runs):
+    from select_for_stage3 import select_for_stage3
+    stage2_table = get_stage2_table(runs)
+    stage3_input_table = {}
+    for target in ['PE', 'SQ']:
+        stage3_input_table[target] \
+        = select_for_stage3(stage2_table, target=target)
+        stage3_runfolders = pd.Series(index=stage3_input_table[target].index)
+        for stage2_runfolder, row in stage3_input_table[target].iterrows():
+            stage3_runfolder = os.path.join(runs,
+                                'w2_%dMHz_wc_%dMHz' % (row['w2 [GHz]']*1000,
+                                                    row['wc [GHz]']*1000),
+                                'stage3',
+                                '%s_%s' % (target, row['category']))
+            stage3_runfolders[stage2_runfolder] = stage3_runfolder
+        stage3_input_table[target].set_index(stage3_runfolders, inplace=True)
+    return stage3_input_table['PE'].append(stage3_input_table['SQ'])
+
 
 def get_stage3_table(runs):
     """Summarize the results of the stage3 calculations in a DataFrame table
@@ -741,15 +805,21 @@ def get_stage3_table(runs):
 
     The resulting table will have the columns
 
-    'w1 [GHz]'  : value of left qubit frequency
-    'w2 [GHz]'  : value of right qubit frequency
-    'wc [GHz]'  : value of cavity frequency
-    'C'         : Concurrence
-    'avg loss', : Loss from the logical subspace
-    'category'  : '1freq', '2freq', '5freq'
-    'target'    : 'PE', 'SQ'
-    'J_PE'      : Value of functional for perfect-entangler target
-    'J_SQ'      : Value of functional for single-qubit target
+    'w1 [GHz]'         : value of left qubit frequency
+    'w2 [GHz]'         : value of right qubit frequency
+    'wc [GHz]'         : value of cavity frequency
+    'C'                : Concurrence
+    'avg loss',        : average loss from the logical subspace
+    'max loss',        : max loss from the logical subspace
+    'category'         : '1freq', '2freq', '5freq'
+    'target'           : 'PE', 'SQ'
+    'J_PE'             : Value of functional for perfect-entangler target
+    'J_SQ'             : Value of functional for single-qubit target
+    'C (guess)'        : Concurrence of guess pulse
+    'avg loss (guess)' : Avergage loss for guess pulse
+    'max loss (guess)' : Max loss for guess pulse
+    'J_PE (guess)'     : Value of J_PE for guess pulse
+    'J_SQ (guess)'     : Value of J_SQ for guess pulse
     """
     runfolders = []
     for folder in find_folders(runs, 'stage3'):
@@ -796,6 +866,12 @@ def get_stage3_table(runs):
                 ('J_PE',     J_PE(C_s, max_loss_s)),
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
             ]))
+    input_table = get_stage3_input_table(runs)
+    table['C (guess)']        = input_table['C']
+    table['avg loss (guess)'] = input_table['avg loss']
+    table['max loss (guess)'] = input_table['max loss']
+    table['J_PE (guess)']     = input_table['J_PE']
+    table['J_SQ (guess)']     = input_table['J_SQ']
     return table
 
 
