@@ -782,6 +782,8 @@ def get_stage3_input_table(runs):
     for target in ['PE', 'SQ']:
         stage3_input_table[target] \
         = select_for_stage3(stage2_table, target=target)
+        stage3_input_table[target]['stage2 runfolder'] \
+        = stage3_input_table[target].index
         stage3_runfolders = pd.Series(index=stage3_input_table[target].index)
         for stage2_runfolder, row in stage3_input_table[target].iterrows():
             stage3_runfolder = os.path.join(runs,
@@ -815,6 +817,7 @@ def get_stage3_table(runs):
     'target'           : 'PE', 'SQ'
     'J_PE'             : Value of functional for perfect-entangler target
     'J_SQ'             : Value of functional for single-qubit target
+    'stage2 runfolder' : Runfolder from which guess pulse originates
     'C (guess)'        : Concurrence of guess pulse
     'avg loss (guess)' : Avergage loss for guess pulse
     'max loss (guess)' : Max loss for guess pulse
@@ -867,12 +870,69 @@ def get_stage3_table(runs):
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
             ]))
     input_table = get_stage3_input_table(runs)
+    table['stage2 runfolder'] = input_table['stage2 runfolder']
     table['C (guess)']        = input_table['C']
     table['avg loss (guess)'] = input_table['avg loss']
     table['max loss (guess)'] = input_table['max loss']
     table['J_PE (guess)']     = input_table['J_PE']
     table['J_SQ (guess)']     = input_table['J_SQ']
     return table
+
+
+def add_1freq_wL_E0(table, runfolder_col=None, pulse_file='pulse_opt.json'):
+    """Return a copy of table, filtered to category starting with '1freq', with
+    two added columns ('E0', 'w_L')"""
+    E0s = pd.Series(index=table.index)
+    wLs = pd.Series(index=table.index) - table['w1 [GHz]']
+    table = table[table['category']\
+            .isin(['1freq', '1freq_center', '1freq_random'])].copy()
+    runfolders = table.index
+    if runfolder_col is not None:
+        runfolders = table[runfolder_col]
+    else:
+        runfolders = pd.Series(table.index, index=table.index)
+    for i, row in table.iterrows():
+        runfolder = runfolders[i]
+        p = AnalyticalPulse.read(os.path.join(runfolder, pulse_file))
+        E0s[i] = p.parameters['E0']
+        wLs[i] = p.parameters['w_L']
+    table['E0'] = E0s
+    table['w_L'] = wLs
+    return table
+
+
+def plot_wL_E0(stage3_table, outfile=None):
+    table = add_1freq_wL_E0(stage3_table, runfolder_col='stage2 runfolder',
+                            pulse_file='pulse_opt.json')
+    plots = PlotGrid()
+    w_center = 0.5*(table['w1 [GHz]'] + table['w2 [GHz]'])
+    contours = []
+    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+            table['w_L'] - table['w1 [GHz]'],
+            vmin=-1.0, vmax=1.0, contour_levels=contours,
+            logscale=False, title="w_L - w1 (GHz)")
+    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+            table['w_L'] - table['w2 [GHz]'],
+            vmin=-1.0, vmax=1.0, contour_levels=contours,
+            logscale=False, title="w_L - w2 (GHz)")
+    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+            table['w_L'] - w_center,
+            vmin=-1.0, vmax=1.0, contour_levels=contours,
+            logscale=False, title="w_L - w_center (GHz)")
+    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+            table['w_L'] - table['wc [GHz]'],
+            vmin=-1.0, vmax=1.0, contour_levels=contours,
+            logscale=False, title="w_L - wc (GHz)")
+    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+            table['E0'],
+            vmin=0, vmax=1500.0, contour_levels=16,
+            logscale=False, title="E0 (MHz)")
+    if outfile is None:
+        plots.plot(quiet=True, show=True)
+    else:
+        fig = plots.plot(quiet=True, show=False)
+        fig.savefig(outfile)
+        plt.close(fig)
 
 
 ###############################################################################
