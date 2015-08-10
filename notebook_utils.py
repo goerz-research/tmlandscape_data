@@ -377,7 +377,8 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
 
 def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
     loss_min=0.0, loss_max=1.0, outfile=None, include_total=True,
-    categories=None, show_oct_improvement=False, scale=1.0, logscale=False):
+    categories=None, show_oct_improvement=False, scale=1.0, logscale=False,
+    concurrence_error=False):
     """Plot concurrence and loss for all the categories in the given
     target_table.
 
@@ -409,6 +410,9 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
 
     The scale factor scales all shown values. If given, it will usually take
     the value -1
+
+    If concurrence_error is True, show 1-C instead of C (ignored for
+    show_oct_improvement)
     """
     plots = PlotGrid()
     table_grouped = target_table.groupby('category')
@@ -455,12 +459,20 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
                        logscale=logscale, vmin=loss_min, vmax=loss_max,
                        contour_levels=11, title=title)
         else:
-            title = 'concurrence (%s_%s)'%(target, category)
+            if concurrence_error:
+                title = 'concurrence error (%s_%s)'%(target, category)
+            else:
+                title = 'concurrence (%s_%s)'%(target, category)
             if scale != 1.0:
                 title += ' scaled by %g' % scale
-            plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
-                        scale*table['C'], vmin=C_min, vmax=C_max,
-                        contour_levels=11, logscale=logscale, title=title)
+            if concurrence_error:
+                plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+                            scale*(1-table['C']), vmin=C_min, vmax=C_max,
+                            contour_levels=11, logscale=logscale, title=title)
+            else:
+                plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
+                            scale*table['C'], vmin=C_min, vmax=C_max,
+                            contour_levels=11, logscale=logscale, title=title)
             title='population loss (%s_%s)'%(target, category)
             if scale != 1.0:
                 title += ' scaled by %g' % scale
