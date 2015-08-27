@@ -829,6 +829,9 @@ def get_stage3_table(runs):
     'target'           : 'PE', 'SQ'
     'J_PE'             : Value of functional for perfect-entangler target
     'J_SQ'             : Value of functional for single-qubit target
+    'c1'               : Weyl chamber coordinate c_1 for optimized gate (pi)
+    'c2'               : Weyl chamber coordinate c_2 for optimized gate (pi)
+    'c3'               : Weyl chamber coordinate c_3 for optimized gate (pi)
     'stage2 runfolder' : Runfolder from which guess pulse originates
     'C (guess)'        : Concurrence of guess pulse
     'avg loss (guess)' : Avergage loss for guess pulse
@@ -849,6 +852,9 @@ def get_stage3_table(runs):
     max_loss_s = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
     target_s   = pd.Series('', index=runfolders)
+    c1_s       = pd.Series(index=runfolders)
+    c2_s       = pd.Series(index=runfolders)
+    c3_s       = pd.Series(index=runfolders)
     rx_folder = re.compile(r'''
                 \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
                 \/stage3
@@ -863,6 +869,10 @@ def get_stage3_table(runs):
         wc_s[i] = float(m_folder.group('wc'))
         U_dat = os.path.join(folder, 'U.dat')
         U = QDYN.gate2q.Gate2Q(U_dat)
+        c1, c2, c3 = U.closest_unitary().weyl_coordinates()
+        c1_s[i] = c1
+        c2_s[i] = c3
+        c3_s[i] = c3
         C = U.closest_unitary().concurrence()
         C_s[i] = C
         avg_loss_s[i] = U.pop_loss()
@@ -880,6 +890,9 @@ def get_stage3_table(runs):
                 ('target',   target_s),
                 ('J_PE',     J_PE(C_s, max_loss_s)),
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
+                ('c1',       c1_s),
+                ('c2',       c2_s),
+                ('c3',       c3_s),
             ]))
     input_table = get_stage3_input_table(runs)
     table['stage2 runfolder'] = input_table['stage2 runfolder']
