@@ -11,4 +11,9 @@ oct_pulses
 memoize.dump
 /test_constraint/CPH0013_prop/
 /.clusterjob_cache/
-/runs/
+/mycert.pem
+/check_RWA/
+/runs_100_RWA/
+/runs_200_LAB/
+/runs_200_RWA/
+/stage1_01.slr
