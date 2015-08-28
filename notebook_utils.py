@@ -871,7 +871,7 @@ def get_stage3_table(runs):
         U = QDYN.gate2q.Gate2Q(U_dat)
         c1, c2, c3 = U.closest_unitary().weyl_coordinates()
         c1_s[i] = c1
-        c2_s[i] = c3
+        c2_s[i] = c2
         c3_s[i] = c3
         C = U.closest_unitary().concurrence()
         C_s[i] = C
