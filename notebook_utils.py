@@ -1094,14 +1094,16 @@ def max_freq_delta(analytical_pulse, w_L):
 
 
 def prop_RWA(config_file, pulse_json, outfolder, runfolder=None):
-    """Given a config file and pulse file in the lab frame, modify them to be
-    in the RWA and propagate. The propagation will take place in the given
-    runfolder. If no runfolder is given, create a temporary runfolder which
-    will be deleted after the propagation has finished. The file U.dat
-    resulting from the propagation is copied to the given outfolder, as
-    U_RWA.dat. Also, a file 'rwa_info.dat' is also written to the outfolder,
+    """Given a config file and pulse file in the lab frame, (temporarily)
+    modify them to be in the RWA and propagate. The propagation will take place
+    in the given runfolder. If no runfolder is given, create a temporary
+    runfolder which will be deleted after the propagation has finished. The
+    file U.dat resulting from the propagation is copied to the given outfolder,
+    as U_RWA.dat. Also, a file 'rwa_info.dat' is also written to the outfolder,
     detailing some of the parameters of the rotating frame. The outfolder may
-    be identical to the runfolder.
+    be identical to the runfolder. However, runfolder should not be the folder
+    in which config_file and pulse_json are located, as these files would be
+    overwritten with the RWA version otherwise.
     """
     import os
     import re
@@ -1153,25 +1155,98 @@ def prop_RWA(config_file, pulse_json, outfolder, runfolder=None):
         pulse.write(join(temp_runfolder, 'pulse.guess'))
         start = time.time()
         with open(join(temp_runfolder, 'prop.log'), 'w', 0) as stdout:
-            stdout.write("**** tm_en_gh --rwa --dissipation . \n")
-            sp.call(['tm_en_gh', '--rwa', '--dissipation', '.'],
-                    cwd=temp_runfolder, stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** rewrite_dissipation.py. \n")
-            sp.call(['rewrite_dissipation.py',], cwd=temp_runfolder,
-                    stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** tm_en_logical_eigenstates.py . \n")
-            sp.call(['tm_en_logical_eigenstates.py', '.'],
-                    cwd=temp_runfolder, stderr=sp.STDOUT, stdout=stdout)
-            stdout.write("**** tm_en_prop . \n")
-            sp.call(['tm_en_prop', '.'], cwd=temp_runfolder, env=env,
-                    stderr=sp.STDOUT, stdout=stdout)
+            cmds = []
+            cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+            cmds.append(['rewrite_dissipation.py',])
+            cmds.append(['tm_en_logical_eigenstates.py', '.'])h
+            cmds.append(['tm_en_prop', '.'])
+            for cmd in cmds:
+                stdout.write("**** " + " ".join(cmd) +"\n")
+                sp.call(cmd, cwd=temp_runfolder, env=env,
+                        stderr=sp.STDOUT, stdout=stdout)
             end = time.time()
             stdout.write("**** finished in %s seconds . \n"%(end-start))
             rwa_info += "propagation time: %d seconds\n" % (end-start)
             copy(join(temp_runfolder, 'U.dat'), join(outfolder, 'U_RWA.dat'))
             copy(join(temp_runfolder, 'prop.log'),
-                 join(outfolder, 'prop_rwa.dat'))
+                 join(outfolder, 'prop_rwa.log'))
         write_file(join(outfolder, 'rwa_info.dat'), rwa_info)
+    except Exception as e:
+        print e
+    finally:
+        if runfolder is None:
+            rmtree(temp_runfolder)
+
+
+def prop_LAB(config_file, pulse_json, outfolder, runfolder=None):
+    """Given a config file and pulse file in the rotating frame, (temporarily)
+    modify them to be in the lab frame and propagate. The propagation will take
+    place in the given runfolder. If no runfolder is given, create a temporary
+    runfolder which will be deleted after the propagation has finished. The
+    file U.dat resulting from the propagation is copied to the given outfolder,
+    as U_LAB.dat. The outfolder may be identical to the runfolder. However,
+    runfolder should not be the folder in which config_file and pulse_json are
+    located, as these files would be overwritten with the lab frame version
+    otherwise.
+    """
+    import os
+    import re
+    from os.path import join
+    from analytical_pulses import AnalyticalPulse
+    from clusterjob.utils import read_file, write_file
+    from QDYN.shutil import mkdir, copy, rmtree
+    import time
+    import subprocess as sp
+    import uuid
+
+    p = AnalyticalPulse.read(pulse_json)
+    config = read_file(config_file)
+
+    if not p.formula_name.endswith('_rwa'):
+        raise ValueError("Formula name in %s must end with _rwa" % pulse_json)
+    nt = 220000
+    p.nt = nt
+    p._formula = p.formula_name.replace('_rwa', '')
+    del p.parameters['w_d']
+
+    env = os.environ.copy()
+    env['OMP_NUM_THREADS'] = '4'
+
+    if runfolder is None:
+        temp_runfolder = join(os.environ['SCRATCH_ROOT'], str(uuid.uuid4()))
+    else:
+        temp_runfolder = runfolder
+    mkdir(temp_runfolder)
+    mkdir(outfolder)
+    try:
+        config = re.sub('w_d\s*=\s*[\d.]+_MHz', 'w_d = 0.0_MHz',
+                        config)
+        config = re.sub('nt\s*=\s*\d+', 'nt = %d'%nt,
+                        config)
+        config = re.sub('prop_guess\s*=\s*F', 'prop_guess = T', config)
+
+        config = re.sub('is_complex\s*=\s*T', 'is_complex = F', config)
+
+        write_file(join(temp_runfolder, 'config'), config)
+        p.write(join(temp_runfolder, 'pulse.guess.json'), pretty=True)
+        pulse = p.pulse(time_unit='ns', ampl_unit='MHz')
+        pulse.write(join(temp_runfolder, 'pulse.guess'))
+        start = time.time()
+        with open(join(temp_runfolder, 'prop.log'), 'w', 0) as stdout:
+            cmds = []
+            cmds.append(['tm_en_gh', '--dissipation', '.'])
+            cmds.append(['rewrite_dissipation.py',])
+            cmds.append(['tm_en_logical_eigenstates.py', '.'])
+            cmds.append(['tm_en_prop', '.'])
+            for cmd in cmds:
+                stdout.write("**** " + " ".join(cmd) +"\n")
+                sp.call(cmd, cwd=lab_runfolder,
+                        stderr=sp.STDOUT, stdout=stdout)
+            end = time.time()
+            stdout.write("**** finished in %s seconds . \n"%(end-start))
+            copy(join(temp_runfolder, 'U.dat'), join(outfolder, 'U_LAB.dat'))
+            copy(join(temp_runfolder, 'prop.log'),
+                 join(outfolder, 'prop_lab.log'))
     except Exception as e:
         print e
     finally:
@@ -1211,18 +1286,15 @@ def compare_RWA_prop(runfolder_original, run_root, use_pulse='pulse_opt.json'):
             start = time.time()
             with open(os.path.join(lab_runfolder, 'prop.log'), 'w', 0) \
             as stdout:
-                stdout.write("**** tm_en_gh --dissipation . \n")
-                sp.call(['tm_en_gh', '--dissipation', '.'], cwd=lab_runfolder,
-                        stderr=sp.STDOUT, stdout=stdout)
-                stdout.write("**** rewrite_dissipation.py. \n")
-                sp.call(['rewrite_dissipation.py',], cwd=lab_runfolder,
-                        stderr=sp.STDOUT, stdout=stdout)
-                stdout.write("**** tm_en_logical_eigenstates.py . \n")
-                sp.call(['tm_en_logical_eigenstates.py', '.'],
-                        cwd=lab_runfolder, stderr=sp.STDOUT, stdout=stdout)
-                stdout.write("**** tm_en_prop . \n")
-                sp.call(['tm_en_prop', '.'], cwd=lab_runfolder, env=env,
-                        stderr=sp.STDOUT, stdout=stdout)
+                cmds = []
+                cmds.append(['tm_en_gh', '--dissipation', '.'])
+                cmds.append(['rewrite_dissipation.py',])
+                cmds.append(['tm_en_logical_eigenstates.py', '.'])
+                cmds.append(['tm_en_prop', '.'])
+                for cmd in cmds:
+                    stdout.write("**** " + " ".join(cmd) +"\n")
+                    sp.call(cmd, cwd=lab_runfolder,
+                            stderr=sp.STDOUT, stdout=stdout)
                 end = time.time()
                 stdout.write("**** finished in %s seconds . \n"%(end-start))
         elif mode == 'RWA':
