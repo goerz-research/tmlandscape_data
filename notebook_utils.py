@@ -1158,7 +1158,7 @@ def prop_RWA(config_file, pulse_json, outfolder, runfolder=None):
             cmds = []
             cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
             cmds.append(['rewrite_dissipation.py',])
-            cmds.append(['tm_en_logical_eigenstates.py', '.'])h
+            cmds.append(['tm_en_logical_eigenstates.py', '.'])
             cmds.append(['tm_en_prop', '.'])
             for cmd in cmds:
                 stdout.write("**** " + " ".join(cmd) +"\n")
@@ -1198,9 +1198,12 @@ def prop_LAB(config_file, pulse_json, outfolder, runfolder=None):
     import time
     import subprocess as sp
     import uuid
+    import logging
 
     p = AnalyticalPulse.read(pulse_json)
     config = read_file(config_file)
+
+    logger = logging.getLogger(__name__)
 
     if not p.formula_name.endswith('_rwa'):
         raise ValueError("Formula name in %s must end with _rwa" % pulse_json)
@@ -1214,6 +1217,7 @@ def prop_LAB(config_file, pulse_json, outfolder, runfolder=None):
 
     if runfolder is None:
         temp_runfolder = join(os.environ['SCRATCH_ROOT'], str(uuid.uuid4()))
+        logger.debug("Using temp runfolder %s", temp_runfolder)
     else:
         temp_runfolder = runfolder
     mkdir(temp_runfolder)
@@ -1240,7 +1244,7 @@ def prop_LAB(config_file, pulse_json, outfolder, runfolder=None):
             cmds.append(['tm_en_prop', '.'])
             for cmd in cmds:
                 stdout.write("**** " + " ".join(cmd) +"\n")
-                sp.call(cmd, cwd=lab_runfolder,
+                sp.call(cmd, cwd=temp_runfolder,
                         stderr=sp.STDOUT, stdout=stdout)
             end = time.time()
             stdout.write("**** finished in %s seconds . \n"%(end-start))
@@ -1251,6 +1255,7 @@ def prop_LAB(config_file, pulse_json, outfolder, runfolder=None):
         print e
     finally:
         if runfolder is None:
+            logger.debug("Removing temp runfolder %s", temp_runfolder)
             rmtree(temp_runfolder)
 
 
