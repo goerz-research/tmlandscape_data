@@ -1207,7 +1207,7 @@ def prop_LAB(config_file, pulse_json, outfolder, runfolder=None):
 
     if not p.formula_name.endswith('_rwa'):
         raise ValueError("Formula name in %s must end with _rwa" % pulse_json)
-    nt = 220000
+    nt = 1100 * int(p.T)
     p.nt = nt
     p._formula = p.formula_name.replace('_rwa', '')
     del p.parameters['w_d']
