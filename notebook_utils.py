@@ -1318,6 +1318,53 @@ def compare_RWA_prop(runfolder_original, run_root, use_pulse='pulse_opt.json'):
     return U_LAB, U_RWA
 
 
+def get_LAB_table(runs):
+    """Summarize the results of the stage2 LAB propagation
+
+    Looks for U_RWA.dat in all the subfolders of the given `runs` folder.
+    A file U.dat obtained from propagating in the rotating frame must also be
+    present in the same folder
+
+    The resulting table will have the columns
+
+    'C (RWA)'              : Concurrence in RWA propagation
+    'loss (RWA)',          : Loss from the log. subspace in RWA propagation
+    'C (LAB)'              : Concurrence in LAB propagation
+    'loss (LAB)',          : Loss from the log. subspace in LAB propagation
+    'Delta C'              : Absolute value of difference (concurrence)
+    'Delta loss'           : Absolute value of difference (loss)
+
+    and use the runfolder name as the index
+    """
+    runfolders = []
+    for U_RWA_dat in find_files(runs, 'U_LAB.dat'):
+        U_LAB_dat = U_RWA_dat.replace("_LAB", "")
+        if os.path.isfile(U_LAB_dat):
+            runfolders.append(os.path.split(U_RWA_dat)[0])
+    C_RWA_s         = pd.Series(index=runfolders)
+    loss_RWA_s      = pd.Series(index=runfolders)
+    C_LAB_s         = pd.Series(index=runfolders)
+    loss_LAB_s      = pd.Series(index=runfolders)
+    for i, folder in enumerate(runfolders):
+        U_RWA_dat = os.path.join(folder, 'U.dat')
+        U_LAB_dat = os.path.join(folder, 'U_LAB.dat')
+        U_RWA = QDYN.gate2q.Gate2Q(U_RWA_dat)
+        U_LAB = QDYN.gate2q.Gate2Q(U_LAB_dat)
+        C_RWA_s[i]    = U_RWA.closest_unitary().concurrence()
+        loss_RWA_s[i] = U_RWA.pop_loss()
+        C_LAB_s[i]    = U_LAB.closest_unitary().concurrence()
+        loss_LAB_s[i] = U_LAB.pop_loss()
+    table = pd.DataFrame(OrderedDict([
+                ('C (RWA)',               C_RWA_s),
+                ('loss (RWA)',            loss_RWA_s),
+                ('C (LAB)',               C_LAB_s),
+                ('loss (LAB)',            loss_LAB_s),
+                ('Delta C',               (C_RWA_s-C_LAB_s).abs()),
+                ('Delta loss',            (loss_RWA_s-loss_LAB_s).abs()),
+            ]))
+    return table
+
+
 def get_RWA_table(runs):
     """Summarize the results of the RWA propagation
 
