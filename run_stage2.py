@@ -46,6 +46,9 @@ def main(argv=None):
     arg_parser.add_option(
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
+    arg_parser.add_option(
+        '-n', action='store_true', dest='dry_run',
+        help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = os.path.join('.', os.path.normpath(args[1]))
@@ -88,10 +91,15 @@ def main(argv=None):
                     prologue=prologue(runs), epilogue=epilogue(runs))
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
-            submitted.append(job.submit(cache_id=cache_id))
-            job_ids[submitted[-1].job_id] = jobname
-            log.write("Submitted %s to cluster as ID %s\n"%(
-                       jobname, submitted[-1].job_id))
+            if options.dry_run:
+                print "======== JOB %03d ========" % (i_job + 1)
+                print job
+                print "========================="
+            else:
+                submitted.append(job.submit(cache_id=cache_id))
+                job_ids[submitted[-1].job_id] = jobname
+                log.write("Submitted %s to cluster as ID %s\n"%(
+                        jobname, submitted[-1].job_id))
 
     for job in submitted:
         job.wait()
