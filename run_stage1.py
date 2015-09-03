@@ -116,6 +116,9 @@ def main(argv=None):
         '--rwa', action='store_true', dest='rwa',
         default=False, help="Perform all calculations in the RWA.")
     arg_parser.add_option(
+        '--single-frequency', action='store_true', dest='single_frequency',
+        default=False, help="Do not use more than a single frequency")
+    arg_parser.add_option(
         '--duration', action='store', dest='T', type=float,
         default=200.0, help="Gate duration, in ns [200]")
     arg_parser.add_option(
@@ -143,6 +146,9 @@ def main(argv=None):
     rwa = ''
     if options.rwa:
         rwa = '--rwa'
+    single_frequency = ''
+    if options.single_frequency:
+        single_frequency = '--single-frequency'
     submitted = []
     jobs = []
     job_ids = {}
@@ -153,8 +159,8 @@ def main(argv=None):
         else:
             w2_wc = read_w2_wc(options.params_file)
         for (w2, wc) in w2_wc:
-            command = './pre_simplex_scan.py {rwa} {runs} {w2} {wc} {T}'\
-                      .format(rwa=rwa, runs=runs, w2=w2, wc=wc, T=options.T)
+            command = './pre_simplex_scan.py {rwa} {singlefreq} {runs} {w2} {wc} {T}'\
+                      .format(rwa=rwa, singlefreq=single_frequency, runs=runs, w2=w2, wc=wc, T=options.T)
             jobs.append(command)
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
             if len(commands) == 0:

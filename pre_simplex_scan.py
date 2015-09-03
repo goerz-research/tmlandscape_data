@@ -77,7 +77,7 @@ def make_random_freq(w_1, w_2, w_c, alpha_1, alpha_2, sidebands=True):
     return random_freq
 
 
-def generate_runfolders(runs, w2, wc, T, rwa=False):
+def generate_runfolders(runs, w2, wc, T, rwa=False, single_frequency=False):
     """Generate a set of runfolders, ready for propagation. Returns a list of
     runfolder paths.
 
@@ -86,6 +86,8 @@ def generate_runfolders(runs, w2, wc, T, rwa=False):
     wc:   cavity frequency [GHz]
     T:    gate duration [ns]
     rwa:  if True, write runs in the rotating wave approximation
+    single_frequency: if True, do not use more than a single frequency in
+                      pulses
 
     Runfolders are created according to the pattern
     [runs]/w2_[w2]MHz_wc_[wc]MHz/stage1/[pulse_label]/E[E0]/
@@ -99,7 +101,7 @@ def generate_runfolders(runs, w2, wc, T, rwa=False):
     from analytical_pulses import AnalyticalPulse
     logger = logging.getLogger(__name__)
     logger.debug("Entering generate_runfolders")
-    nt = 200*11*100 # for non-rwa
+    nt = int(T)*11*100 # for non-rwa
     config = dedent(r'''
     tgrid: n = 1
     1 : t_start = 0.0, t_stop = {T}_ns, nt = {nt}
@@ -220,6 +222,10 @@ def generate_runfolders(runs, w2, wc, T, rwa=False):
                         time_unit='ns', ampl_unit='MHz')
                 write_runfolder(runfolder, pulse, config, rwa)
             runfolders.append(runfolder)
+
+    if single_frequency:
+        logger.debug("Finished generate_runfolders")
+        return runfolders
 
     # two-frequency (resonant)
     for E0 in amplitudes:
@@ -400,7 +406,7 @@ def make_threadpool_map(p):
     return threadpool_map
 
 
-def pre_simplex_scan(runs, w2, wc, T, rwa=False):
+def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False):
     """Perform scan for the given qubit and cavity frequency
 
     runs: root folder in which to generate runs
@@ -415,7 +421,8 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False):
     logger.info('*** Generating Runfolders ***')
     # Ensure that all runfolders exist and contain the files 'pulse.json' and
     # 'config'
-    runfolders = generate_runfolders(runs, w2, wc, T, rwa=rwa)
+    runfolders = generate_runfolders(runs, w2, wc, T, rwa=rwa,
+                                     single_frequency=single_frequency)
     threadpool_map = make_threadpool_map(get_cpus()/4)
     logger.info('*** Propagate ***')
     # Ensure that all runfolders contain the file 'U.dat'
@@ -435,6 +442,9 @@ def main(argv=None):
     arg_parser.add_option(
         '--rwa', action='store_true', dest='rwa',
         default=False, help="Perform all calculations in the RWA.")
+    arg_parser.add_option(
+        '--single-frequency', action='store_true', dest='single_frequency',
+        default=False, help="Do not use more than one frequency in the pulses")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = args[1]
@@ -447,7 +457,8 @@ def main(argv=None):
         arg_parser.error("w1, wc, T must be given as floats")
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
-    pre_simplex_scan(runs, w2, wc, T, rwa=options.rwa)
+    pre_simplex_scan(runs, w2, wc, T, rwa=options.rwa,
+                     single_frequency=options.single_frequency)
 
 if __name__ == "__main__":
     sys.exit(main())
