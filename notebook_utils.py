@@ -106,7 +106,7 @@ class PlotGrid(object):
             self.cbar_gap        =  0.5
             self.density         =  100
             self.n_cols          =  2
-            self.contour_labels  = False
+            self.contour_labels  = True
             self.cbar_title      = True
             self.ylabelpad       = -1.0
             self.xlabelpad       =  0.3
@@ -522,9 +522,9 @@ def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
                 table = table_grouped.get_group(category)
         except KeyError:
             continue
-        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['Q'],
-                       vmin=0.0, vmax=1.0, contour_levels=11,
-                       title='quality (%s)'%(category,))
+        plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], 1.0-table['Q'],
+                       vmin=1.0e-3, vmax=1.0, logscale=True,
+                       title='1-quality (%s)'%(category,))
     if outfile is None:
         plots.plot(quiet=True, show=True)
     else:
@@ -686,7 +686,8 @@ def get_stage2_table(runs):
     [runs]/w2_[w2]MHz_wc_[wc]MHz/stage2/[target]_[category]/
 
     Each runfolder must contain a file U.dat (resulting from
-    propagation of pulse_opt.json)
+    propagation of pulse_opt.json), and a file U_closest_SQ.dat or
+    U_closest_PE.dat, depending on the optimization target.
 
     The resulting table will have the columns
 
@@ -694,12 +695,15 @@ def get_stage2_table(runs):
     'w2 [GHz]'  : value of right qubit frequency
     'wc [GHz]'  : value of cavity frequency
     'C'         : Concurrence
-    'avg loss', : Loss from the logical subspace
+    'avg loss', : Average loss from the logical subspace
+    'max loss', : Maximum loss from the logical subspace
     'category'  : 'field_free', '1freq_center', '1freq_random',
                   '2freq_resonant', '2freq_random', '5freq_random'
     'target'    : 'PE', 'SQ'
     'J_PE'      : Value of functional for perfect-entangler target
     'J_SQ'      : Value of functional for single-qubit target
+    'F_avg'     : Value of the average fidelity w.r.t the closest perfect
+                  entangler or local gate (as appropriate)
     """
     runfolders = []
     for folder in find_folders(runs, 'stage2'):
@@ -710,6 +714,7 @@ def get_stage2_table(runs):
     w2_s       = pd.Series(index=runfolders)
     wc_s       = pd.Series(index=runfolders)
     C_s        = pd.Series(index=runfolders)
+    F_avg_s    = pd.Series(index=runfolders)
     avg_loss_s = pd.Series(index=runfolders)
     max_loss_s = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
@@ -729,6 +734,12 @@ def get_stage2_table(runs):
         wc_s[i] = float(m_folder.group('wc'))
         U_dat = os.path.join(folder, 'U.dat')
         U = QDYN.gate2q.Gate2Q(U_dat)
+        U_closest_dat = os.path.join(folder, 'U_closest_SQ.dat')
+        if not os.path.isfile(U_closest_dat):
+            U_closest_dat = os.path.join(folder, 'U_closest_PE.dat')
+        if os.path.isfile(U_closest_dat):
+            U_closest = QDYN.gate2q.Gate2Q(U_closest_dat)
+            F_avg_s[i] = U.F_avg(U_closest)
         C = U.closest_unitary().concurrence()
         C_s[i] = C
         avg_loss_s[i] = U.pop_loss()
@@ -746,6 +757,7 @@ def get_stage2_table(runs):
                 ('target',   target_s),
                 ('J_PE',     J_PE(C_s, max_loss_s)),
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
+                ('F_avg',    F_avg_s),
             ]))
     return table
 
@@ -753,33 +765,36 @@ def get_stage2_table(runs):
 def get_Q_table(t_PE, t_SQ):
     """Combine two tables to calculate the overall "quality" function that
     expresses how well entanglement can both created and destroyed for a given
-    parameter set.
+    parameter set. Both t_PE and t_SQ must have an F_avg column. The quality is
+    simply the average of two correspoing F_avg values.
 
     Arguments
     ---------
 
     t_PE: pandas.DataFrame
         Table containing (at least) columns 'w1 [GHz]', 'w2 [GHz]', 'wc [GHz]',
-        'category', 'J_PE'
+        'category', 'F_avg'
 
     t_SQ: pandas.DataFrame
         Table containing (at least) columns 'w1 [GHz]', 'w2 [GHz]', 'wc [GHz]',
-        'category', 'J_SQ'
+        'category', 'F_avg'
 
     Returns
     -------
 
     Q_table: pandas.DataFrame
         Table containing columns 'w1 [GHz]', 'w2 [GHz]', 'wc [GHz]',
-        'category', 'J_PE', 'J_SQ', 'Q', where 'Q' is 1 - (J_PE + J_SQ)/2
+        'category', 'F_avg (PE)', 'F_avg (SQ)', 'Q'
     """
-    Q_table = pd.concat(
-        [t_PE[['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category', 'J_PE']]
+    Q_table = pd.concat([
+         t_PE.rename(columns={'F_avg': 'F_avg (PE)'})
+         [['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category', 'F_avg (PE)']]
          .set_index(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category']),
-         t_SQ[['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category', 'J_SQ']]
+         t_SQ.rename(columns={'F_avg': 'F_avg (SQ)'})
+         [['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category', 'F_avg (SQ)']]
          .set_index(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]', 'category'])
         ], axis=1).reset_index()
-    Q_table['Q'] = 1 - 0.5*(Q_table['J_PE'] + Q_table['J_SQ'])
+    Q_table['Q'] = 0.5*(Q_table['F_avg (PE)'] + Q_table['F_avg (SQ)'])
     return Q_table
 
 
@@ -815,7 +830,8 @@ def get_stage3_table(runs):
     [runs]/w2_[w2]MHz_wc_[wc]MHz/stage3/[target]_[category]/
 
     Each runfolder must contain a file U.dat (resulting from
-    propagation of pulse_opt.json)
+    propagation of pulse_opt.json), and a file U_closest_SQ.dat or
+    U_closest_PE.dat, depending on the optimization target.
 
     The resulting table will have the columns
 
@@ -827,6 +843,8 @@ def get_stage3_table(runs):
     'max loss',        : max loss from the logical subspace
     'category'         : '1freq', '2freq', '5freq'
     'target'           : 'PE', 'SQ'
+    'F_avg'            : Value of the average fidelity w.r.t the closest perfect
+                         entangler or local gate (as appropriate)
     'J_PE'             : Value of functional for perfect-entangler target
     'J_SQ'             : Value of functional for single-qubit target
     'c1'               : Weyl chamber coordinate c_1 for optimized gate (pi)
@@ -838,6 +856,7 @@ def get_stage3_table(runs):
     'max loss (guess)' : Max loss for guess pulse
     'J_PE (guess)'     : Value of J_PE for guess pulse
     'J_SQ (guess)'     : Value of J_SQ for guess pulse
+    'F_avg (guess)'    : Value of F_avg for guess pulse
     """
     runfolders = []
     for folder in find_folders(runs, 'stage3'):
@@ -848,6 +867,7 @@ def get_stage3_table(runs):
     w2_s       = pd.Series(index=runfolders)
     wc_s       = pd.Series(index=runfolders)
     C_s        = pd.Series(index=runfolders)
+    F_avg_s    = pd.Series(index=runfolders)
     avg_loss_s = pd.Series(index=runfolders)
     max_loss_s = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
@@ -869,6 +889,12 @@ def get_stage3_table(runs):
         wc_s[i] = float(m_folder.group('wc'))
         U_dat = os.path.join(folder, 'U.dat')
         U = QDYN.gate2q.Gate2Q(U_dat)
+        U_closest_dat = os.path.join(folder, 'U_closest_SQ.dat')
+        if not os.path.isfile(U_closest_dat):
+            U_closest_dat = os.path.join(folder, 'U_closest_PE.dat')
+        if os.path.isfile(U_closest_dat):
+            U_closest = QDYN.gate2q.Gate2Q(U_closest_dat)
+            F_avg_s[i] = U.F_avg(U_closest)
         c1, c2, c3 = U.closest_unitary().weyl_coordinates()
         c1_s[i] = c1
         c2_s[i] = c2
@@ -888,6 +914,7 @@ def get_stage3_table(runs):
                 ('max loss', max_loss_s),
                 ('category', category_s),
                 ('target',   target_s),
+                ('F_avg',    F_avg_s),
                 ('J_PE',     J_PE(C_s, max_loss_s)),
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
                 ('c1',       c1_s),
@@ -901,6 +928,7 @@ def get_stage3_table(runs):
     table['max loss (guess)'] = input_table['max loss']
     table['J_PE (guess)']     = input_table['J_PE']
     table['J_SQ (guess)']     = input_table['J_SQ']
+    table['F_avg (guess)']    = input_table['F_avg']
     return table
 
 
