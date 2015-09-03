@@ -8,11 +8,31 @@ import time
 import hashlib
 from textwrap import dedent
 from clusterjob import Job
+import numpy as np
+from notebook_utils import PlotGrid
 Job.default_remote = 'kcluster'
 Job.default_backend = 'slurm'
 Job.default_rootdir = '~/jobs/ConstrainedTransmon'
 Job.default_opts['queue'] = 'AG-KOCH'
 Job.cache_folder='./.clusterjob_cache/stage1/'
+
+
+def generate_parameters(outfile):
+    """Write a file of w_2, w_c parameters (to be called manually)"""
+    w1 = 6.0
+    w2_wc = []
+    for w2 in [5.0, 5.5, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.29, 6.30, 6.31,
+    6.35, 6.5, 6.58, 6.0, 6.62, 6.75, 7.0, 7.25, 7.5]:
+        for wc in [5.0, 5.8, 6.1, 6.3, 6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 10.1,
+        11.1]:
+            if (   (abs(w1-w2) <= 1.8)
+                or (abs(wc-w2) <= 1.8)
+                or (abs(wc-w1) <= 1.8)
+            ):
+                w2_wc.append((w2, wc))
+    w2_wc.append((7.5, 11.1))
+    preview_points(w2_wc)
+    write_w2_wc(w2_wc, outfile)
 
 
 def split_seq(seq, n_chunks):
@@ -22,6 +42,34 @@ def split_seq(seq, n_chunks):
     for i in range(n_chunks):
         newseq.append(seq[int(round(i*splitsize)):int(round((i+1)*splitsize))])
     return newseq
+
+
+def preview_points(w2_wc):
+    """Show a plot of the sampling points"""
+    p = PlotGrid()
+    p.n_cols = 1
+    w2, wc = zip(*w2_wc)
+    val = np.ones(len(w2))
+    p.add_cell(np.array(w2), np.array(wc), val, vmin=0.0, vmax=1.0)
+    p.plot()
+
+
+def write_w2_wc(w2_wc, filename):
+    """Write the given list of tuples to the given filename. Each tuple is the
+    value of w_2 (right qubit frequency) and w_c (cavity frequency), in GHz.
+    w_1 is fixed at 6.0 GHz"""
+    with open(filename, 'w') as out_fh:
+        out_fh.write("# w_1 = 6.0 GHz\n")
+        out_fh.write("#%9s%10s\n" % ("w2 [GHz]", "wc [GHz]"))
+        for (w2, wc) in w2_wc:
+            out_fh.write("%10.5f%10.5f\n" % (w2, wc))
+
+
+def read_w2_wc(filename):
+    """Read two columns from the given filename, w_2 and w_c in GHz, and
+    return a list of tuples (w2, wc)"""
+    w2, wc = np.genfromtxt(filename, unpack=True)
+    return zip(w2, wc)
 
 
 def jobscript(commands, parallel):
@@ -76,6 +124,12 @@ def main(argv=None):
     arg_parser.add_option(
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
+    arg_parser.add_option(
+        '--params-file', action='store', dest='params_file',
+        help="File from which to read w2, wc tuples.")
+    arg_parser.add_option(
+        '-n', action='store_true', dest='dry_run',
+        help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = os.path.join('.', os.path.normpath(args[1]))
@@ -94,18 +148,10 @@ def main(argv=None):
     job_ids = {}
     w1 = 6.0
     with open("stage1.log", "a") as log:
-        log.write("%s\n" % time.asctime())
-        w2_wc = []
-        for w2 in [5.0, 5.5, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.29, 6.30, 6.31,
-        6.35, 6.5, 6.58, 6.0, 6.62, 6.75, 7.0, 7.25, 7.5]:
-            for wc in [5.0, 5.8, 6.1, 6.3, 6.6, 7.1, 7.6, 8.1, 8.6, 9.1, 10.1,
-            11.1]:
-                if (   (abs(w1-w2) <= 1.8)
-                    or (abs(wc-w2) <= 1.8)
-                    or (abs(wc-w1) <= 1.8)
-                ):
-                    w2_wc.append((w2, wc))
-        w2_wc.append((7.5, 11.1))
+        if options.params_file is None:
+            arg_parser.error('the --params-file option must be given')
+        else:
+            w2_wc = read_w2_wc(options.params_file)
         for (w2, wc) in w2_wc:
             command = './pre_simplex_scan.py {rwa} {runs} {w2} {wc} {T}'\
                       .format(rwa=rwa, runs=runs, w2=w2, wc=wc, T=options.T)
@@ -121,10 +167,15 @@ def main(argv=None):
                     epilogue=epilogue(runs))
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
-            submitted.append(job.submit(cache_id=cache_id))
-            job_ids[submitted[-1].job_id] = jobname
-            log.write("Submitted %s to cluster as ID %s\n"%(
-                        jobname, submitted[-1].job_id))
+            if options.dry_run:
+                print "======== JOB %03d ========" % (i_job + 1)
+                print job
+                print "========================="
+            else:
+                submitted.append(job.submit(cache_id=cache_id))
+                job_ids[submitted[-1].job_id] = jobname
+                log.write("Submitted %s to cluster as ID %s\n"%(
+                            jobname, submitted[-1].job_id))
     for job in submitted:
         job.wait()
         if not job.successful():
