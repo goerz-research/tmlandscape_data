@@ -69,7 +69,11 @@ def read_w2_wc(filename):
     """Read two columns from the given filename, w_2 and w_c in GHz, and
     return a list of tuples (w2, wc)"""
     w2, wc = np.genfromtxt(filename, unpack=True)
-    return zip(w2, wc)
+    if np.isscalar(w2) and np.isscalar(wc):
+        # this happens if the file only contains one line
+        return [(w2, wc)]
+    else:
+        return zip(w2, wc)
 
 
 def jobscript(commands, parallel):
