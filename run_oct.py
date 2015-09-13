@@ -9,10 +9,41 @@ import subprocess as sp
 import QDYN
 import logging
 import numpy as np
+from glob import glob
 from clusterjob.utils import read_file
 from stage2_simplex import get_temp_runfolder
-logging.basicConfig(level=logging.INFO)
 from QDYN.pulse import Pulse
+
+
+def reset_pulse(pulse, iter):
+    """Reset pulse at the given iteration to the last available snapshot,
+    assuming that snapshots are available using the same name as pulse, with
+    the iter append to the file name (e.g. iter.dat.100 for iter.dat).
+    Snapshots must be at least 10 iterations older than the current pulse"""
+    snapshot_list = glob("%s.*"%pulse)
+    snapshots = {}
+    logger = logging.getLogger(__name__)
+    logger.debug("resetting in iter %d", iter)
+    logger.debug("available snapshots: %s", str(snapshot_list))
+    for snapshot in snapshot_list:
+        try:
+            snapshot_iter =  int(os.path.splitext(snapshot)[1][1:])
+            snapshots[snapshot_iter] = snapshot
+        except ValueError:
+            pass # ignore pulse.dat.prev
+    snapshot_iters = sorted(snapshots.keys())
+    os.unlink(pulse)
+    while len(snapshot_iters) > 0:
+        snapshot_iter = snapshot_iters.pop()
+        if (iter == 0) or (snapshot_iter + 10 < iter):
+            logger.debug("accepted snapshot: %s (iter %d)",
+                         snapshots[snapshot_iter], snapshot_iter)
+            QDYN.shutil.copy(snapshots[snapshot_iter], pulse)
+            return
+        else:
+            logger.debug("rejected snapshot: %s (iter %d)",
+                         snapshots[snapshot_iter], snapshot_iter)
+    logger.debug("no accepted snapshot")
 
 
 def run_oct(runfolder, rwa=False):
@@ -21,7 +52,7 @@ def run_oct(runfolder, rwa=False):
     logger = logging.getLogger(__name__)
     temp_runfolder = get_temp_runfolder(runfolder)
     QDYN.shutil.mkdir(temp_runfolder)
-    for file in ['config', 'pulse.guess', 'pulse.dat']:
+    for file in ['config', 'pulse.guess', 'pulse.dat', 'target_gate.dat']:
         if os.path.isfile(os.path.join(runfolder, file)):
             QDYN.shutil.copy(os.path.join(runfolder, file), temp_runfolder)
             logger.debug("%s to temp_runfolder %s", file, temp_runfolder)
@@ -53,10 +84,10 @@ def run_oct(runfolder, rwa=False):
         while bad_lambda:
             oct_proc = sp.Popen(['tm_en_oct', '.'], cwd=temp_runfolder,
                                 env=env, stdout=sp.PIPE)
+            iter = 0
+            g_a_int = 0.0
             while True: # monitor STDOUT from oct
                 line = oct_proc.stdout.readline()
-                iter = 0
-                g_a_int = 0.0
                 if line != '':
                     stdout.write(line)
                     m = re.search(r'^\s*(\d+) \| [\d.E+-]+ \| ([\d.E+-]+) \|',
@@ -64,6 +95,11 @@ def run_oct(runfolder, rwa=False):
                     if m:
                         iter = int(m.group(1))
                         g_a_int = float(m.group(2))
+                    # Every 50 iterations, we take a snapshot of the current
+                    # pulse, so that "bad lambda" restarts continue from there
+                    if (iter > 0) and (iter % 50 == 0):
+                        QDYN.shutil.copy(temp_pulse_dat,
+                                         temp_pulse_dat+'.'+str(iter))
                     # if the pulse changes in first iteration are too small, we
                     # lower lambda_a, unless lambda_a was previously adjusted
                     # to avoid exploding pulse values
@@ -72,7 +108,7 @@ def run_oct(runfolder, rwa=False):
                         logger.debug("Kill %d" % oct_proc.pid)
                         oct_proc.kill()
                         scale_lambda_a(temp_config, 0.5)
-                        os.unlink(temp_pulse_dat)
+                        reset_pulse(temp_pulse_dat, iter)
                         break # next bad_lambda loop
                     # if the pulse update explodes, we increase lambda_a (and
                     # prevent it from decreasing again)
@@ -84,7 +120,7 @@ def run_oct(runfolder, rwa=False):
                         logger.debug("Kill %d" % oct_proc.pid)
                         oct_proc.kill()
                         scale_lambda_a(temp_config, 1.25)
-                        os.unlink(temp_pulse_dat)
+                        reset_pulse(temp_pulse_dat, iter)
                         break # next bad_lambda loop
                     # if there are no significant pulse changes anymore, we
                     # stop the optimization prematurely
@@ -146,6 +182,7 @@ def propagate(runfolder, rwa, keep=False):
         raise ValueError("prop_guess must be set to F in %s" % config)
     pulse_dat = os.path.join(runfolder, 'pulse.dat')
     pulse_guess = os.path.join(runfolder, 'pulse.guess')
+    target_gate_dat = os.path.join(runfolder, 'target_gate.dat')
     if not os.path.isfile(gatefile):
         try:
             assert os.path.isfile(config), \
@@ -154,6 +191,8 @@ def propagate(runfolder, rwa, keep=False):
             logger.debug("Prepararing temp_runfolder %s", temp_runfolder)
             QDYN.shutil.mkdir(temp_runfolder)
             QDYN.shutil.copy(pulse_guess, temp_runfolder)
+            if os.path.isfile(target_gate_dat):
+                QDYN.shutil.copy(target_gate_dat, temp_runfolder)
             if os.path.isfile(pulse_dat):
                 QDYN.shutil.copy(pulse_dat, temp_runfolder)
             else:
@@ -225,6 +264,9 @@ def main(argv=None):
     arg_parser.add_option(
         '--continue', action='store_true', dest='cont',
         default=False, help="Continue from an existing pulse.dat")
+    arg_parser.add_option(
+        '--debug', action='store_true', dest='debug',
+        default=False, help="Enable debugging output")
     options, args = arg_parser.parse_args(argv)
     try:
         runfolder = args[1]
@@ -236,6 +278,11 @@ def main(argv=None):
     "SCRATCH_ROOT environment variable must be defined"
     iter_stop = get_iter_stop(os.path.join(runfolder, 'config'))
     pulse_file = (os.path.join(runfolder, 'pulse.dat'))
+    logger = logging.getLogger()
+    if options.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     if os.path.isfile(pulse_file):
         pulse = Pulse(pulse_file)
         if pulse.oct_iter <= 1:
@@ -262,4 +309,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     sys.exit(main())
