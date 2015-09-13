@@ -6,15 +6,17 @@ import sys
 import time
 import hashlib
 import os
+STAGE = 'stage3'
 from clusterjob import Job
 Job.default_remote = 'kcluster'
 Job.default_backend = 'slurm'
 Job.default_rootdir = '~/jobs/ConstrainedTransmon'
 Job.default_opts['queue'] = 'AG-KOCH'
-Job.cache_folder='./.clusterjob_cache/stage3/'
+Job.cache_folder='./.clusterjob_cache/'+STAGE+'/'
 
 from run_stage1 import jobscript, epilogue, split_seq
 from run_stage2 import prologue
+
 
 def main(argv=None):
     """Run stage 3"""
@@ -53,9 +55,9 @@ def main(argv=None):
     jobs = []
     job_ids = {}
 
-    with open(os.path.join(runs, "stage3.log"), "a") as log:
+    with open(os.path.join(runs, STAGE+".log"), "a") as log:
         log.write("%s\n" % time.asctime())
-        for folder in find_folders(runs, 'stage3'):
+        for folder in find_folders(runs, STAGE):
             for subfolder in os.listdir(folder):
                 runfolder = os.path.join(folder, subfolder)
                 command = './run_oct.py --continue {rwa} {runfolder}'\
@@ -64,10 +66,10 @@ def main(argv=None):
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
             if len(commands) == 0:
                 continue
-            jobname = '%s_stage3_%02d' % (
-                      runs.replace('.','').replace('/',''), i_job+1)
+            jobname = ('%s_%s_%02d') % (
+                      runs.replace('.','').replace('/',''), STAGE, i_job+1)
             job = Job(jobscript=jobscript(commands, options.parallel),
-                    jobname=jobname, workdir='.', time='48:00:00',
+                    jobname=jobname, workdir='.', time='24:00:00',
                     nodes=1, threads=4*options.parallel,
                     mem=10000, stdout='%s-%%j.out'%jobname,
                     prologue=prologue(runs), epilogue=epilogue(runs))
