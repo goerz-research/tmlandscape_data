@@ -8,12 +8,13 @@ import hashlib
 import os
 from textwrap import dedent
 from clusterjob import Job
-Job.default_remote = 'kcluster'
-Job.default_backend = 'slurm'
-Job.default_rootdir = '~/jobs/ConstrainedTransmon'
-Job.default_opts['queue'] = 'AG-KOCH'
-Job.cache_folder='./.clusterjob_cache/stage2/'
-Job.default_sleep_interval = 180
+if __name__ == "__main__":
+    Job.default_remote = 'kcluster'
+    Job.default_backend = 'slurm'
+    Job.default_rootdir = '~/jobs/ConstrainedTransmon'
+    Job.default_opts['queue'] = 'AG-KOCH'
+    Job.cache_folder='./.clusterjob_cache/stage2/'
+    Job.default_sleep_interval = 180
 
 from run_stage1 import jobscript, epilogue, split_seq
 

@@ -4,18 +4,18 @@ import logging
 logging.basicConfig(level=logging.ERROR)
 import os
 import sys
-import time
 import hashlib
 from textwrap import dedent
 from clusterjob import Job
 import numpy as np
 from notebook_utils import PlotGrid
-Job.default_remote = 'kcluster'
-Job.default_backend = 'slurm'
-Job.default_rootdir = '~/jobs/ConstrainedTransmon'
-Job.default_opts['queue'] = 'AG-KOCH'
-Job.cache_folder='./.clusterjob_cache/stage1/'
-Job.default_sleep_interval = 180
+if __name__ == "__main__":
+    Job.default_remote = 'kcluster'
+    Job.default_backend = 'slurm'
+    Job.default_rootdir = '~/jobs/ConstrainedTransmon'
+    Job.default_opts['queue'] = 'AG-KOCH'
+    Job.cache_folder='./.clusterjob_cache/stage1/'
+    Job.default_sleep_interval = 180
 
 
 def generate_parameters(outfile):
