@@ -116,7 +116,10 @@ def run_oct(runfolder, rwa=False):
                     or   ('Loss of monotonic convergence' in line)
                     or   (g_a_int > 1.0e-1)):
                         pulse_explosion = True
-                        logger.debug("pulse explosion")
+                        if "Loss of monotonic convergence" in line:
+                            logger.debug("loss of monotonic conversion")
+                        else:
+                            logger.debug("pulse explosion")
                         logger.debug("Kill %d" % oct_proc.pid)
                         oct_proc.kill()
                         scale_lambda_a(temp_config, 1.25)
