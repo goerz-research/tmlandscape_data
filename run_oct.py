@@ -46,13 +46,16 @@ def reset_pulse(pulse, iter):
     logger.debug("no accepted snapshot")
 
 
-def run_oct(runfolder, rwa=False):
+def run_oct(runfolder, rwa=False, continue_oct=False):
     """Run optimal control on the given runfolder. Adjust lambda_a if
     necessary. """
     logger = logging.getLogger(__name__)
     temp_runfolder = get_temp_runfolder(runfolder)
     QDYN.shutil.mkdir(temp_runfolder)
-    for file in ['config', 'pulse.guess', 'pulse.dat', 'target_gate.dat']:
+    files_to_copy = ['config', 'pulse.guess', 'target_gate.dat']
+    if continue_oct:
+        files_to_copy.extend(['pulse.dat', 'oct_iters.dat'])
+    for file in files_to_copy:
         if os.path.isfile(os.path.join(runfolder, file)):
             QDYN.shutil.copy(os.path.join(runfolder, file), temp_runfolder)
             logger.debug("%s to temp_runfolder %s", file, temp_runfolder)
@@ -286,6 +289,7 @@ def main(argv=None):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
+    perform_optimization = True
     if os.path.isfile(pulse_file):
         pulse = Pulse(pulse_file)
         if pulse.oct_iter <= 1:
@@ -294,19 +298,12 @@ def main(argv=None):
         else:
             if pulse.oct_iter == iter_stop:
                 logger.info("OCT for %s already complete", runfolder)
-            else:
-                if options.cont:
-                    logger.info("OCT for %s continues from existing "
-                                 "pulse.dat", runfolder)
-                else:
-                    os.unlink(pulse_file)
-                    logger.debug("pulse.dat in %s removed as incomplete",
-                                runfolder)
-    if not os.path.isfile(pulse_file):
+                perform_optimization = False
+    if perform_optimization:
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             # if we're doing a new oct, we should delete U.dat
             os.unlink(os.path.join(runfolder, 'U.dat'))
-        run_oct(runfolder, rwa=options.rwa)
+        run_oct(runfolder, rwa=options.rwa, continue_oct=options.cont)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
         propagate(runfolder, rwa=options.rwa)
 
