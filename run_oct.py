@@ -315,6 +315,8 @@ def main(argv=None):
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             # if we're doing a new oct, we should delete U.dat
             os.unlink(os.path.join(runfolder, 'U.dat'))
+            if os.path.isfile(os.path.join(runfolder, 'U_closest_PE.dat')):
+                os.unlink(os.path.join(runfolder, 'U_closest_PE.dat'))
         run_oct(runfolder, rwa=options.rwa, continue_oct=options.cont)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
         propagate(runfolder, rwa=options.rwa)
