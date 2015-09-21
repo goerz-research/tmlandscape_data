@@ -48,7 +48,16 @@ def reset_pulse(pulse, iter):
 
 def run_oct(runfolder, rwa=False, continue_oct=False):
     """Run optimal control on the given runfolder. Adjust lambda_a if
-    necessary. """
+    necessary.
+
+    Assumes that the runfolder cotnains the files config and pulse.guess, and
+    optionally target_gate.dat, pulse.dat, and oct_iters.dat.
+
+    Creates (overwrites) the files pulse.dat and oct_iters.dat.
+
+    Also, a file config.oct is created that contains the last update to
+    lambda_a. The original config file will remain unchanged.
+    """
     logger = logging.getLogger(__name__)
     temp_runfolder = get_temp_runfolder(runfolder)
     QDYN.shutil.mkdir(temp_runfolder)
@@ -140,9 +149,12 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
                     # OCT finished
                     bad_lambda = False
                     break # effectively break from bad_lambda loop
-    for file in ['pulse.dat', 'oct_iters.dat', 'config']:
+    for file in ['pulse.dat', 'oct_iters.dat']:
         if os.path.isfile(os.path.join(temp_runfolder, file)):
             QDYN.shutil.copy(os.path.join(temp_runfolder, file), runfolder)
+    if os.path.isfile(os.path.join(temp_runfolder, 'config')):
+        QDYN.shutil.copy(os.path.join(temp_runfolder, 'config'),
+                         os.path.join(runfolder, 'config.oct'))
     QDYN.shutil.rmtree(temp_runfolder)
     logger.debug("Removed temp_runfolder %s", temp_runfolder)
     logger.info("Finished optimization")
