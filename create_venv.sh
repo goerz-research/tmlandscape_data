@@ -1,5 +1,5 @@
 #!/bin/bash
-conda create -p ./venv ipython ipython-notebook numpy scipy matplotlib bokeh pexpect sympy pandas paramiko
+conda create -p ./venv python=2.7 ipython ipython-notebook numpy scipy matplotlib bokeh pexpect sympy pandas paramiko
 
 wget https://raw.githubusercontent.com/goerz/mplstyles/master/interactive.mplstyle -O ./venv/lib/python2.7/site-packages/matplotlib/mpl-data/matplotlibrc
 
