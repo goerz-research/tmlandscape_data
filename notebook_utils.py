@@ -93,6 +93,14 @@ class PlotGrid(object):
     cbar_title: boolean
         If True, show titles along the colorbar. If False, show title on top
         of the axes.
+    wc_min: float
+        Minimum cavity frequency [GHz].
+    wc_max: float
+        Maximum cavity frequency [GHz]
+    w2_min: float
+        Minimum qubit frequency [GHz].
+    w2_max: float
+        Maximum qubit frequency [GHz].
     """
     def __init__(self, publication=False):
         if publication:
@@ -130,6 +138,10 @@ class PlotGrid(object):
             self.clabelpad       =  1.0
             self.scatter_size    =  5.0
         self._cells          = [] # array of cell_dicts
+        self.wc_min = 4.5
+        self.wc_max = 11.1
+        self.w2_min = 5.0
+        self.w2_max = 7.5
 
     def add_cell(self, w2, wc, val, logscale=False, vmin=None, vmax=None,
         contour_levels=11, title=None):
@@ -211,9 +223,10 @@ class PlotGrid(object):
             ax_contour.set_ylabel(r"$\omega_c$ (GHz)", labelpad=self.ylabelpad)
 
             # show the resonance line (cavity on resonace with qubit 2)
-            ax_contour.plot(np.linspace(5.0, 11.1, 10),
-                            np.linspace(5.0, 11.1, 10), color='white')
-            ax_contour.plot(np.linspace(5.0, 7.5, 10),
+            ax_contour.plot(np.linspace(self.wc_min, self.wc_max, 10),
+                            np.linspace(self.wc_min, self.wc_max, 10),
+                            color='white')
+            ax_contour.plot(np.linspace(self.w2_min, self.w2_max, 10),
                             6.0*np.ones(10), color='white')
             ax_contour.axvline(6.29, color='white', ls='--')
             ax_contour.axvline(6.31, color='white', ls='--')
@@ -223,8 +236,8 @@ class PlotGrid(object):
             ax_contour.axvline(6.58, color='white', ls='--')
             ax_contour.axvline(6.62, color='white', ls='--')
             # ticks and axis labels
-            set_axis(ax_contour, 'x', 5.0, 7.5, 0.5, minor=5)
-            set_axis(ax_contour, 'y', 5.0, 11.1, 0.5, minor=5)
+            set_axis(ax_contour, 'x', self.w2_min, self.w2_max, 0.5, minor=5)
+            set_axis(ax_contour, 'y', self.wc_min, self.wc_max, 0.5, minor=5)
             ax_contour.tick_params(which='both', direction='out')
 
             if cell_dict['title'] is not None:
