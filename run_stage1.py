@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Run stage 1 optimization"""
 import logging
-logging.basicConfig(level=logging.ERROR)
 import os
 import sys
 import hashlib
@@ -136,6 +135,9 @@ def main(argv=None):
         '--params-file', action='store', dest='params_file',
         help="File from which to read w2, wc tuples.")
     arg_parser.add_option(
+        '--debug', action='store_true', dest='debug',
+        default=False, help="Enable debugging output")
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -151,6 +153,9 @@ def main(argv=None):
     rwa = ''
     if options.rwa:
         rwa = '--rwa'
+    logger = logging.getLogger()
+    if options.debug:
+        logger.setLevel(logging.DEBUG)
     single_frequency = ''
     if options.single_frequency:
         single_frequency = '--single-frequency'
@@ -193,5 +198,6 @@ def main(argv=None):
             print "job '%s' did not finish successfully" % job_ids[job.job_id]
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.ERROR)
     sys.exit(main())
 

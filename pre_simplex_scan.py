@@ -14,7 +14,6 @@ from functools import partial
 import QDYN
 import logging
 import time
-logging.basicConfig(level=logging.INFO)
 
 
 def get_cpus():
@@ -359,8 +358,11 @@ def propagate(runfolder, rwa, keep=False):
                 cmds.append(['tm_en_prop', '.'])
                 for cmd in cmds:
                     stdout.write("**** " + " ".join(cmd) +"\n")
-                    sp.call(cmd , cwd=temp_runfolder, env=env,
-                            stderr=sp.STDOUT, stdout=stdout)
+                    try:
+                        sp.call(cmd , cwd=temp_runfolder, env=env,
+                                stderr=sp.STDOUT, stdout=stdout)
+                    except Exception as e:
+                        logger.error("Could not run '%s': %s", join(cmd), e)
             shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
             end = time.time()
             logger.info("Finished propagating %s (%d seconds)",
@@ -445,6 +447,9 @@ def main(argv=None):
     arg_parser.add_option(
         '--single-frequency', action='store_true', dest='single_frequency',
         default=False, help="Do not use more than one frequency in the pulses")
+    arg_parser.add_option(
+        '--debug', action='store_true', dest='debug',
+        default=False, help="Enable debugging output")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = args[1]
@@ -457,8 +462,11 @@ def main(argv=None):
         arg_parser.error("w1, wc, T must be given as floats")
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
+    if options.debug:
+        logger.setLevel(logging.DEBUG)
     pre_simplex_scan(runs, w2, wc, T, rwa=options.rwa,
                      single_frequency=options.single_frequency)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.ERROR)
     sys.exit(main())
