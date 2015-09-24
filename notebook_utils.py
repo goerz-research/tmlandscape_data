@@ -144,7 +144,7 @@ class PlotGrid(object):
         self.w2_max = 7.5
 
     def add_cell(self, w2, wc, val, logscale=False, vmin=None, vmax=None,
-        contour_levels=11, title=None):
+        contour_levels=0, title=None):
         """Add a cell to the plot grid
 
         All other parameters will be passed to the render_values routine
@@ -332,6 +332,8 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         Axes onto which to render the contour plot for (w_2, w_c, val)
     ax_cbar: matplotlib.axes.Axes instance
         Axes onto which to render the color bar describing the contour plot
+    density: int
+        Number of points per GHz to be used for interpolating the plots
     vmin: float
         Bottom value of the z-axis (colorbar range). Defaults to the minimum
         value in the val array
@@ -341,16 +343,17 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     contour_levels: int, array of floats
         Contour lines to draw. If given as an integer, number of lines to be
         drawn between vmin and vmax. If given as array, values at which contour
-        lines should be drawn. Set to 0 or [] to suppress drawing of contour lines
+        lines should be drawn. Set to 0 or [] to suppress drawing of contour
+        lines
     contour_labels: boolean
         If True, add textual labels to the contour lines
     scatter_size: float
-        Size of the scatter points
+        Size of the scatter points. Set to zero to disable showing points
     clip: boolean
         If True, clip val to the range [vmin:vmax]
     """
-    x = np.linspace(w_2.min(), w_2.max(), density)
-    y = np.linspace(w_c.min(), w_c.max(), density)
+    x = np.linspace(w_2.min(), w_2.max(), int((w_2.max()-w_2.min())*density))
+    y = np.linspace(w_c.min(), w_c.max(), int((w_c.max()-w_c.min())*density))
     z = griddata(w_2, w_c, val, x, y, interp='linear')
     if clip:
         np.clip(z, vmin, vmax, out=z)
@@ -380,8 +383,9 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
             # sequential colormap
             cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
                                         vmax=vmax, vmin=vmin)
-    ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
-                       linewidth=0.1*scatter_size, zorder=10)
+    if scatter_size > 0:
+        ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
+                        linewidth=0.1*scatter_size, zorder=10)
     ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
     ax_contour.set_ylabel(r"$\omega_c$ (GHz)")
     fig = ax_cbar.figure
