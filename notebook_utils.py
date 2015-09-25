@@ -506,7 +506,7 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
 
 
 def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
-    categories=None):
+    categories=None, vmin=1.0e-3, vmax=1.0):
     """Plot quality obtained from the two given tables.
 
     The tables t_PE and t_SQ must meet the requirements for the get_Q_table
@@ -540,7 +540,7 @@ def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
         except KeyError:
             continue
         plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], 1.0-table['Q'],
-                       vmin=1.0e-3, vmax=1.0, logscale=True,
+                       vmin=vmin, vmax=vmax, logscale=True,
                        title='1-quality (%s)'%(category,))
     if outfile is None:
         plots.plot(quiet=True, show=True)
@@ -548,6 +548,25 @@ def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
         fig = plots.plot(quiet=True, show=False)
         fig.savefig(outfile)
         plt.close(fig)
+
+
+def diss_error(gamma, t):
+    """Return the average loss of population for a field-free propagation of
+    the bare qubit states, with decay rate gamma in GHz and the gate duration
+    in ns. This is the lower limit for the reachable gate error, due to decay
+    of the qubit state"""
+    two_pi = 2.0 * np.pi
+    # note that *amplitudes* decay at half the rate of the populations
+    U_diss = np.diag([
+        1.0,
+        np.exp(-0.5*two_pi * gamma * t),
+        np.exp(-0.5*two_pi * gamma * t),
+        np.exp(-0.5*two_pi * (2*gamma) * t)])
+    # U_diss is the time evolution operator in the field-free case for the bare
+    # qubit system. Mixing with the cavity due to qubit-cavity interaction is
+    # ignored and will need to additional error. Therefor, diss_error is still
+    # a lower (global) limit
+    return 1.0 - 0.25*(U_diss.conjugate().dot(U_diss)).trace()
 
 
 ###############################################################################
