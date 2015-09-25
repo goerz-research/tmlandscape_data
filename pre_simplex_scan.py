@@ -362,7 +362,8 @@ def propagate(runfolder, rwa, keep=False):
                         sp.call(cmd , cwd=temp_runfolder, env=env,
                                 stderr=sp.STDOUT, stdout=stdout)
                     except Exception as e:
-                        logger.error("Could not run '%s': %s", join(cmd), e)
+                        logger.error("Could not run '%s': %s",
+                                     os.path.join(cmd), e)
             shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
             end = time.time()
             logger.info("Finished propagating %s (%d seconds)",
