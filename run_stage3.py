@@ -29,7 +29,7 @@ if __name__ == "__main__":
     Job.default_opts['queue'] = 'AG-KOCH'
     Job.cache_folder='./.clusterjob_cache/'+STAGE+'/'
     Job.default_sleep_interval = 180
-OUTFILES = ['oct_iters.dat', 'oct.log',  'prop.log',  'pulse.dat', 'U.dat']
+OUTFILES = ['oct_iters.dat', 'pulse.dat', 'U.dat']
 
 from run_stage1 import jobscript, epilogue, split_seq
 from run_stage2 import prologue
