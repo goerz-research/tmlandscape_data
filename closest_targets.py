@@ -6,9 +6,9 @@ import os
 import subprocess as sp
 import multiprocessing
 import QDYN
+from functools import partial
 from notebook_utils import find_folders
 import logging
-logging.basicConfig(level=logging.INFO)
 
 CPU_COUNT = 6
 
@@ -109,22 +109,24 @@ def get_closest_SQ(gatefile):
         print("ERROR %s: %s"%(gatefile, e))
 
 
-def get_closest(gatefile, target, raise_exceptions=False):
+def get_closest(gatefile, target, raise_exceptions=False, method='Powell',
+    limit=1.0e-6):
     logger = logging.getLogger()
     U = QDYN.gate2q.Gate2Q(file=gatefile)
     root, ext = os.path.splitext(gatefile)
     outfile = root + "_closest_%s"%target + ext
     if target == 'SQ':
-        f_closest = QDYN.gate2q.closest_SQ
+        f_closest = partial(QDYN.gate2q.closest_SQ, method=method, limit=limit)
     else:
-        f_closest = QDYN.gate2q.closest_PE
+        f_closest = partial(QDYN.gate2q.closest_PE, method=method, limit=limit)
     try:
         U_closest = f_closest(U)
     except ValueError:
         try:
             U_closest = f_closest(U.closest_unitary())
-        except ValueError:
-            logger.warn("Could not find closest unitary for %s", gatefile)
+        except ValueError as e:
+            logger.warn("Could not find closest unitary for %s: %s",
+                        gatefile, e)
             if raise_exceptions:
                 raise
             else:
@@ -161,4 +163,5 @@ def main(argv=None):
     get_closest_targets(runs, dry_run=options.dry_run)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     sys.exit(main())
