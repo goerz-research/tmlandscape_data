@@ -395,7 +395,7 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
 def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
     loss_min=0.0, loss_max=1.0, outfile=None, include_total=True,
     categories=None, show_oct_improvement=False, scale=1.0, logscale=False,
-    concurrence_error=False):
+    concurrence_error=False, scatter_size=0):
     """Plot concurrence and loss for all the categories in the given
     target_table.
 
@@ -432,6 +432,8 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
     show_oct_improvement)
     """
     plots = PlotGrid()
+    if scatter_size is not None:
+        plots.scatter_size = scatter_size
     table_grouped = target_table.groupby('category')
     if categories is None:
         categories = ['1freq_center', '1freq_random', '2freq_resonant',
@@ -506,7 +508,7 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
 
 
 def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
-    categories=None, vmin=1.0e-3, vmax=1.0):
+    categories=None, vmin=1.0e-3, vmax=1.0, scatter_size=0):
     """Plot quality obtained from the two given tables.
 
     The tables t_PE and t_SQ must meet the requirements for the get_Q_table
@@ -517,6 +519,8 @@ def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
     If not given, the categories default to those used in stage2
     """
     plots = PlotGrid()
+    if scatter_size is not None:
+        plots.scatter_size = scatter_size
     plots.n_cols = 2
     Q_table = get_Q_table(t_PE, t_SQ)
     table_grouped = Q_table.groupby('category')
