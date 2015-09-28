@@ -1,4 +1,4 @@
-#!/usr/bin/env python -u
+#!/usr/bin/env python
 from __future__ import print_function
 from notebook_utils import get_stage1_table, get_stage2_table, get_stage3_table
 from glob import glob
