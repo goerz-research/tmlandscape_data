@@ -104,22 +104,22 @@ class PlotGrid(object):
     """
     def __init__(self, publication=False):
         if publication:
-            self.cell_width      =  5.5
+            self.cell_width      =  7.75
             self.left_margin     =  1.0
             self.top_margin      =  0.2
             self.bottom_margin   =  0.7
-            self.h               =  3.5
-            self.w               =  3.2
+            self.h               =  5.5
+            self.w               =  5.0
             self.cbar_width      =  0.2
             self.cbar_gap        =  0.5
             self.density         =  100
             self.n_cols          =  2
-            self.contour_labels  = True
+            self.contour_labels  = False
             self.cbar_title      = True
             self.ylabelpad       = -1.0
             self.xlabelpad       =  0.3
             self.clabelpad       =  1.0
-            self.scatter_size    =  2.0
+            self.scatter_size    =  0.0
         else:
             self.cell_width      =  15.0
             self.left_margin     =  1.8
@@ -744,6 +744,9 @@ def get_stage2_table(runs):
     'J_SQ'      : Value of functional for single-qubit target
     'F_avg'     : Value of the average fidelity w.r.t the closest perfect
                   entangler or local gate (as appropriate)
+    'c1'        : Weyl chamber coordinate c_1 for optimized gate (pi)
+    'c2'        : Weyl chamber coordinate c_2 for optimized gate (pi)
+    'c3'        : Weyl chamber coordinate c_3 for optimized gate (pi)
     """
     runfolders = []
     for folder in find_folders(runs, 'stage2'):
@@ -759,6 +762,9 @@ def get_stage2_table(runs):
     max_loss_s = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
     target_s   = pd.Series('', index=runfolders)
+    c1_s       = pd.Series(index=runfolders)
+    c2_s       = pd.Series(index=runfolders)
+    c3_s       = pd.Series(index=runfolders)
     rx_folder = re.compile(r'''
                 \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
                 \/stage2
@@ -780,6 +786,10 @@ def get_stage2_table(runs):
         if os.path.isfile(U_closest_dat):
             U_closest = QDYN.gate2q.Gate2Q(U_closest_dat)
             F_avg_s[i] = U.F_avg(U_closest)
+        c1, c2, c3 = U.closest_unitary().weyl_coordinates()
+        c1_s[i] = c1
+        c2_s[i] = c2
+        c3_s[i] = c3
         C = U.closest_unitary().concurrence()
         C_s[i] = C
         avg_loss_s[i] = U.pop_loss()
@@ -798,6 +808,9 @@ def get_stage2_table(runs):
                 ('J_PE',     J_PE(C_s, max_loss_s)),
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
                 ('F_avg',    F_avg_s),
+                ('c1',       c1_s),
+                ('c2',       c2_s),
+                ('c3',       c3_s),
             ]))
     return table
 
@@ -954,9 +967,9 @@ def get_stage3_table(runs):
                 ('max loss', max_loss_s),
                 ('category', category_s),
                 ('target',   target_s),
-                ('F_avg',    F_avg_s),
                 ('J_PE',     J_PE(C_s, max_loss_s)),
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
+                ('F_avg',    F_avg_s),
                 ('c1',       c1_s),
                 ('c2',       c2_s),
                 ('c3',       c3_s),
