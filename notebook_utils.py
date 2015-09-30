@@ -513,6 +513,22 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
         plt.close(fig)
 
 
+def get_max_1freq_quality(t_PE, t_SQ):
+    """Return the maximum quality value for a single frequency pulse, based on
+    the given input tables"""
+    Q_table = get_Q_table(t_PE, t_SQ)
+    Q_table = Q_table[Q_table['category'].str.contains('1freq')]
+    table_grouped = Q_table.groupby(
+    ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)
+    Q_table = Q_table\
+              .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'],
+                      as_index=False)\
+              .apply(lambda df: df.sort('Q').tail(1))\
+              .reset_index(level=0, drop=True)
+    return Q_table['Q'].max()
+
+
+
 def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
     categories=None, vmin=1.0e-3, vmax=1.0, scatter_size=0):
     """Plot quality obtained from the two given tables.
