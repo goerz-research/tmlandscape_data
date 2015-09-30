@@ -144,7 +144,7 @@ class PlotGrid(object):
         self.w2_max = 7.5
 
     def add_cell(self, w2, wc, val, logscale=False, vmin=None, vmax=None,
-        contour_levels=0, title=None):
+        contour_levels=0, title=None, cmap=None):
         """Add a cell to the plot grid
 
         All other parameters will be passed to the render_values routine
@@ -164,6 +164,7 @@ class PlotGrid(object):
             cell_dict['vmax'] = vmax
         cell_dict['contour_levels'] = contour_levels
         cell_dict['title'] = title
+        cell_dict['cmap'] = cmap
         self._cells.append(cell_dict)
 
     def plot(self, quiet=True, show=True, style=None):
@@ -207,7 +208,8 @@ class PlotGrid(object):
                               vmin=cell_dict['vmin'], vmax=cell_dict['vmax'],
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
-                              scatter_size=self.scatter_size)
+                              scatter_size=self.scatter_size,
+                              cmap=cell_dict['cmap'])
                 ax_cbar.set_yticks([])
                 ax_cbar.set_yticklabels('',visible=False)
             else:
@@ -218,7 +220,8 @@ class PlotGrid(object):
                               vmin=cell_dict['vmin'], vmax=cell_dict['vmax'],
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
-                              scatter_size=self.scatter_size)
+                              scatter_size=self.scatter_size,
+                              cmap=cell_dict['cmap'])
             ax_contour.set_xlabel(r"$\omega_2$ (GHz)", labelpad=self.xlabelpad)
             ax_contour.set_ylabel(r"$\omega_c$ (GHz)", labelpad=self.ylabelpad)
 
@@ -316,7 +319,7 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
 
 def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     logscale=False, vmin=None, vmax=None, contour_levels=11,
-    contour_labels=False, scatter_size=5, clip=True):
+    contour_labels=False, scatter_size=5, clip=True, cmap=None):
     """Render the given data onto the given axes
 
     Parameters
@@ -362,7 +365,9 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     if vmax is None:
         vmax=abs(z).max()
     if logscale:
-        cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
+        if cmap is None:
+            cmap=plt.cm.gnuplot2
+        cmesh = ax_contour.pcolormesh(x, y, z, cmap=cmap,
                                          norm=LogNorm(), vmax=vmax, vmin=vmin)
     else:
         if isinstance(contour_levels, int):
@@ -375,14 +380,15 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
             if contour_labels:
                 ax_contour.clabel(contour, fontsize='smaller', lineine=1,
                                 fmt='%g')
-        if vmin < 0.0 and vmax > 0.0:
-            # divergent colormap
-            cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.RdYlBu_r,
-                                        vmax=vmax, vmin=vmin)
-        else:
-            # sequential colormap
-            cmesh = ax_contour.pcolormesh(x, y, z, cmap=plt.cm.gnuplot2,
-                                        vmax=vmax, vmin=vmin)
+        if cmap is None:
+            if vmin < 0.0 and vmax > 0.0:
+                # divergent colormap
+                cmap = plt.cm.RdYlBu_r
+            else:
+                # sequential colormap
+                cmap = plt.cm.gnuplot2
+        cmesh = ax_contour.pcolormesh(x, y, z, cmap=cmap,
+                                    vmax=vmax, vmin=vmin)
     if scatter_size > 0:
         ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
                         linewidth=0.1*scatter_size, zorder=10)
