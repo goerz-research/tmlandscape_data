@@ -513,6 +513,16 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
         plt.close(fig)
 
 
+def latex_float(f):
+    """Format a float for LaTeX, using scientific notation"""
+    float_str = "{0:.2e}".format(f)
+    if "e" in float_str:
+        base, exponent = float_str.split("e")
+        return r"${0} \times 10^{{{1}}}$".format(base, int(exponent))
+    else:
+        return float_str
+
+
 def get_max_1freq_quality(t_PE, t_SQ):
     """Return the maximum quality value for a single frequency pulse, based on
     the given input tables"""
