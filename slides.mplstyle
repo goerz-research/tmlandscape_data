@@ -169,8 +169,8 @@ xtick.major.size     : 4      # major tick size in points
 xtick.minor.size     : 2      # minor tick size in points
 xtick.major.width    : 0.5    # major tick width in points
 xtick.minor.width    : 0.5    # minor tick width in points
-xtick.major.pad      : 0      # distance to major tick label in points
-xtick.minor.pad      : 0      # distance to the minor tick label in points
+xtick.major.pad      : 2      # distance to major tick label in points
+xtick.minor.pad      : 2      # distance to the minor tick label in points
 xtick.color          : k      # color of the tick labels
 xtick.labelsize      : small  # fontsize of the tick labels
 xtick.direction      : in     # direction: in, out, or inout
@@ -179,8 +179,8 @@ ytick.major.size     : 4      # major tick size in points
 ytick.minor.size     : 2      # minor tick size in points
 ytick.major.width    : 0.5    # major tick width in points
 ytick.minor.width    : 0.5    # minor tick width in points
-ytick.major.pad      : 1      # distance to major tick label in points
-ytick.minor.pad      : 1      # distance to the minor tick label in points
+ytick.major.pad      : 2      # distance to major tick label in points
+ytick.minor.pad      : 2      # distance to the minor tick label in points
 ytick.color          : k      # color of the tick labels
 ytick.labelsize      : small  # fontsize of the tick labels
 ytick.direction      : in     # direction: in, out, or inout

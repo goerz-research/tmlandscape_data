@@ -104,12 +104,12 @@ class PlotGrid(object):
     """
     def __init__(self, publication=False):
         if publication:
-            self.cell_width      =  7.75
+            self.cell_width      =  6.5
             self.left_margin     =  1.0
             self.top_margin      =  0.2
             self.bottom_margin   =  0.7
-            self.h               =  5.5
-            self.w               =  5.0
+            self.h               =  5.3
+            self.w               =  4.0
             self.cbar_width      =  0.2
             self.cbar_gap        =  0.5
             self.density         =  100
