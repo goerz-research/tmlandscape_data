@@ -84,7 +84,7 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
         cmds.append(['rewrite_dissipation.py',])
         cmds.append(['tm_en_logical_eigenstates.py', '.'])
         env = os.environ.copy()
-        env['OMP_NUM_THREADS'] = '4'
+        env['OMP_NUM_THREADS'] = '1'
         for cmd in cmds:
             stdout.write("**** " + " ".join(cmd) +"\n")
             sp.call(cmd , cwd=temp_runfolder, env=env,
