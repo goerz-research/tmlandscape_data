@@ -219,7 +219,7 @@ def propagate(runfolder, rwa, keep=False):
             QDYN.shutil.copy(config, temp_runfolder)
             logger.info("Propagating %s", runfolder)
             env = os.environ.copy()
-            env['OMP_NUM_THREADS'] = '4'
+            env['OMP_NUM_THREADS'] = '1'
             start = time.time()
             with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
                 cmds = []
