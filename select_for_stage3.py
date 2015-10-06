@@ -103,14 +103,15 @@ pulse: n = 1
 1: type = file, filename = pulse.guess, id = 1,  time_unit = {time_unit}, &
    ampl_unit = MHz, is_complex = {is_complex}, oct_increase_factor = 5.0, &
    oct_outfile = pulse.dat, oct_lambda_a = 1.0e-1, oct_lambda_intens = 0.0, &
-   oct_shape = flattop, shape_t_start = 0.0, t_rise = 10_ns, &
-   shape_t_stop = {T}_{time_unit}, t_fall = 10_ns, check_tgrid = F
+   oct_shape = flattop, shape_t_start = 0.0, t_rise = {t_rise}_{time_unit}, &
+   shape_t_stop = {T}_{time_unit}, t_fall = {t_rise}_{time_unit}, check_tgrid = F
 
 oct: iter_stop = 100, max_megs = 9000, type = krotov2, &
      A = 0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
      keep_pulses = prev, max_hours = 10,  continue = T, dynamic_sigma = T, &
      sigma_form = local, J_T_conv = 0
-""".format(T=T, is_complex=is_complex, time_unit=time_unit))
+""".format(T=T, t_rise=min(0.1*T, 10), is_complex=is_complex,
+           time_unit=time_unit))
             elif line.strip().startswith('user_strings'):
                 if target == 'PE':
                     out_fh.write("user_strings: gate = sqrt_iSWAP, J_T = PE\n")
