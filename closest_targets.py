@@ -10,7 +10,7 @@ from functools import partial
 from notebook_utils import find_folders
 import logging
 
-CPU_COUNT = 6
+CPU_COUNT = None
 
 def get_cpus():
     """Return number of available cores, either SLURM-assigned cores or number
