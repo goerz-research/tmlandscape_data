@@ -181,7 +181,8 @@ def main(argv=None):
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
             if len(commands) == 0:
                 continue
-            jobname = 'stage1_%02d' % (i_job+1)
+            jobname = '%s_stage1_%02d' % (
+                      runs.replace('.','').replace('/',''), i_job+1)
             if options.local:
                 epilogue_commands = None
             else:
