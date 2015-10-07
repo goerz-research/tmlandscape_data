@@ -44,7 +44,7 @@ def main(argv=None):
         default=False, help="Perform all calculations in the RWA.")
     arg_parser.add_option(
         '--parallel', action='store', dest='parallel', type=int,
-        default=3, help="Number of parallel processes per job [3]")
+        default=4, help="Number of parallel processes per job [4]")
     arg_parser.add_option(
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
@@ -88,7 +88,7 @@ def main(argv=None):
                       runs.replace('.','').replace('/',''), i_job+1)
             job = Job(jobscript=jobscript(commands, options.parallel),
                     jobname=jobname, workdir='.', time='48:00:00',
-                    nodes=1, threads=4*options.parallel,
+                    nodes=1, threads=options.parallel,
                     mem=1000, stdout='%s-%%j.out'%jobname,
                     prologue=prologue(runs), epilogue=epilogue(runs))
             cache_id = '%s_%s' % (

@@ -1,5 +1,5 @@
 #!/bin/bash
-conda create -p ./venv python=2.7 ipython ipython-notebook numpy scipy matplotlib bokeh pexpect sympy pandas paramiko
+conda create -p ./venv python=2.7 ipython ipython-notebook numpy scipy matplotlib bokeh pexpect sympy pandas paramiko click psutil
 
 wget https://raw.githubusercontent.com/goerz/mplstyles/master/interactive.mplstyle -O ./venv/lib/python2.7/site-packages/matplotlib/mpl-data/matplotlibrc
 
@@ -13,7 +13,7 @@ mkdir -p ./venv/src
 
 (cd $PREFIX/bin/ && ln -s ../../rewrite_dissipation.py)
 
-(cd $PREFIX/src/qdyn && git checkout 50b2d685df2070f8ff93d299e6b374b322a10cb7 && ./configure --prefix=$PREFIX --no-hooks && make install)
+(cd $PREFIX/src/qdyn && git checkout 50b2d685df2070f8ff93d299e6b374b322a10cb7 && ./configure --prefix=$PREFIX --no-parallel-oct --no-hooks && make install)
 (cd $PREFIX/src/qdynpylib && git checkout master && pip install -e .)
 (cd $PREFIX/src/transmon_oct && git checkout 7515584cfa43c00b7482fa419a379e0a9ef606c6 && ./configure --prefix=$PREFIX && make install)
 (cd $PREFIX/src/QDYNTransmonLib && git checkout master && pip install -e .)

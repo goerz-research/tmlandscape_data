@@ -92,7 +92,7 @@ def run_simplex(runfolder, target, rwa=False):
     parameters = [p for p in sorted(pulse.parameters.keys())
                   if p not in ['T', 'w_d']]
     env = os.environ.copy()
-    env['OMP_NUM_THREADS'] = '4'
+    env['OMP_NUM_THREADS'] = '1'
 
     @QDYN.memoize.memoize
     def get_U(x, pulse):
