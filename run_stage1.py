@@ -9,10 +9,7 @@ from clusterjob import Job
 import numpy as np
 from notebook_utils import PlotGrid
 if __name__ == "__main__":
-    Job.default_remote = 'kcluster'
     Job.default_backend = 'slurm'
-    Job.default_rootdir = '~/jobs/ConstrainedTransmon'
-    Job.default_opts['queue'] = 'AG-KOCH'
     Job.cache_folder='./.clusterjob_cache/stage1/'
     Job.default_sleep_interval = 180
 
@@ -132,6 +129,10 @@ def main(argv=None):
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
     arg_parser.add_option(
+        '--local', action='store_true', dest='local',
+        default=False, help="Submit all jobs to a SLURM cluster running "
+        "directly on the local workstation")
+    arg_parser.add_option(
         '--params-file', action='store', dest='params_file',
         help="File from which to read w2, wc tuples.")
     arg_parser.add_option(
@@ -163,6 +164,11 @@ def main(argv=None):
     jobs = []
     job_ids = {}
     w1 = 6.0
+    if not options.local:
+        Job.default_remote = 'kcluster'
+        Job.default_opts['queue'] = 'AG-KOCH'
+        Job.default_rootdir = '~/jobs/ConstrainedTransmon'
+
     with open("stage1.log", "a") as log:
         if options.params_file is None:
             arg_parser.error('the --params-file option must be given')
@@ -176,11 +182,15 @@ def main(argv=None):
             if len(commands) == 0:
                 continue
             jobname = 'stage1_%02d' % (i_job+1)
+            if options.local:
+                epilogue_commands = None
+            else:
+                epilogue_commands = epilogue(runs)
             job = Job(jobscript=jobscript(commands, options.parallel),
                     jobname=jobname, workdir='.', time='200:00:00',
                     nodes=1, threads=options.parallel,
                     mem=40000, stdout='%s-%%j.out'%jobname,
-                    epilogue=epilogue(runs))
+                    epilogue=epilogue_commands)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:

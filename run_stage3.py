@@ -23,10 +23,7 @@ import os
 STAGE = 'stage3'
 from clusterjob import Job
 if __name__ == "__main__":
-    Job.default_remote = 'kcluster'
     Job.default_backend = 'slurm'
-    Job.default_rootdir = '~/jobs/ConstrainedTransmon'
-    Job.default_opts['queue'] = 'AG-KOCH'
     Job.cache_folder='./.clusterjob_cache/'+STAGE+'/'
     Job.default_sleep_interval = 180
 OUTFILES = ['oct_iters.dat', 'pulse.dat', 'U.dat']
@@ -57,6 +54,10 @@ def main(argv=None):
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
     arg_parser.add_option(
+        '--local', action='store_true', dest='local',
+        default=False, help="Submit all jobs to a SLURM cluster running "
+        "directly on the local workstation")
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -75,6 +76,11 @@ def main(argv=None):
     submitted = []
     jobs = []
     job_ids = {}
+
+    if not options.local:
+        Job.default_remote = 'kcluster'
+        Job.default_opts['queue'] = 'AG-KOCH'
+        Job.default_rootdir = '~/jobs/ConstrainedTransmon'
 
     with open(os.path.join(runs, STAGE+".log"), "a") as log:
         log.write("%s\n" % time.asctime())
@@ -99,11 +105,17 @@ def main(argv=None):
                 continue
             jobname = ('%s_%s_%02d') % (
                       runs.replace('.','').replace('/',''), STAGE, i_job+1)
+            if options.local:
+                prologue_commands = None
+                epilogue_commands = None
+            else:
+                prologue_commands = prologue(runs)
+                epilogue_commands = epilogue(runs)
             job = Job(jobscript=jobscript(commands, options.parallel),
                     jobname=jobname, workdir='.', time='24:00:00',
                     nodes=1, threads=options.parallel,
                     mem=10000, stdout='%s-%%j.out'%jobname,
-                    prologue=prologue(runs), epilogue=epilogue(runs))
+                    prologue=prologue_commands, epilogue=epilogue_commands)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:
