@@ -160,6 +160,9 @@ def main(argv=None):
     single_frequency = ''
     if options.single_frequency:
         single_frequency = '--single-frequency'
+    debug = ''
+    if options.debug:
+        debug = '--debug'
     submitted = []
     jobs = []
     job_ids = {}
@@ -175,8 +178,10 @@ def main(argv=None):
         else:
             w2_wc = read_w2_wc(options.params_file)
         for (w2, wc) in w2_wc:
-            command = './pre_simplex_scan.py {rwa} {singlefreq} {runs} {w2} {wc} {T}'\
-                      .format(rwa=rwa, singlefreq=single_frequency, runs=runs, w2=w2, wc=wc, T=options.T)
+            command = './pre_simplex_scan.py --parallel=1 {debug} {rwa} {singlefreq} {runs} {w2} {wc} {T}'\
+                      .format(debug=debug, rwa=rwa,
+                              singlefreq=single_frequency, runs=runs, w2=w2,
+                              wc=wc, T=options.T)
             jobs.append(command)
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
             if len(commands) == 0:
@@ -190,7 +195,7 @@ def main(argv=None):
             job = Job(jobscript=jobscript(commands, options.parallel),
                     jobname=jobname, workdir='.', time='200:00:00',
                     nodes=1, threads=options.parallel,
-                    mem=40000, stdout='%s-%%j.out'%jobname,
+                    mem=200*options.parallel, stdout='%s-%%j.out'%jobname,
                     epilogue=epilogue_commands)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())

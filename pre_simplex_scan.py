@@ -16,14 +16,6 @@ import logging
 import time
 
 
-def get_cpus():
-    """Return number of available cores, either SLURM-assigned cores or number
-    of cores on the machine"""
-    if 'SLURM_JOB_CPUS_PER_NODE' in os.environ:
-        return int(os.environ['SLURM_JOB_CPUS_PER_NODE'])
-    else:
-        return multiprocessing.cpu_count()
-
 def hostname():
     """Return the hostname"""
     import socket
@@ -409,7 +401,8 @@ def make_threadpool_map(p):
     return threadpool_map
 
 
-def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False):
+def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False,
+        parallel=1):
     """Perform scan for the given qubit and cavity frequency
 
     runs: root folder in which to generate runs
@@ -417,6 +410,8 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False):
     wc:   cavity frequency [GHz]
     T:    gate duration [ns]
     rwa:  if True, write runs in the rotating wave approximation
+    single_frequency: if True, write only runs that have a single frequency
+    parallel: number of parallel propagations to run
     """
     # create state 1 runfolders and propagate them
     logger = logging.getLogger(__name__)
@@ -426,7 +421,7 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False):
     # 'config'
     runfolders = generate_runfolders(runs, w2, wc, T, rwa=rwa,
                                      single_frequency=single_frequency)
-    threadpool_map = make_threadpool_map(get_cpus()/4)
+    threadpool_map = make_threadpool_map(parallel)
     logger.info('*** Propagate ***')
     # Ensure that all runfolders contain the file 'U.dat'
     # 'config'
@@ -437,6 +432,7 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False):
 def main(argv=None):
     """Main routine"""
     from optparse import OptionParser
+    logger = logging.getLogger(__name__)
     if argv is None:
         argv = sys.argv
     arg_parser = OptionParser(
@@ -451,6 +447,9 @@ def main(argv=None):
     arg_parser.add_option(
         '--debug', action='store_true', dest='debug',
         default=False, help="Enable debugging output")
+    arg_parser.add_option(
+        '--parallel', action='store', dest='parallel', type=int,
+        default=1, help="Number of parallel propagation per job [1]")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = args[1]
@@ -466,7 +465,8 @@ def main(argv=None):
     if options.debug:
         logger.setLevel(logging.DEBUG)
     pre_simplex_scan(runs, w2, wc, T, rwa=options.rwa,
-                     single_frequency=options.single_frequency)
+                     single_frequency=options.single_frequency,
+                     parallel=options.parallel)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.ERROR)
