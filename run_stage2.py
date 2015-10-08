@@ -101,7 +101,7 @@ def main(argv=None):
             job = Job(jobscript=jobscript(commands, options.parallel),
                     jobname=jobname, workdir='.', time='48:00:00',
                     nodes=1, threads=options.parallel,
-                    mem=1000, stdout='%s-%%j.out'%jobname,
+                    mem=200*options.parallel, stdout='%s-%%j.out'%jobname,
                     prologue=prologue_commands, epilogue=epilogue_commands)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
