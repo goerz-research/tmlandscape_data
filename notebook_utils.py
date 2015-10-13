@@ -8,10 +8,11 @@ import numpy as np
 from matplotlib.mlab import griddata
 import pandas as pd
 import matplotlib.pylab as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, ColorConverter
 from collections import OrderedDict
 from mgplottools.mpl import set_axis, new_figure
 from matplotlib import rcParams
+from matplotlib.patches import Rectangle
 from analytical_pulses import AnalyticalPulse
 from QDYN.pulse import tgrid_from_config
 from QDYN.shutil import copy
@@ -143,8 +144,8 @@ class PlotGrid(object):
         self.w2_min = 5.0
         self.w2_max = 7.5
 
-    def add_cell(self, w2, wc, val, logscale=False, vmin=None, vmax=None,
-        contour_levels=0, title=None, cmap=None):
+    def add_cell(self, w2, wc, val, val_alpha=None, logscale=False, vmin=None,
+            vmax=None, contour_levels=0, title=None, cmap=None, bg='white'):
         """Add a cell to the plot grid
 
         All other parameters will be passed to the render_values routine
@@ -153,6 +154,7 @@ class PlotGrid(object):
         cell_dict['w2'] = w2
         cell_dict['wc'] = wc
         cell_dict['val'] = val
+        cell_dict['val_alpha'] = val_alpha
         cell_dict['logscale'] = logscale
         if vmin is None:
             cell_dict['vmin'] = np.min(val)
@@ -165,6 +167,7 @@ class PlotGrid(object):
         cell_dict['contour_levels'] = contour_levels
         cell_dict['title'] = title
         cell_dict['cmap'] = cmap
+        cell_dict['bg'] = bg
         self._cells.append(cell_dict)
 
     def plot(self, quiet=True, show=True, style=None):
@@ -205,23 +208,25 @@ class PlotGrid(object):
                               cell_dict['val'], ax_contour, axT,
                               density=self.density,
                               logscale=cell_dict['logscale'],
+                              val_alpha=cell_dict['val_alpha'],
                               vmin=cell_dict['vmin'], vmax=cell_dict['vmax'],
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
                               scatter_size=self.scatter_size,
-                              cmap=cell_dict['cmap'])
+                              cmap=cell_dict['cmap'], bg=cell_dict['bg'])
                 ax_cbar.set_yticks([])
                 ax_cbar.set_yticklabels('',visible=False)
             else:
                 render_values(cell_dict['w2'], cell_dict['wc'],
                               cell_dict['val'], ax_contour, ax_cbar,
                               density=self.density,
+                              val_alpha=cell_dict['val_alpha'],
                               logscale=cell_dict['logscale'],
                               vmin=cell_dict['vmin'], vmax=cell_dict['vmax'],
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
                               scatter_size=self.scatter_size,
-                              cmap=cell_dict['cmap'])
+                              cmap=cell_dict['cmap'], bg=cell_dict['bg'])
             ax_contour.set_xlabel(r"$\omega_2$ (GHz)", labelpad=self.xlabelpad)
             ax_contour.set_ylabel(r"$\omega_c$ (GHz)", labelpad=self.ylabelpad)
 
@@ -236,8 +241,8 @@ class PlotGrid(object):
             ax_contour.axvline(5.71, color='white', ls='--')
             ax_contour.axvline(6.0,  color='white', ls='-')
             ax_contour.axvline(5.69, color='white', ls='--')
-            ax_contour.axvline(6.58, color='white', ls='--')
-            ax_contour.axvline(6.62, color='white', ls='--')
+            #ax_contour.axvline(6.58, color='white', ls='--')
+            #ax_contour.axvline(6.62, color='white', ls='--')
             # ticks and axis labels
             set_axis(ax_contour, 'x', self.w2_min, self.w2_max, 0.5, minor=5)
             set_axis(ax_contour, 'y', self.wc_min, self.wc_max, 0.5, minor=5)
@@ -318,8 +323,8 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
 
 
 def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
-    logscale=False, vmin=None, vmax=None, contour_levels=11,
-    contour_labels=False, scatter_size=5, clip=True, cmap=None):
+    logscale=False, val_alpha=None, vmin=None, vmax=None, contour_levels=11,
+    contour_labels=False, scatter_size=5, clip=True, cmap=None, bg='white'):
     """Render the given data onto the given axes
 
     Parameters
@@ -337,6 +342,8 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         Axes onto which to render the color bar describing the contour plot
     density: int
         Number of points per GHz to be used for interpolating the plots
+    val_alpha: array or None
+        Array of alpha (transparency) values, with each value in [0, 1]
     vmin: float
         Bottom value of the z-axis (colorbar range). Defaults to the minimum
         value in the val array
@@ -354,10 +361,18 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         Size of the scatter points. Set to zero to disable showing points
     clip: boolean
         If True, clip val to the range [vmin:vmax]
+    cmap: matplotlib.colors.Colormap instance, or None
+        Colormap to be used. If None, colormap will be chosen automatically
+        based on the data.
+    bg: string
+        Color of background, i.e., the color that val_alpha will fade into
     """
     x = np.linspace(w_2.min(), w_2.max(), int((w_2.max()-w_2.min())*density))
     y = np.linspace(w_c.min(), w_c.max(), int((w_c.max()-w_c.min())*density))
     z = griddata(w_2, w_c, val, x, y, interp='linear')
+    z_alpha = None
+    if val_alpha is not None:
+        z_alpha = griddata(w_2, w_c, val_alpha, x, y, interp='linear')
     if clip:
         np.clip(z, vmin, vmax, out=z)
     if vmin is None:
@@ -367,9 +382,29 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     if logscale:
         if cmap is None:
             cmap=plt.cm.gnuplot2
-        cmesh = ax_contour.pcolormesh(x, y, z, cmap=cmap,
-                                         norm=LogNorm(), vmax=vmax, vmin=vmin)
-    else:
+        normalize = LogNorm()
+    else: # linear scale
+        if cmap is None:
+            if vmin < 0.0 and vmax > 0.0:
+                # divergent colormap
+                cmap = plt.cm.RdYlBu_r
+            else:
+                # sequential colormap
+                cmap = plt.cm.gnuplot2
+        normalize = plt.Normalize(vmin, vmax)
+    cmesh = ax_contour.pcolormesh(x, y, z, cmap=cmap, visible=False,
+                                  norm=normalize, vmax=vmax, vmin=vmin)
+    rgba = cmap(normalize(z))
+    if z_alpha is not None:
+        color_convert = ColorConverter()
+        bg_rgb = color_convert.to_rgb(bg)
+        for i in [0, 1, 2]:
+            rgba[:,:,i] *= z_alpha[:,:]
+            rgba[:,:,i] += (1.0-z_alpha[:,:]) * bg_rgb[i]
+    ax_contour.imshow(rgba, interpolation='nearest', aspect='auto',
+                        extent=[w_2.min(),w_2.max(),w_c.min(),w_c.max()],
+                        origin='lower')
+    if not logscale:
         if isinstance(contour_levels, int):
             levels = np.linspace(vmin, vmax, contour_levels)
         else:
@@ -380,20 +415,12 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
             if contour_labels:
                 ax_contour.clabel(contour, fontsize='smaller', lineine=1,
                                 fmt='%g')
-        if cmap is None:
-            if vmin < 0.0 and vmax > 0.0:
-                # divergent colormap
-                cmap = plt.cm.RdYlBu_r
-            else:
-                # sequential colormap
-                cmap = plt.cm.gnuplot2
-        cmesh = ax_contour.pcolormesh(x, y, z, cmap=cmap,
-                                    vmax=vmax, vmin=vmin)
     if scatter_size > 0:
         ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
                         linewidth=0.1*scatter_size, zorder=10)
     ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
     ax_contour.set_ylabel(r"$\omega_c$ (GHz)")
+    ax_contour.set_axis_bgcolor('white')
     fig = ax_cbar.figure
     fig.colorbar(cmesh, cax=ax_cbar)
 
@@ -447,6 +474,7 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
     if include_total:
         if not show_oct_improvement:
             categories.append('total')
+    bg = 'white'
     for category in categories:
         try:
             if category == 'total':
@@ -466,7 +494,8 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
                     title += ' scaled by %g' % scale
                 plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
                         scale*(table['C (guess)']-table['C']),
-                        vmin=C_min, vmax=C_max, contour_levels=11,
+                        val_alpha=(1-table['max loss']), bg=bg,
+                        vmin=C_min, vmax=C_max, contour_levels=0,
                         logscale=logscale, title=title)
             else:
                 title = 'increase C (%s_%s)'%(target, category)
@@ -474,7 +503,8 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
                     title += ' scaled by %g' % scale
                 plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
                         scale*(table['C']-table['C (guess)']),
-                        vmin=C_min, vmax=C_max, contour_levels=11,
+                        val_alpha=(1-table['max loss']), bg=bg,
+                        vmin=C_min, vmax=C_max, contour_levels=0,
                         logscale=logscale, title=title)
             title = 'decrease pop loss (%s_%s)'%(target, category)
             if scale != 1.0:
@@ -482,28 +512,32 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
             plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
                        scale*(table['max loss (guess)']-table['max loss']),
                        logscale=logscale, vmin=loss_min, vmax=loss_max,
-                       contour_levels=11, title=title)
+                       bg=bg, contour_levels=0, title=title)
         else:
             if concurrence_error:
                 title = 'concurrence error (%s_%s)'%(target, category)
             else:
                 title = 'concurrence (%s_%s)'%(target, category)
-            if scale != 1.0:
+                bg = 'black'
+            if scale != 0.0:
                 title += ' scaled by %g' % scale
             if concurrence_error:
                 plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
-                            scale*(1-table['C']), vmin=C_min, vmax=C_max,
-                            contour_levels=11, logscale=logscale, title=title)
+                            scale*(1-table['C']),
+                            val_alpha=(1-table['max loss']),
+                            vmin=C_min, vmax=C_max, bg=bg,
+                            contour_levels=0, logscale=logscale, title=title)
             else:
                 plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
-                            scale*table['C'], vmin=C_min, vmax=C_max,
-                            contour_levels=11, logscale=logscale, title=title)
+                            scale*table['C'], val_alpha=(1-table['max loss']),
+                            vmin=C_min, vmax=C_max, bg=bg,
+                            contour_levels=0, logscale=logscale, title=title)
             title='population loss (%s_%s)'%(target, category)
             if scale != 1.0:
                 title += ' scaled by %g' % scale
             plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
                         scale*table['max loss'], vmin=loss_min, vmax=loss_max,
-                        contour_levels=11, logscale=logscale, title=title)
+                        contour_levels=0, logscale=logscale, title=title)
 
     if outfile is None:
         plots.plot(quiet=True, show=True)
@@ -593,16 +627,18 @@ def diss_error(gamma, t):
     of the qubit state"""
     two_pi = 2.0 * np.pi
     # note that *amplitudes* decay at half the rate of the populations
-    U_diss = np.diag([
+    U = QDYN.gate2q.Gate2Q(np.diag([
         1.0,
         np.exp(-0.5*two_pi * gamma * t),
         np.exp(-0.5*two_pi * gamma * t),
-        np.exp(-0.5*two_pi * (2*gamma) * t)])
-    # U_diss is the time evolution operator in the field-free case for the bare
+        np.exp(-0.5*two_pi * (2*gamma) * t)]))
+    O = QDYN.gate2q.identity
+    # U is the time evolution operator in the field-free case for the bare
     # qubit system. Mixing with the cavity due to qubit-cavity interaction is
     # ignored and will need to additional error. Therefor, diss_error is still
     # a lower (global) limit
-    return 1.0 - 0.25*(U_diss.conjugate().dot(U_diss)).trace()
+    #return 1.0 - 0.25*(U.conjugate().dot(U)).trace()
+    return 1.0 - U.F_avg(QDYN.gate2q.identity)
 
 
 ###############################################################################
@@ -1047,22 +1083,26 @@ def plot_wL_E0(stage3_table, outfile=None):
     contours = []
     plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
             table['w_L'] - table['w1 [GHz]'],
+            val_alpha=(1-table['max loss']), bg='white',
             vmin=-1.0, vmax=1.0, contour_levels=contours,
             logscale=False, title="w_L - w1 (GHz)")
     plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
             table['w_L'] - table['w2 [GHz]'],
+            val_alpha=(1-table['max loss']), bg='white',
             vmin=-1.0, vmax=1.0, contour_levels=contours,
             logscale=False, title="w_L - w2 (GHz)")
     plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
             table['w_L'] - w_center,
+            val_alpha=(1-table['max loss']), bg='white',
             vmin=-1.0, vmax=1.0, contour_levels=contours,
             logscale=False, title="w_L - w_center (GHz)")
     plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
             table['w_L'] - table['wc [GHz]'],
+            val_alpha=(1-table['max loss']), bg='white',
             vmin=-1.0, vmax=1.0, contour_levels=contours,
             logscale=False, title="w_L - wc (GHz)")
     plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'],
-            table['E0'],
+            table['E0'], val_alpha=(1-table['max loss']), bg='white',
             vmin=0, vmax=1500.0, contour_levels=16,
             logscale=False, title="E0 (MHz)")
     if outfile is None:
