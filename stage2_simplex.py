@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-"""Scan over guess pulses for system with right qubit frequency w_2, and cavity
-frequency w_c, given in GHz"""
+"""Perform simplex optimization over the parameters of the pulse in the given
+runfolder. The runfolder must contain the files config and pulse.json.
+
+The script will create the files simplex.log, get_U.cache, pulse_opt.json, and
+U.dat in the runfolder. U.dat will contain the result of propagating
+pulse_opt.json
+"""
 
 import sys
 import os
@@ -14,7 +19,6 @@ from analytical_pulses import AnalyticalPulse
 from notebook_utils import pulse_config_compat, avg_freq, max_freq_delta, \
                            J_target
 from QDYNTransmonLib.io import read_params
-logging.basicConfig(level=logging.INFO)
 
 def hostname():
     """Return the hostname"""
@@ -127,7 +131,7 @@ def run_simplex(runfolder, target, rwa=False):
         if ( (not pulse_frequencies_ok(pulse, system_params)) \
         or (abs(pulse.parameters['E0']) > 1500.0) ):
             J = 10.0 # infinitely bad
-            logger.info("%s -> %f", pulse.header, J)
+            logger.debug("%s: %s -> %f", runfolder, pulse.header, J)
             if log_fh is not None:
                 log_fh.write("%s -> %f\n" % (pulse.header, J))
                 return J
@@ -140,7 +144,7 @@ def run_simplex(runfolder, target, rwa=False):
         C = U.closest_unitary().concurrence()
         max_loss = np.max(1.0 - U.logical_pops())
         J = J_target(target, C, max_loss)
-        logger.info("%s -> %f", pulse.header, J)
+        logger.debug("%s: %s -> %f", runfolder, pulse.header, J)
         if log_fh is not None:
             log_fh.write("%s -> %f\n" % (pulse.header, J))
         return J
@@ -164,7 +168,7 @@ def run_simplex(runfolder, target, rwa=False):
     finally:
         get_U.dump(cachefile)
         QDYN.shutil.rmtree(temp_runfolder)
-    logger.info("Finished optimization: %s" % res.message)
+    logger.info("%s: Finished optimization: %s", runfolder, res.message)
 
 
 def get_target(runfolder):
@@ -193,7 +197,15 @@ def main(argv=None):
     arg_parser.add_option(
         '--rwa', action='store_true', dest='rwa',
         default=False, help="Perform all calculations in the RWA.")
+    arg_parser.add_option(
+        '--debug', action='store_true', dest='debug',
+        default=False, help="Enable debugging output")
     options, args = arg_parser.parse_args(argv)
+    logger = logging.getLogger()
+    if options.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     try:
         runfolder = args[1]
         if not os.path.isdir(runfolder):
@@ -202,9 +214,12 @@ def main(argv=None):
         arg_parser.error("runfolder be given")
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
-    os.path.split
-    run_simplex(runfolder, get_target(runfolder), rwa=options.rwa)
+    try:
+        run_simplex(runfolder, get_target(runfolder), rwa=options.rwa)
+    except ValueError as e:
+        logger.error("%s: Failure in run_simplex: %s", runfolder, e)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     sys.exit(main())

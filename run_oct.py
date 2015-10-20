@@ -270,7 +270,6 @@ def get_iter_stop(config):
 def main(argv=None):
     """Main routine"""
     from optparse import OptionParser
-    logger = logging.getLogger(__name__)
     if argv is None:
         argv = sys.argv
     arg_parser = OptionParser(

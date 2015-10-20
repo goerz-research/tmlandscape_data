@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from notebook_utils import find_folders
 import logging
-logging.basicConfig(level=logging.ERROR)
 import sys
 import time
 import hashlib
@@ -50,6 +49,9 @@ def main(argv=None):
         default=False, help="Submit all jobs to a SLURM cluster running "
         "directly on the local workstation")
     arg_parser.add_option(
+        '--debug', action='store_true', dest='debug',
+        default=False, help="Enable debugging output")
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -62,6 +64,9 @@ def main(argv=None):
     if not runs.startswith(r'./'):
         arg_parser.error('RUNS must be relative to current folder, '
                          'e.g. ./runs')
+    debug = ''
+    if options.debug:
+        debug = '--debug'
     rwa = ''
     if options.rwa:
         rwa = '--rwa'
@@ -84,8 +89,8 @@ def main(argv=None):
                 pulse_opt = os.path.join(runfolder, 'pulse_opt.json')
                 if os.path.isfile(pulse_opt):
                     continue
-                command = './stage2_simplex.py {rwa} {runfolder}'\
-                          .format(rwa=rwa, runfolder=runfolder)
+                command = './stage2_simplex.py {debug} {rwa} {runfolder}'\
+                          .format(debug=debug, rwa=rwa, runfolder=runfolder)
                 jobs.append(command)
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
             if len(commands) == 0:
@@ -121,4 +126,5 @@ def main(argv=None):
             print "job '%s' did not finish successfully" % job_ids[job.job_id]
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.ERROR)
     sys.exit(main())
