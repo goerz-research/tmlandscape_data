@@ -317,13 +317,13 @@ def propagate(runfolder, rwa, keep=False):
     gatefile = os.path.join(runfolder, 'U.dat')
     config = os.path.join(runfolder, 'config')
     pulse_json = os.path.join(runfolder, 'pulse.json')
+    temp_runfolder = get_temp_runfolder(runfolder)
     if not os.path.isfile(gatefile):
         try:
             assert os.path.isfile(config), \
             "No config file in runfolder %s" % runfolder
             assert os.path.isfile(pulse_json), \
             "No pulse.json file in runfolder %s" % runfolder
-            temp_runfolder = get_temp_runfolder(runfolder)
             logger.debug("Prepararing temp_runfolder %s", temp_runfolder)
             if os.path.isfile(temp_runfolder):
                 # This is simply to clean up after a previous bug
