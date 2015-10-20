@@ -760,7 +760,7 @@ def get_stage1_table(runs):
         if np.isnan(U).any():
             print "ERROR: NaN in %s" % U_dat
             errors.append(folder)
-        elif np.max(U.logical_pops()) > 1.0:
+        elif np.max(U.logical_pops()) > 1.00001:
             print "ERROR: increase of norm in %s" % U_dat
             errors.append(folder)
         else:
