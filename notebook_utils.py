@@ -10,6 +10,8 @@ import pandas as pd
 import matplotlib.pylab as plt
 from matplotlib.colors import LogNorm, ColorConverter
 from collections import OrderedDict
+from textwrap import dedent
+from IPython.display import display, HTML, Markdown, Latex, Math
 from mgplottools.mpl import set_axis, new_figure
 from matplotlib import rcParams
 from matplotlib.patches import Rectangle
@@ -781,6 +783,87 @@ def get_stage1_table(runs):
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
             ]))
     return table[~table.index.isin(errors)]
+
+
+def plot_field_free_data(stage1_table, scatter_size=0, outfile=None):
+    """Plot field-free concurrence"""
+    plots = PlotGrid()
+    plots.scatter_size = scatter_size
+    table = stage1_table[stage1_table['category']=='field_free']
+    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['C'],
+                   vmin=0.0, vmax=1.0, title='concurrence')
+    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['max loss'],
+                   vmin=0.0, vmax=1.0, title='max population loss')
+    if outfile is None:
+        plots.plot(quiet=True, show=True)
+    else:
+        fig = plots.plot(quiet=True, show=False)
+        fig.savefig(outfile)
+        plt.close(fig)
+
+
+def stage1_overview(T, rwa=True, inline=True, scatter_size=0, categories=None,
+        table_loader=None):
+    """Display a full report for the given gate duration"""
+    frame = 'LAB'
+    if rwa:
+        frame = 'RWA'
+    runfolder = './runs_{T:03d}_{frame}'.format(T=T, frame=frame)
+
+    if table_loader is None:
+        table_loader = get_stage1_table
+    stage1_table = table_loader(runfolder)
+    from select_for_stage2 import select_for_stage2
+    t_PE = select_for_stage2(stage1_table, 'PE')
+    t_SQ = select_for_stage2(stage1_table, 'SQ')
+
+    display(Markdown('## T = %d ns (%s) ##' % (T, frame)))
+
+    # Field-free
+    if inline:
+        display(Markdown('* Field-Free'))
+        plot_field_free_data(stage1_table, scatter_size=scatter_size)
+    else:
+        outfile = 'stage1_field_free_{T:03d}_{frame}.png'.format(
+                   T=T, frame=frame)
+        plot_field_free_data(stage1_table, outfile=outfile)
+        display(Markdown(dedent(r'''
+        *   Field-Free
+
+            Figure has been written to `{outfile}`
+        '''.format(outfile=outfile))))
+
+    # PE
+    if inline:
+        display(Markdown('* Selection for a Perfect Entangler'))
+        plot_C_loss(t_PE, 'PE', loss_max=1.0, scatter_size=scatter_size,
+                    categories=categories)
+    else:
+        outfile = 'stage1_PE_C_loss_{T:03d}_{frame}.png'.format(
+                  T=T, frame=frame)
+        plot_C_loss(t_PE, 'PE', loss_max=1.0, scatter_size=scatter_size,
+                    categories=categories, outfile=outfile)
+        display(Markdown(dedent(r'''
+        * Selection for a Perfect Entangler
+
+            Figure has been written to `{outfile}`
+        '''.format(outfile=outfile))))
+
+    # SQ
+    if inline:
+        display(Markdown('* Selection for a Local Gate'))
+        plot_C_loss(t_SQ, 'SQ', loss_max=1.0, scatter_size=scatter_size,
+                    categories=categories)
+    else:
+        outfile = 'stage1_SQ_C_loss_{T:03d}_{frame}.png'.format(
+                  T=T, frame=frame)
+        plot_C_loss(t_SQ, 'SQ', loss_max=1.0, scatter_size=scatter_size,
+                    categories=categories, outfile=outfile)
+        display(Markdown(dedent(r'''
+        * Selection for a Local Gate
+
+            Figure has been written to `{outfile}`
+        '''.format(outfile=outfile))))
 
 
 ###############################################################################
