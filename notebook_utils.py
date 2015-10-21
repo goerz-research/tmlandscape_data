@@ -18,6 +18,7 @@ from matplotlib.patches import Rectangle
 from analytical_pulses import AnalyticalPulse
 from QDYN.pulse import tgrid_from_config
 from QDYN.shutil import copy
+from QDYN.weyl import WeylChamber
 import re
 #rcParams['xtick.direction'] = 'in'
 #rcParams['ytick.direction'] = 'in'
@@ -264,6 +265,7 @@ class PlotGrid(object):
 
         if show:
             plt.show(fig)
+            plt.close(fig)
         else:
             return fig
 
@@ -803,7 +805,7 @@ def plot_field_free_data(stage1_table, scatter_size=0, outfile=None):
 
 
 def stage1_overview(T, rwa=True, inline=True, scatter_size=0, categories=None,
-        table_loader=None):
+        table_loader=None, include_total=False):
     """Display a full report for the given gate duration"""
     frame = 'LAB'
     if rwa:
@@ -837,12 +839,13 @@ def stage1_overview(T, rwa=True, inline=True, scatter_size=0, categories=None,
     if inline:
         display(Markdown('* Selection for a Perfect Entangler'))
         plot_C_loss(t_PE, 'PE', loss_max=1.0, scatter_size=scatter_size,
-                    categories=categories)
+                    categories=categories, include_total=include_total)
     else:
         outfile = 'stage1_PE_C_loss_{T:03d}_{frame}.png'.format(
                   T=T, frame=frame)
         plot_C_loss(t_PE, 'PE', loss_max=1.0, scatter_size=scatter_size,
-                    categories=categories, outfile=outfile)
+                    categories=categories, outfile=outfile,
+                    include_total=include_total)
         display(Markdown(dedent(r'''
         * Selection for a Perfect Entangler
 
@@ -853,12 +856,13 @@ def stage1_overview(T, rwa=True, inline=True, scatter_size=0, categories=None,
     if inline:
         display(Markdown('* Selection for a Local Gate'))
         plot_C_loss(t_SQ, 'SQ', loss_max=1.0, scatter_size=scatter_size,
-                    categories=categories)
+                    categories=categories, include_total=include_total)
     else:
         outfile = 'stage1_SQ_C_loss_{T:03d}_{frame}.png'.format(
                   T=T, frame=frame)
         plot_C_loss(t_SQ, 'SQ', loss_max=1.0, scatter_size=scatter_size,
-                    categories=categories, outfile=outfile)
+                    categories=categories, outfile=outfile,
+                    include_total=include_total)
         display(Markdown(dedent(r'''
         * Selection for a Local Gate
 
@@ -1000,6 +1004,122 @@ def get_Q_table(t_PE, t_SQ):
         ], axis=1).reset_index()
     Q_table['Q'] = 0.5*(Q_table['F_avg (PE)'] + Q_table['F_avg (SQ)'])
     return Q_table
+
+
+def show_weyl_chamber(table_PE, table_SQ, outfile=None):
+    w_PE = WeylChamber()
+    w_PE.scatter(table_PE['c1'], table_PE['c2'], table_PE['c3'])
+    w_SQ = WeylChamber()
+    w_SQ.scatter(table_SQ['c1'], table_SQ['c2'], table_SQ['c3'])
+    fig = plt.figure(figsize=(13,5), dpi=72)
+    ax_PE = fig.add_subplot(121, projection='3d', title="PE")
+    ax_SQ = fig.add_subplot(122, projection='3d', title="SQ")
+    w_PE.render(ax_PE)
+    w_SQ.render(ax_SQ)
+    if outfile is None:
+        plt.show(fig)
+    else:
+        fig.savefig(outfile)
+    plt.close(fig)
+
+
+def oct_overview(T, stage, rwa=True, inline=True, scatter_size=0,
+        categories=None, table_loader=None, include_total=False):
+    """Display a full report for the given gate duration"""
+    assert stage in ['stage2', 'stage3'], \
+    "stage must be in ['stage1', 'stage2']"
+    frame = 'LAB'
+    if rwa:
+        frame = 'RWA'
+    runfolder = './runs_{T:03d}_{frame}'.format(T=T, frame=frame)
+
+    if table_loader is None:
+        if stage == 'stage2':
+            table_loader = get_stage2_table
+        else:
+            table_loader = get_stage3_table
+    table = table_loader(runfolder)
+    (__, t_PE), (__, t_SQ) = table.groupby('target', sort=True)
+
+    display(Markdown('## T = %d ns (%s) ##' % (T, frame)))
+
+    # Concurrence and loss -- PE
+    if inline:
+        display(Markdown('* Concurrence and Loss -- PE'))
+        plot_C_loss(t_PE, 'PE', categories=categories,
+                    scatter_size=scatter_size, include_total=include_total)
+    else:
+        outfile = '{stage}_PE_C_loss_{T:03d}_{frame}.png'.format(
+                   stage=stage, T=T, frame=frame)
+        plot_C_loss(t_PE, 'PE', categories=categories,
+                    scatter_size=scatter_size, include_total=include_total,
+                    outfile=outfile)
+        display(Markdown(dedent(r'''
+        * Concurrence and Loss -- PE
+
+            Figure has been written to `{outfile}`
+        '''.format(outfile=outfile))))
+
+    # Quality
+    min_err = diss_error(gamma=1.2e-5, t=T)
+    if inline:
+        display(Markdown('* Quality'))
+        plot_quality(t_PE, t_SQ, include_total=include_total, vmin=min_err,
+                     scatter_size=scatter_size, categories=categories)
+    else:
+        outfile = '{stage}_quality_{T:03d}_{frame}.png'.format(
+                   stage=stage, T=T, frame=frame)
+        plot_quality(t_PE, t_SQ, include_total=include_total, vmin=min_err,
+                     scatter_size=scatter_size, categories=categories,
+                     outfile=outfile)
+        display(Markdown(dedent(r'''
+        * Quality
+
+            Figure has been written to `{outfile}`
+        '''.format(outfile=outfile))))
+
+    # Weyl chamber
+    t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
+    t_SQ_weyl = t_SQ[t_SQ['max loss']<0.1]
+    if inline:
+        display(Markdown('* Weyl Chamber'))
+        show_weyl_chamber(t_PE_weyl, t_SQ_weyl)
+    else:
+        outfile = '{stage}_weyl_{T:03d}_{frame}.png'.format(
+                   stage=stage, T=T, frame=frame)
+        show_weyl_chamber(t_PE_weyl, t_SQ_weyl, outfile=outfile)
+        display(Markdown(dedent(r'''
+        * Weyl chamber
+
+            Figure has been written to `{outfile}`
+        '''.format(outfile=outfile))))
+
+
+def show_oct_summary_table(gate_times=None, rwa=True, table_reader=None):
+    frame = 'LAB'
+    if rwa:
+        frame = 'RWA'
+    if gate_times is None:
+        gate_times = [5, 10, 20, 50, 100, 200] # ns
+    achieved_PE_error = {}
+    achieved_Q_error = {}
+    if table_reader is None:
+        table_reader = get_stage2_table
+    for T in gate_times:
+        runfolder = './runs_{T:03d}_{frame}'.format(T=T, frame=frame)
+        stage_table = table_reader(runfolder)
+        (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
+        achieved_PE_error[T] = 1.0 - t_PE['F_avg'].max()
+        achieved_Q_error[T] = 1.0 - get_max_1freq_quality(t_PE, t_SQ)
+    df = pd.DataFrame(index=gate_times,
+        data=OrderedDict([
+            ('minimum error', [diss_error(gamma=1.2e-5, t=t) for t in gate_times]),
+            ('achieved PE error', [achieved_PE_error[t] for t in gate_times]),
+            ('achieved quality error', [achieved_Q_error[t] for t in gate_times])
+            ]))
+    df.index.name = "gate duration [ns]"
+    print df.to_string(float_format=lambda f:'%.2e'%f)
+    #print df.to_latex(float_format=lambda r: latex_float(r), escape=False)
 
 
 ###############################################################################
