@@ -14,6 +14,8 @@ from clusterjob.utils import read_file
 from stage2_simplex import get_temp_runfolder
 from QDYN.pulse import Pulse
 
+MAX_TRIALS = 200
+
 
 def reset_pulse(pulse, iter):
     """Reset pulse at the given iteration to the last available snapshot,
@@ -93,7 +95,14 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
         # over optimizations until we find a good value
         bad_lambda = True
         pulse_explosion = False
+        trial = 0
+        given_up = False
         while bad_lambda:
+            trial += 1
+            if trial > MAX_TRIALS:
+                bad_lambda = False
+                given_up = True
+                break # give up
             oct_proc = sp.Popen(['tm_en_oct', '.'], cwd=temp_runfolder,
                                 env=env, stdout=sp.PIPE)
             iter = 0
@@ -106,7 +115,12 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
                                   line)
                     if m:
                         iter = int(m.group(1))
-                        g_a_int = float(m.group(2))
+                        try:
+                            g_a_int = float(m.group(2))
+                        except ValueError:
+                            # account for Fortran dropping the 'E' in negative
+                            # 3-digit exponents
+                            g_a_int = float(m.group(2).replace('-','E-'))
                     # Every 50 iterations, we take a snapshot of the current
                     # pulse, so that "bad lambda" restarts continue from there
                     if (iter > 0) and (iter % 50 == 0):
@@ -157,7 +171,17 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
                          os.path.join(runfolder, 'config.oct'))
     QDYN.shutil.rmtree(temp_runfolder)
     logger.debug("Removed temp_runfolder %s", temp_runfolder)
-    logger.info("Finished optimization")
+    if given_up:
+        # Giving up is permanent, so we can mark the guess pulse as final
+        # by storing it as the optimized pulse. That should prevent pointlessly
+        # re-runing OCT
+        if not os.path.isfile(os.path.join(runfolder, 'pulse.dat')):
+            QDYN.shutil.copy(os.path.join(runfolder, 'pulse.guess'),
+                             os.path.join(runfolder, 'pulse.dat'))
+        logger.info("Finished optimization (given up after too many "
+                    "attempts): %s" % runfolder)
+    else:
+        logger.info("Finished optimization: %s" % runfolder)
 
 
 def scale_lambda_a(config, factor):
@@ -172,7 +196,7 @@ def scale_lambda_a(config, factor):
             if m:
                 lambda_a = float(m.group(1))
                 lambda_a_new = lambda_a * factor
-                logger.info("%s: lambda_a: %.2e -> %.2e"
+                logger.debug("%s: lambda_a: %.2e -> %.2e"
                             % (config, lambda_a, lambda_a_new))
                 line = re.sub(lambda_a_pt,
                               'oct_lambda_a = %.2e'%(lambda_a_new), line)
