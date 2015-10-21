@@ -122,7 +122,10 @@ def run_simplex(runfolder, target, rwa=False):
                         stderr=sp.STDOUT, stdout=stdout)
         U = QDYN.gate2q.Gate2Q(file=os.path.join(temp_runfolder, 'U.dat'))
         return U
-    get_U.load(cachefile)
+    try:
+        get_U.load(cachefile)
+    except EOFError:
+        pass # There's something wrong with the cachefile, so we just skip it
 
     def f(x, log_fh=None):
         """function to minimize. Modifies 'pulse' from outer scope based on x

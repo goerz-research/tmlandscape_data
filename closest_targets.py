@@ -50,8 +50,8 @@ def make_threadpool_map(p):
     return threadpool_map
 
 
-def get_closest_targets(runs, dry_run=False):
-    thread_pool_map = make_threadpool_map(get_cpus())
+def get_closest_targets(runs, parallel, dry_run=False):
+    thread_pool_map = make_threadpool_map(parallel)
     logger = logging.getLogger()
     for stage in ['stage2', 'stage3']:
         PE_gate_files = []
@@ -148,6 +148,10 @@ def main(argv=None):
         '--debug', action='store_true', dest='debug',
         default=False, help="Enable debugging output")
     arg_parser.add_option(
+        '--parallel', action='store', dest='parallel', type=int,
+        default=get_cpus(), help="Number of parallel processes per "
+        "job [%d]"%get_cpus())
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         default=False, help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -160,7 +164,8 @@ def main(argv=None):
         runs = args[1]
     except IndexError:
         arg_parser.error("Missing arguments")
-    get_closest_targets(runs, dry_run=options.dry_run)
+    get_closest_targets(runs, dry_run=options.dry_run,
+                        parallel=options.parallel)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
