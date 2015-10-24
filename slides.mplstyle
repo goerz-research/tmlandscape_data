@@ -10,7 +10,7 @@ backend      : Agg
 ### LINES
 # See http://matplotlib.org/api/artist_api.html#module-matplotlib.lines for more
 # information on line properties.
-lines.linewidth   : 0.5     # line width in points
+lines.linewidth   : 1.5     # line width in points
 lines.linestyle   : -       # solid line
 lines.color       : ff1a1c  # has no affect on plot(); see axes.color_cycle
 lines.marker      : None    # the default marker
@@ -34,7 +34,7 @@ patch.antialiased      : True    # render patches in antialised (no jaggies)
 
 ### FONT
 #
-font.family         : serif
+font.family         : sans-serif
 font.style          : normal
 font.variant        : normal
 font.weight         : medium
