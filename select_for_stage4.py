@@ -38,21 +38,17 @@ GATE_IM = {
 }
 
 
-def get_stage3_runfolders(root, w2_wc=None, single_frequency=False):
-    """Return a list of stage3 runfolders for which we want to perform a stage
-    4 calculation. If given, only consider frequencies in w2_wc. If
-    single_frequency is True, only consider guess pulses that originally had a
-    single frequency."""
+def get_stage3_runfolders(root, w2_wc, single_frequency=False):
+    """Return a list of stage3 runfolders filtered down to only frequencies in
+    w2_wc. If single_frequency is True, only include runfolder for which the
+    guess pulses only had a single frequency originally."""
     stage3_runfolders = []
-    if w2_wc is None:
-        roots = [root, ]
-    else:
-        roots = []
-        for (w2, wc) in w2_wc: # GHz
-            w2_wc_folder = os.path.join(root,
-                           'w2_%dMHz_wc_%dMHz' % (w2*1000, wc*1000))
-            if os.path.isdir(w2_wc_folder):
-                roots.append(w2_wc_folder)
+    roots = []
+    for (w2, wc) in w2_wc: # GHz
+        w2_wc_folder = os.path.join(root,
+                        'w2_%dMHz_wc_%dMHz' % (w2*1000, wc*1000))
+        if os.path.isdir(w2_wc_folder):
+            roots.append(w2_wc_folder)
     for root in roots:
         for folder in find_folders(root, 'stage3'):
             for subfolder in find_folders(folder, 'SQ*'):
@@ -143,7 +139,9 @@ def main(argv=None):
     else:
         logger.setLevel(logging.INFO)
     w2_wc = None
-    if options.params_file is not None:
+    if options.params_file not None:
+        arg_parser.error("--params-file must be given")
+    else:
         w2_wc = read_w2_wc(options.params_file)
     for folder in get_stage3_runfolders(runs, w2_wc, options.single_frequency):
         prepare_stage4(folder, dry_run=options.dry_run)
