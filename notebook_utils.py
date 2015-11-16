@@ -739,6 +739,7 @@ def get_stage1_table(runs):
                   '2freq_resonant', '2freq_random', '5freq_random'
     'J_PE'      : Value of functional for perfect-entangler target
     'J_SQ'      : Value of functional for single-qubit target
+    'F_avg(unitary)': Value of average fidelity w.r.t the closest unitary
     """
     runfolders = []
     for folder in find_folders(runs, 'stage1'):
@@ -752,6 +753,7 @@ def get_stage1_table(runs):
     avg_loss_s = pd.Series(index=runfolders)
     max_loss_s = pd.Series(index=runfolders)
     E0_s       = pd.Series(index=runfolders)
+    F_avg_s    = pd.Series(index=runfolders)
     category_s = pd.Series('', index=runfolders)
     errors = []
     for i, folder in enumerate(runfolders):
@@ -771,6 +773,7 @@ def get_stage1_table(runs):
             C_s[i] = U.closest_unitary().concurrence()
             avg_loss_s[i] = U.pop_loss()
             max_loss_s[i] = np.max(1.0 - U.logical_pops())
+            F_avg_s[i] = U.F_avg(U.closest_unitary())
         category_s[i] = re.sub('_\d+$', '_random', pulse_label)
     table = pd.DataFrame(OrderedDict([
                 ('w1 [GHz]', w1_s),
@@ -783,6 +786,7 @@ def get_stage1_table(runs):
                 ('category', category_s),
                 ('J_PE',     J_PE(C_s, max_loss_s)),
                 ('J_SQ',     J_SQ(C_s, max_loss_s)),
+                ('F_avg(unitary)', F_avg_s),
             ]))
     return table[~table.index.isin(errors)]
 
