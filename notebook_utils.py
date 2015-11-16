@@ -1099,27 +1099,50 @@ def oct_overview(T, stage, rwa=True, inline=True, scatter_size=0,
         '''.format(outfile=outfile))))
 
 
-def show_oct_summary_table(gate_times=None, rwa=True, table_reader=None):
+def show_oct_summary_table(gate_times=None, rwa=True, stage1_table_reader=None,
+        oct_table_reader=None):
     frame = 'LAB'
     if rwa:
         frame = 'RWA'
     if gate_times is None:
         gate_times = [5, 10, 20, 50, 100, 200] # ns
-    achieved_PE_error = {}
+    predicted_min_error = {}
+    min_field_free_error = {}
+    field_free_error = {}
     achieved_Q_error = {}
-    if table_reader is None:
-        table_reader = get_stage2_table
+    w2_val = {}
+    wc_val = {}
+    if oct_table_reader is None:
+        oct_table_reader = get_stage2_table
+    if stage1_table_reader is None:
+        stage1_table_reader = get_stage1_table
     for T in gate_times:
         runfolder = './runs_{T:03d}_{frame}'.format(T=T, frame=frame)
-        stage_table = table_reader(runfolder)
-        (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
-        achieved_PE_error[T] = 1.0 - t_PE['F_avg'].max()
-        achieved_Q_error[T] = 1.0 - get_max_1freq_quality(t_PE, t_SQ)
+        stage1_table = stage1_table_reader(runfolder)
+        stage1_table = stage1_table[stage1_table['category']=='field_free']
+        oct_table = oct_table_reader(runfolder)
+        (__, t_PE), (__, t_SQ) = oct_table.groupby('target', sort=True)
+        Q_table = get_Q_table(t_PE, t_SQ)
+        Q_table = Q_table[Q_table['category'].str.contains('1freq')]
+        predicted_min_error[T] = diss_error(gamma=1.2e-5, t=T)
+        min_field_free_error[T] = 1.0 - stage1_table['F_avg(unitary)'].max()
+        i = Q_table['Q'].idxmax()
+        w2_val[T] = Q_table['w2 [GHz]'][i]
+        wc_val[T] = Q_table['wc [GHz]'][i]
+        achieved_Q_error[T] = 1.0 - Q_table['Q'][i]
+        field_free_error[T] = 1.0 - \
+                              Q_table[  (Q_table['wc [GHz]'] == wc_val[T])\
+                                      & (Q_table['w2 [GHz]'] == w2_val[T])]\
+                              ['F_avg(unitary)'].max()
+
     df = pd.DataFrame(index=gate_times,
         data=OrderedDict([
-            ('minimum error', [diss_error(gamma=1.2e-5, t=t) for t in gate_times]),
-            ('achieved PE error', [achieved_PE_error[t] for t in gate_times]),
-            ('achieved quality error', [achieved_Q_error[t] for t in gate_times])
+            ('predicted min error', [diss_error(gamma=1.2e-5, t=t) for t in gate_times]),
+            ('min field-free error', [min_field_free_error[t] for t in gate_times]),
+            ('field-free error', [field_free_error[t] for t in gate_times]),
+            ('achieved quality error', [achieved_Q_error[t] for t in gate_times]),
+            ('w2 [GHz]', [w2_val[t] for t in gate_times]),
+            ('wc [GHz]', [wc_val[t] for t in gate_times]),
             ]))
     df.index.name = "gate duration [ns]"
     print df.to_string(float_format=lambda f:'%.2e'%f)
