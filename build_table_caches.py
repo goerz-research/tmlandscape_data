@@ -19,8 +19,7 @@ def check_stage1(stage1_table):
 
 
 def check_oct(stage_table):
-    for col in ['C', 'avg loss', 'max loss', 'E0 [MHz]', 'J_PE', 'J_SQ',
-            'F_avg', 'c1']:
+    for col in ['C', 'avg loss', 'max loss', 'J_PE', 'J_SQ', 'F_avg', 'c1']:
         for runfolder in stage_table[stage_table[col].isnull()].index:
             print("Runfolder %s: missing value for %s" % (runfolder, col))
     (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
@@ -46,15 +45,15 @@ def check_oct(stage_table):
                           col=col))
             rf_PE = Q_table.ix[i]['PE runfolder']
             rf_SQ = Q_table.ix[i]['SQ runfolder']
-            if rf_PE is None:
-                print("  No PE folder" % rf_PE)
+            if pd.isnull(rf_PE):
+                print("  No PE folder")
             else:
                 if os.path.isdir(rf_PE):
                     print("  %s exists" % rf_PE)
                 else:
                     print("  %s does not exist" % rf_PE)
-            if rf_SQ is None:
-                print("  No SQ folder" % rf_SQ)
+            if pd.isnull(rf_SQ):
+                print("  No SQ folder")
             else:
                 if os.path.isdir(rf_SQ):
                     print("  %s exists" % rf_SQ)
