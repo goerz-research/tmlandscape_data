@@ -1130,10 +1130,10 @@ def show_oct_summary_table(gate_times=None, rwa=True, stage1_table_reader=None,
         w2_val[T] = Q_table['w2 [GHz]'][i]
         wc_val[T] = Q_table['wc [GHz]'][i]
         achieved_Q_error[T] = 1.0 - Q_table['Q'][i]
-        field_free_error[T] = 1.0 - \
-                              Q_table[  (Q_table['wc [GHz]'] == wc_val[T])\
-                                      & (Q_table['w2 [GHz]'] == w2_val[T])]\
-                              ['F_avg(unitary)'].max()
+        field_free_error[T] = 1.0 - stage1_table[
+                                      (stage1_table['wc [GHz]'] == wc_val[T])\
+                                    & (stage1_table['w2 [GHz]'] == w2_val[T])
+                              ]['F_avg(unitary)'].max()
 
     df = pd.DataFrame(index=gate_times,
         data=OrderedDict([
