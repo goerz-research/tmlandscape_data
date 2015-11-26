@@ -20,21 +20,21 @@ GATE = {
     'H_right' : QDYN.gate2q.Gate2Q(np.kron(np.eye(2), HADAMARD)),
     'Ph_left' : QDYN.gate2q.Gate2Q(np.kron(PHASE, np.eye(2))),
     'Ph_right': QDYN.gate2q.Gate2Q(np.kron(np.eye(2), PHASE)),
-    'SWAP'    : QDYN.gate2q.SWAP,
+    #'SWAP'    : QDYN.gate2q.SWAP,
 }
 GATE_RE = {
     'H_left'  : QDYN.linalg.vectorize(GATE['H_left']).real,
     'H_right' : QDYN.linalg.vectorize(GATE['H_right']).real,
     'Ph_left' : QDYN.linalg.vectorize(GATE['Ph_left']).real,
     'Ph_right': QDYN.linalg.vectorize(GATE['Ph_right']).real,
-    'SWAP'    : QDYN.linalg.vectorize(GATE['SWAP']).real
+    #'SWAP'    : QDYN.linalg.vectorize(GATE['SWAP']).real
 }
 GATE_IM = {
     'H_left'  : QDYN.linalg.vectorize(GATE['H_left']).imag,
     'H_right' : QDYN.linalg.vectorize(GATE['H_right']).imag,
     'Ph_left' : QDYN.linalg.vectorize(GATE['Ph_left']).imag,
     'Ph_right': QDYN.linalg.vectorize(GATE['Ph_right']).imag,
-    'SWAP'    : QDYN.linalg.vectorize(GATE['SWAP']).imag
+    #'SWAP'    : QDYN.linalg.vectorize(GATE['SWAP']).imag
 }
 
 
@@ -76,7 +76,7 @@ def prepare_stage4(stage3_runfolder, dry_run=False):
     pulse = QDYN.pulse.Pulse(pulse_dat)
     pulse.preamble = ['# guess pulse (copy of %s)' % pulse_dat,]
     config = read_file(os.path.join(stage3_runfolder, "config"))
-    for target in ['H_left', 'H_right', 'Ph_left', 'Ph_right', 'SWAP']:
+    for target in ['H_left', 'H_right', 'Ph_left', 'Ph_right']:
         runfolder = os.path.join(stage4_root, "%s_%s" % (parts[-1], target))
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             logger.debug("folder %s already contains a propagated OCT "
