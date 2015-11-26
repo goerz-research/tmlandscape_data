@@ -38,10 +38,14 @@ GATE_IM = {
 }
 
 
-def get_stage3_runfolders(root, w2_wc, single_frequency=False):
-    """Return a list of stage3 runfolders filtered down to only frequencies in
-    w2_wc. If single_frequency is True, only include runfolder for which the
-    guess pulses only had a single frequency originally."""
+def get_stage3_runfolders(root, w2_wc, SQ, single_frequency=False):
+    """Return a list of SQ or PE stage3 runfolders filtered down to only
+    frequencies in w2_wc. If single_frequency is True, only include runfolder
+    for which the guess pulses only had a single frequency originally.
+
+    If SQ is True, return runfolder in which the target was the local gate.
+    Otherwise, return runfolder in which the target was a PE
+    """
     stage3_runfolders = []
     roots = []
     for (w2, wc) in w2_wc: # GHz
@@ -49,9 +53,13 @@ def get_stage3_runfolders(root, w2_wc, single_frequency=False):
                         'w2_%dMHz_wc_%dMHz' % (w2*1000, wc*1000))
         if os.path.isdir(w2_wc_folder):
             roots.append(w2_wc_folder)
+    if SQ:
+        subfolder_pattern = 'SQ*'
+    else:
+        subfolder_pattern = 'PE*'
     for root in roots:
         for folder in find_folders(root, 'stage3'):
-            for subfolder in find_folders(folder, 'SQ*'):
+            for subfolder in find_folders(folder, subfolder_pattern):
                 if single_frequency:
                     if '1freq' in subfolder:
                         stage3_runfolders.append(subfolder)
@@ -60,11 +68,19 @@ def get_stage3_runfolders(root, w2_wc, single_frequency=False):
     return stage3_runfolders
 
 
-def prepare_stage4(stage3_runfolder, dry_run=False):
+def prepare_stage4(stage3_runfolder, SQ, dry_run=False):
     """Generate all stage4 runfolder based on the given stage3_runfolder.
-    stage3_runfolder must contain a config file that is appropriate for LI
-    optimization for unity, and it must contain pulse.dat (result of stage3
-    optimization) which will be used as the guess pulse """
+
+    If SQ is True, stage3_runfolder must contain a config file that is
+    appropriate for LI optimization for unity, and it must contain pulse.dat
+    (result of stage3 optimization) which will be used as the guess pulse
+
+    If SQ is False, stage3_runfolder must contain a config file that is
+    appropritate for PE optimization. It must contain pulse.dat (result of
+    stage3 optimization) and U_closest_PE.dat. The pulse will be be used as the
+    guest pulse for a direct optimization (SM functional) towards the gate
+    stored in U_closest_PE.dat.
+    """
     logger = logging.getLogger(__name__)
     parts = stage3_runfolder.split(os.path.sep)
     assert parts[-2] == 'stage3', "stage3_runfolder must be contain 'stage3'" \
@@ -76,8 +92,15 @@ def prepare_stage4(stage3_runfolder, dry_run=False):
     pulse = QDYN.pulse.Pulse(pulse_dat)
     pulse.preamble = ['# guess pulse (copy of %s)' % pulse_dat,]
     config = read_file(os.path.join(stage3_runfolder, "config"))
-    for target in ['H_left', 'H_right', 'Ph_left', 'Ph_right']:
-        runfolder = os.path.join(stage4_root, "%s_%s" % (parts[-1], target))
+    if SQ:
+        targets = ['H_left', 'H_right', 'Ph_left', 'Ph_right']
+    else:
+        targets = ['PE']
+    for target in targets:
+        if target == 'PE':
+            runfolder = os.path.join(stage4_root, "%s"%parts[-1])
+        else:
+            runfolder = os.path.join(stage4_root, "%s_%s"%(parts[-1], target))
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             logger.debug("folder %s already contains a propagated OCT "
                          "result. Skipping", runfolder)
@@ -97,9 +120,16 @@ def prepare_stage4(stage3_runfolder, dry_run=False):
                        re.sub(r'gate\s*=\s*\w+', r'gate = target_gate.dat',
                        re.sub(r'J_T\s*=\s*\w+',  r'J_T = SM', config)))))))
             # target gate
-            writetotxt(os.path.join(runfolder, 'target_gate.dat'),
-                    GATE_RE[target], GATE_IM[target])
-
+            if SQ:
+                writetotxt(os.path.join(runfolder, 'target_gate.dat'),
+                        GATE_RE[target], GATE_IM[target])
+            else:
+                U_tgt = QDYN.gate2q.Gate2Q(file=os.path.join(
+                            stage3_runfolder, "U_closest_PE.dat"))
+                U_tgt_re = QDYN.linalg.vectorize(U_tgt).real
+                U_tgt_im = QDYN.linalg.vectorize(U_tgt).imag
+                writetotxt(os.path.join(runfolder, 'target_gate.dat'),
+                        U_tgt_re, U_tgt_im)
 
 
 def main(argv=None):
@@ -143,8 +173,11 @@ def main(argv=None):
         arg_parser.error("--params-file must be given")
     else:
         w2_wc = read_w2_wc(options.params_file)
-    for folder in get_stage3_runfolders(runs, w2_wc, options.single_frequency):
-        prepare_stage4(folder, dry_run=options.dry_run)
+    for SQ in [True, False]:
+        folders = get_stage3_runfolders(runs, w2_wc, SQ,
+                                        options.single_frequency)
+        for folder in folders:
+            prepare_stage4(folder, SQ, dry_run=options.dry_run)
 
 
 if __name__ == "__main__":
