@@ -1332,7 +1332,7 @@ def get_stage4_table(runs):
     'err(S_L)' : avg gate error for Phase gate on left qubit
     'err(H_R)' : avg gate error for Hadamard gate on right qubit
     'err(S_R)' : avg gate error for Phase gate on right qubit
-    'err(SWAP)': avg gate error for SWAP gate
+    'err(PE)':   avg gate error for PE gate
     'err(tot)' : average of all errors
 
     The index is given by the full stage4 path corresponding to a tuple
@@ -1346,7 +1346,7 @@ def get_stage4_table(runs):
     err_S_L_s  = pd.Series(index=stage4_folders)
     err_H_R_s  = pd.Series(index=stage4_folders)
     err_S_R_s  = pd.Series(index=stage4_folders)
-    err_SWAP_s = pd.Series(index=stage4_folders)
+    err_PE_s   = pd.Series(index=stage4_folders)
     err_tot    = pd.Series(index=stage4_folders)
     rx_stage4_folder = re.compile(r'''
                 \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
@@ -1357,7 +1357,7 @@ def get_stage4_table(runs):
         'H_right':  err_H_R_s,
         'Ph_left':  err_S_L_s,
         'Ph_right': err_S_R_s,
-        'SWAP':     err_SWAP_s
+        'PE':       err_PE_s
     }
     for i, stage4_folder in enumerate(stage4_folders):
         print("stage4_folder = "+stage4_folder) # DEBUG
@@ -1383,7 +1383,7 @@ def get_stage4_table(runs):
                     except IOError:
                         pass # U.dat doesn't exist => Leave NaN in output table
             assert processed
-    err_tot = (err_H_L_s + err_H_R_s + err_S_L_s + err_S_R_s + err_SWAP_s)/5.0
+    err_tot = (err_H_L_s + err_H_R_s + err_S_L_s + err_S_R_s + err_PE_s) / 5.0
     table = pd.DataFrame(OrderedDict([
                 ('w1 [GHz]',  w1_s),
                 ('w2 [GHz]',  w2_s/1000.0),
@@ -1392,7 +1392,7 @@ def get_stage4_table(runs):
                 ('err(S_L)',  err_H_R_s),
                 ('err(H_R)',  err_S_L_s),
                 ('err(S_R)',  err_S_R_s),
-                ('err(SWAP)', err_SWAP_s),
+                ('err(PE)',   err_PE_s),
                 ('err(tot)',  err_tot)
             ]))
     return table

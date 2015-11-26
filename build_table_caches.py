@@ -21,7 +21,7 @@ def check_stage1(stage1_table):
 
 def check_stage4(stage4_table):
     """Print any runfolder for which there is missing data"""
-    for col in ['err(H_L)', 'err(S_L)', 'err(H_R)', 'err(S_R)', 'err(SWAP)']:
+    for col in ['err(H_L)', 'err(S_L)', 'err(H_R)', 'err(S_R)', 'err(PE)']:
         for runfolder in stage4_table[stage4_table[col].isnull()].index:
             print("%s: missing value for %s" % (runfolder, col))
 
@@ -125,9 +125,9 @@ def main(argv=None):
         default=False, help="Check for missing/invalid data")
     options, args = arg_parser.parse_args(argv)
     reader = {
-        #'stage1': QDYN.memoize.memoize(get_stage1_table),
-        #'stage2': QDYN.memoize.memoize(get_stage2_table),
-        #'stage3': QDYN.memoize.memoize(get_stage3_table)
+        'stage1': QDYN.memoize.memoize(get_stage1_table),
+        'stage2': QDYN.memoize.memoize(get_stage2_table),
+        'stage3': QDYN.memoize.memoize(get_stage3_table)
         'stage4': QDYN.memoize.memoize(get_stage4_table)
     }
     if options.check:
