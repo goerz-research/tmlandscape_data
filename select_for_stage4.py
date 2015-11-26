@@ -139,7 +139,7 @@ def main(argv=None):
     else:
         logger.setLevel(logging.INFO)
     w2_wc = None
-    if options.params_file not None:
+    if options.params_file is None:
         arg_parser.error("--params-file must be given")
     else:
         w2_wc = read_w2_wc(options.params_file)
