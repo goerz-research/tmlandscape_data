@@ -113,7 +113,7 @@ def prepare_stage4(stage3_runfolder, SQ, dry_run=False):
             pulse.write(os.path.join(runfolder, 'pulse.guess'))
             # config: functional to SM, target to target_gate.dat
             write_file(os.path.join(runfolder, 'config'),
-                       re.sub(r'iter_stop\s*=\s*\d+', r'iter_stop = 1000',
+                       re.sub(r'iter_stop\s*=\s*\d+', r'iter_stop = 10000',
                        re.sub(r'max_hours\s*=\s*\d+', r'max_hours = 23',
                        re.sub(r'J_T_conv\s*=\s*[\de+-]+', r'J_T_conv = 1.0e-3',
                        re.sub(r'type\s*=\s*krotov2', r'type = krotovpk',
