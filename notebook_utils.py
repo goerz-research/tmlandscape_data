@@ -1027,6 +1027,20 @@ def show_weyl_chamber(table_PE, table_SQ, outfile=None):
     plt.close(fig)
 
 
+def write_quality_table(stage_table, outfile, category='1freq'):
+    """Write out the achieved quality based on the given stage2 or stage3
+    table, in tabular form (sorted)
+    """
+    if category is not None:
+        stage_table = stage_table[stage_table['category']==category]
+    (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
+    Q_table = get_Q_table(t_PE, t_SQ).sort('Q', ascending=False)
+    Q_table['Error'] = 1.0 - Q_table['Q']
+    Q_table['Error'] = Q_table['Error'].map(lambda f: '%.3e'%f)
+    with open(outfile, 'w') as out_fh:
+        out_fh.write(Q_table.to_string())
+
+
 def oct_overview(T, stage, rwa=True, inline=True, scatter_size=0,
         categories=None, table_loader=None, include_total=False):
     """Display a full report for the given gate duration"""
@@ -1137,10 +1151,10 @@ def show_oct_summary_table(gate_times=None, rwa=True, stage1_table_reader=None,
 
     df = pd.DataFrame(index=gate_times,
         data=OrderedDict([
-            ('predicted min error', [diss_error(gamma=1.2e-5, t=t) for t in gate_times]),
-            ('min field-free error', [min_field_free_error[t] for t in gate_times]),
-            ('field-free error', [field_free_error[t] for t in gate_times]),
-            ('achieved quality error', [achieved_Q_error[t] for t in gate_times]),
+            #('predicted min error', [diss_error(gamma=1.2e-5, t=t) for t in gate_times]),
+            ('min f-free error', [min_field_free_error[t] for t in gate_times]),
+            ('f-free error', [field_free_error[t] for t in gate_times]),
+            ('Q error', [achieved_Q_error[t] for t in gate_times]),
             ('w2 [GHz]', [w2_val[t] for t in gate_times]),
             ('wc [GHz]', [wc_val[t] for t in gate_times]),
             ]))
