@@ -1222,6 +1222,8 @@ def get_stage3_table(runs):
     'J_PE (guess)'     : Value of J_PE for guess pulse
     'J_SQ (guess)'     : Value of J_SQ for guess pulse
     'F_avg (guess)'    : Value of F_avg for guess pulse
+
+    The index is given by the full runfolder path
     """
     runfolders = []
     for folder in find_folders(runs, 'stage3'):
@@ -1294,6 +1296,105 @@ def get_stage3_table(runs):
     table['J_PE (guess)']     = input_table['J_PE']
     table['J_SQ (guess)']     = input_table['J_SQ']
     table['F_avg (guess)']    = input_table['F_avg']
+    return table
+
+
+def read_target_gate(filename):
+    """Return a QDYN.gate2q.Gate2Q instance for the the gate defined in the
+    given filename, assuming the file contains a gate in the format that
+    select_for_stage4.preparae_stage4 uses for the file  'target_gate.dat'.
+    Specifically, the file is assumed to contain two columns for the real and
+    the imaginary part of the vectorized gate. The vectorization is assumed to
+    be in column-major mode (columns of the matrix written underneath each
+    other)
+    """
+    gate_re, gate_im = np.genfromtxt(filename, unpack=True)
+    gate = np.reshape((gate_re + 1j*gate_im), newshape=(4,4), order='F')
+    return QDYN.gate2q.Gate2Q(gate)
+
+
+def get_stage4_table(runs):
+    """Summarize the results of the stage4 calculations in a DataFrame table
+
+    Assumes that the runfolder structure is
+    [runs]/w2_[w2]MHz_wc_[wc]MHz/stage4/[SQ|PE]_[category]_[gate]/
+
+    Each runfolder must contain a file U.dat (resulting from
+    propagation of the optimized pulse.dat), and a file target_gate.dat that
+    contains the optimization target.
+
+    The resulting table will have the columns
+
+    'w1 [GHz]' : value of left qubit frequency
+    'w2 [GHz]' : value of right qubit frequency
+    'wc [GHz]' : value of cavity frequency
+    'err(H_L)' : avg gate error for Hadamard gate on left qubit
+    'err(S_L)' : avg gate error for Phase gate on left qubit
+    'err(H_R)' : avg gate error for Hadamard gate on right qubit
+    'err(S_R)' : avg gate error for Phase gate on right qubit
+    'err(SWAP)': avg gate error for SWAP gate
+    'err(tot)' : average of all errors
+
+    The index is given by the full stage4 path corresponding to a tuple
+    (w1, w2, wc)
+    """
+    stage4_folders = list(find_folders(runs, 'stage4'))
+    w1_s       = pd.Series(6.0, index=stage4_folders)
+    w2_s       = pd.Series(index=stage4_folders)
+    wc_s       = pd.Series(index=stage4_folders)
+    err_H_L_s  = pd.Series(index=stage4_folders)
+    err_S_L_s  = pd.Series(index=stage4_folders)
+    err_H_R_s  = pd.Series(index=stage4_folders)
+    err_S_R_s  = pd.Series(index=stage4_folders)
+    err_SWAP_s = pd.Series(index=stage4_folders)
+    err_tot    = pd.Series(index=stage4_folders)
+    rx_stage4_folder = re.compile(r'''
+                \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
+                \/stage4
+                ''', re.X)
+    err = { # map between part of runfolder name and the data series
+        'H_left':   err_H_L_s,
+        'H_right':  err_H_R_s,
+        'Ph_left':  err_S_L_s,
+        'Ph_right': err_S_R_s,
+        'SWAP':     err_SWAP_s
+    }
+    for i, stage4_folder in enumerate(stage4_folders):
+        print("stage4_folder = "+stage4_folder) # DEBUG
+        m_stage4_folder = rx_stage4_folder.search(stage4_folder)
+        if not m_stage4_folder:
+            raise ValueError("%s does not match rx_stage4_folder" % folder)
+        w2_s[i] = float(m_stage4_folder.group('w2'))
+        wc_s[i] = float(m_stage4_folder.group('wc'))
+        for runfolder in find_leaf_folders(stage4_folder):
+            print("  "+runfolder) # DEBUG
+            assert '1freq' in runfolder
+            processed = False
+            for target in err:
+                if target in runfolder:
+                    processed = True
+                    try:
+                        U_dat = os.path.join(runfolder, 'U.dat')
+                        U = QDYN.gate2q.Gate2Q(file=U_dat)
+                        target_gate_dat = os.path.join(runfolder,
+                                                        'target_gate.dat')
+                        U_target = read_target_gate(target_gate_dat)
+                        err[target][i] = 1.0 - U.F_avg(U_target)
+                    except IOError:
+                        pass # U.dat doesn't exist => Leave NaN in output table
+            assert processed
+    err_tot = (err_H_L_s + err_H_R_s + err_S_L_s + err_S_R_s + err_SWAP_s)/5.0
+    table = pd.DataFrame(OrderedDict([
+                ('w1 [GHz]',  w1_s),
+                ('w2 [GHz]',  w2_s/1000.0),
+                ('wc [GHz]',  wc_s/1000.0),
+                ('err(H_L)',  err_H_L_s),
+                ('err(S_L)',  err_H_R_s),
+                ('err(H_R)',  err_S_L_s),
+                ('err(S_R)',  err_S_R_s),
+                ('err(SWAP)', err_SWAP_s),
+                ('err(tot)',  err_tot)
+            ]))
     return table
 
 
