@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """Run stage3 (optimization)
 
-Calls ./run_oct.py for any found runfolder matching the STAGE variable, inside
-RUNS (as prepared e.g. by ./select_for_stage3.py).
-
+Calls ./run_oct.py for any found runfolder that has 'stage3' in its path,
+inside RUNS (as prepared by ./select_for_stage3.py).
 
 Assumes that the runfolders contain the files config, pulse.guess.
 
@@ -20,6 +19,7 @@ import sys
 import time
 import hashlib
 import os
+PROP_ONLY = False
 STAGE = 'stage3'
 from clusterjob import Job
 if __name__ == "__main__":
@@ -33,7 +33,6 @@ from run_stage2 import prologue
 
 
 def main(argv=None):
-    """Run stage 3"""
     from optparse import OptionParser
     if argv is None:
         argv = sys.argv
@@ -43,10 +42,12 @@ def main(argv=None):
     arg_parser.add_option(
         '--rwa', action='store_true', dest='rwa',
         default=False, help="Perform all calculations in the RWA.")
-    arg_parser.add_option(
-        '--continue', action='store_true', dest='cont',
-        default=False, help="Continue optimization from aborted OCT. "
-        "If not given, OCT will be skipped if all output files exist already.")
+    if not PROP_ONLY:
+        arg_parser.add_option(
+            '--continue', action='store_true', dest='cont',
+            default=False, help="Continue optimization from aborted OCT. "
+            "If not given, OCT will be skipped if all output files exist "
+            "already.")
     arg_parser.add_option(
         '--parallel', action='store', dest='parallel', type=int,
         default=12, help="Number of parallel processes per job [12]")
@@ -91,12 +92,17 @@ def main(argv=None):
                 for file in OUTFILES:
                     if not os.path.isfile(os.path.join(runfolder, file)):
                         call_run_oct = True
-                if options.cont:
-                        call_run_oct = True
+                if not PROP_ONLY:
+                    if options.cont:
+                            call_run_oct = True
                 if call_run_oct:
                     log.write("scheduled %s for OCT\n" % runfolder)
-                    command = './run_oct.py --continue {rwa} {runfolder}'\
-                            .format(rwa=rwa, runfolder=runfolder)
+                    if PROP_ONLY:
+                        command = './run_oct.py --prop-only --keep {rwa} {runfolder}'\
+                                .format(rwa=rwa, runfolder=runfolder)
+                    else:
+                        command = './run_oct.py --continue {rwa} {runfolder}'\
+                                .format(rwa=rwa, runfolder=runfolder)
                     jobs.append(command)
                 else:
                     log.write("skipped %s (output complete)\n" % runfolder)

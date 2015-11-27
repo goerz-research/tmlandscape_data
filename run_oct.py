@@ -308,6 +308,12 @@ def main(argv=None):
     arg_parser.add_option(
         '--debug', action='store_true', dest='debug',
         default=False, help="Enable debugging output")
+    arg_parser.add_option(
+        '--prop-only', action='store_true', dest='prop_only',
+        default=False, help="Only propagate, instead of doing OCT")
+    arg_parser.add_option(
+        '--keep', action='store_true', dest='keep',
+        default=False, help="Keep all files from the propagation")
     options, args = arg_parser.parse_args(argv)
     try:
         runfolder = args[1]
@@ -324,7 +330,10 @@ def main(argv=None):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    perform_optimization = True
+    if options.prop_only:
+        perform_optimization = False
+    else:
+        perform_optimization = True
     if os.path.isfile(pulse_file):
         pulse = Pulse(pulse_file)
         if pulse.oct_iter <= 1:
@@ -342,7 +351,7 @@ def main(argv=None):
                 os.unlink(os.path.join(runfolder, 'U_closest_PE.dat'))
         run_oct(runfolder, rwa=options.rwa, continue_oct=options.cont)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
-        propagate(runfolder, rwa=options.rwa)
+        propagate(runfolder, rwa=options.rwa, keep=options.keep)
 
 
 if __name__ == "__main__":
