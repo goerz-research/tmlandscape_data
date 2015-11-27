@@ -9,11 +9,10 @@ import logging
 import hashlib
 logging.basicConfig(level=logging.ERROR)
 from clusterjob import Job
-Job.default_remote = 'kcluster'
-Job.default_backend = 'slurm'
-Job.default_rootdir = '~/jobs/ConstrainedTransmon'
-Job.default_opts['queue'] = 'AG-KOCH'
-Job.cache_folder='./.clusterjob_cache/stage2/'
+if __name__ == "__main__":
+    Job.default_backend = 'slurm'
+    Job.cache_folder='./.clusterjob_cache/check_stage2_rwa/'
+    Job.default_sleep_interval = 180
 
 from run_stage1 import split_seq, jobscript
 from run_stage2 import prologue, epilogue
@@ -50,6 +49,10 @@ def main(argv=None):
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
     arg_parser.add_option(
+        '--local', action='store_true', dest='local',
+        default=False, help="Submit all jobs to a SLURM cluster running "
+        "directly on the local workstation")
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -65,17 +68,29 @@ def main(argv=None):
     submitted = []
     jobs = get_jobs(runs)
     job_ids = {}
+
+    if not options.local:
+        Job.default_remote = 'kcluster'
+        Job.default_opts['queue'] = 'AG-KOCH'
+        Job.default_rootdir = '~/jobs/ConstrainedTransmon'
+
     with open("check_stage2_rwa.log", "a") as log:
         log.write("%s\n" % time.asctime())
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
             if len(commands) == 0:
                 continue
             jobname = 'check_stage2_rwa_%02d' % (i_job+1)
+            if options.local:
+                prologue_commands = None
+                epilogue_commands = None
+            else:
+                prologue_commands = prologue(runs)
+                epilogue_commands = epilogue(runs)
             job = Job(jobscript=jobscript(commands, options.parallel),
                     jobname=jobname, workdir='.', time='48:00:00',
                     nodes=1, threads=4*options.parallel,
                     mem=4000, stdout='%s-%%j.out'%jobname,
-                    prologue=prologue(runs), epilogue=epilogue(runs))
+                    prologue=prologue_commands, epilogue=epilogue_commands)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:
