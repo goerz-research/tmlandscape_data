@@ -127,7 +127,7 @@ def main(argv=None):
     reader = {
         'stage1': QDYN.memoize.memoize(get_stage1_table),
         'stage2': QDYN.memoize.memoize(get_stage2_table),
-        'stage3': QDYN.memoize.memoize(get_stage3_table)
+        'stage3': QDYN.memoize.memoize(get_stage3_table),
         'stage4': QDYN.memoize.memoize(get_stage4_table)
     }
     if options.check:
