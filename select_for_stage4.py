@@ -16,10 +16,10 @@ PHASE = np.array([[1, 0], [0, np.exp(-0.25j*np.pi)]], dtype=np.complex128)
 
 # single qubit target gates
 GATE = {
-    'H_left'  : QDYN.gate2q.Gate2Q(np.kron(HADAMARD, np.eye(2))),
-    'H_right' : QDYN.gate2q.Gate2Q(np.kron(np.eye(2), HADAMARD)),
-    'Ph_left' : QDYN.gate2q.Gate2Q(np.kron(PHASE, np.eye(2))),
-    'Ph_right': QDYN.gate2q.Gate2Q(np.kron(np.eye(2), PHASE)),
+    'H_left'  : QDYN.gate2q.Gate2Q(np.kron(HADAMARD, np.eye(2)), name='H_L'),
+    'H_right' : QDYN.gate2q.Gate2Q(np.kron(np.eye(2), HADAMARD), name='H_R'),
+    'Ph_left' : QDYN.gate2q.Gate2Q(np.kron(PHASE, np.eye(2)), name='S_L'),
+    'Ph_right': QDYN.gate2q.Gate2Q(np.kron(np.eye(2), PHASE), name='S_R'),
     #'SWAP'    : QDYN.gate2q.SWAP,
 }
 GATE_RE = {
