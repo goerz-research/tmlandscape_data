@@ -4,6 +4,9 @@ Module containing auxilliary routines for the notebooks in this folder
 import QDYN
 import re
 import os
+import StringIO
+import urllib
+import base64
 import numpy as np
 from matplotlib.mlab import griddata
 import pandas as pd
@@ -19,6 +22,7 @@ from analytical_pulses import AnalyticalPulse
 from QDYN.pulse import tgrid_from_config
 from QDYN.shutil import copy
 from QDYN.weyl import WeylChamber
+import QDYNTransmonLib
 import re
 #rcParams['xtick.direction'] = 'in'
 #rcParams['ytick.direction'] = 'in'
@@ -561,6 +565,30 @@ def latex_float(f):
         return float_str
 
 
+def fig_to_html(fig):
+    """Convert a matplotlib figures into into an inline HTML snippet that
+    displays the figure"""
+    imgdata = StringIO.StringIO()
+    fig.savefig(imgdata, format='png', dpi=70)
+    imgdata.seek(0)
+    uri = 'data:image/png;base64,' + urllib.quote(base64.b64encode(imgdata.buf))
+    return '<img src = "%s"/>' % uri
+
+
+def pd_insert_col_width(html_str, widths):
+    """Modify the html string representing a pandas DataFrame in HTML
+    (df.to_html) to ensure that each column has the specified width in pixels
+    """
+    lines = ['<colgroup>']
+    for width in widths:
+        lines.append('<col span="1" style="width: %dpx;">' % int(width))
+    lines.append('</colgroup>')
+    lines.append('<thead>')
+    width = int(np.sum(np.array(widths)))
+    html_str = html_str.replace('border=', 'width="%spx" border='%width)
+    return html_str.replace('<thead>', "\n".join(lines))
+
+
 def get_max_1freq_quality(t_PE, t_SQ):
     """Return the maximum quality value for a single frequency pulse, based on
     the given input tables"""
@@ -1039,6 +1067,121 @@ def write_quality_table(stage_table, outfile, category='1freq'):
     Q_table['Error'] = Q_table['Error'].map(lambda f: '%.3e'%f)
     with open(outfile, 'w') as out_fh:
         out_fh.write(Q_table.to_string())
+
+
+def get_wd(configfile):
+    """Return the driving frequency (in GHz) from the given config file"""
+    rx = re.compile(r'w_d\s*=\s*(?P<w_d>[\d.]+)_MHz')
+    with open(configfile) as in_fh:
+        for line in in_fh:
+            if line.strip().startswith('w_d'):
+                w_d = float(rx.search(line).group('w_d'))
+                return w_d / 1000.0 # to GHz
+    raise AssertionError("Could not get w_d from config")
+
+def get_prop_fig_table(stage4_table, what='pulse'):
+    """Generate table of plots used in prop_overview routine"""
+    index = stage4_table.index
+    targets = ['PE_1freq', 'SQ_1freq_H_left', 'SQ_1freq_H_right',
+                'SQ_1freq_Ph_left', 'SQ_1freq_Ph_right']
+    err_col = {'PE_1freq'         : 'err(PE)',
+               'SQ_1freq_H_left'  : 'err(H_L)',
+               'SQ_1freq_H_right' : 'err(H_R)',
+               'SQ_1freq_Ph_left' : 'err(S_L)',
+               'SQ_1freq_Ph_right': 'err(S_R)'}
+    fig_s = {}
+    for target in targets:
+        fig_s[target] = []
+    for stage4_folder in index:
+        stage_prop_folder = stage4_folder.replace('stage4', 'stage_prop')
+        for target in targets:
+            runfolder = os.path.join(stage_prop_folder, target)
+            w_d = get_wd(os.path.join(runfolder, 'config'))
+            err = stage4_table[err_col[target]][stage4_folder]
+            title = "$\omega_d =$ %.3f GHz, $\epsilon = $%s" \
+                    % (w_d, latex_float(err))
+            if what == 'pulse':
+                fig = new_figure(10.8, 8.0, quiet=True)
+                fig.suptitle(title)
+                p = QDYN.pulse.Pulse(os.path.join(runfolder, 'pulse.dat'))
+                p.plot(fig=fig)
+            elif what == 'popdyn':
+                fig = new_figure(16.0, 12.0, quiet=True)
+                dyn = QDYNTransmonLib.popdyn.PopPlot(
+                          runfolder, panel_width=4.5, left_margin=2.5,
+                          right_margin=3.0, top_margin=0.7)
+                dyn.plot(basis_states=('00', '01', '10', '11'),
+                         pops=('00', '01', '10', '11', 'tot'), fig=fig,
+                         legend=True, in_panel_legend=True, quiet=True,
+                         scale=1.0)
+            else:
+                raise ValueError("Unknown 'what'")
+            fig_s[target].append(fig_to_html(fig))
+            plt.close(fig)
+    table = pd.DataFrame(OrderedDict([
+                ('w1 [GHz]', stage4_table['w1 [GHz]']),
+                ('w2 [GHz]', stage4_table['w2 [GHz]']),
+                ('wc [GHz]', stage4_table['wc [GHz]']),
+                ('pulse(PE)',      fig_s['PE_1freq']),
+                ('pulse(H,left)',  fig_s['SQ_1freq_H_left']),
+                ('pulse(H,right)', fig_s['SQ_1freq_H_right']),
+                ('pulse(S,left)',  fig_s['SQ_1freq_Ph_left']),
+                ('pulse(S,right)', fig_s['SQ_1freq_Ph_right']),
+            ]))
+    return table
+
+
+def prop_overview(T, rwa=True, err_limit=1.0e-3, table_loader=None):
+    """Find all stage_prop folders for the given pulse duration and plot their
+    results. Pulses and population dynamics are only shown for total errors
+    below the given limit"""
+    frame = 'LAB'
+    if rwa:
+        frame = 'RWA'
+    root = './runs_{T:03d}_{frame}'.format(T=T, frame=frame)
+    display(Markdown('## T = %d ns (%s) ##' % (T, frame)))
+    if table_loader is None:
+        table_loader = get_stage4_table
+    stage_table = table_loader(root)
+
+    formatters = { # col value -> HTML
+        'err(H_L)': latex_float,
+        'err(H_R)': latex_float,
+        'err(S_L)': latex_float,
+        'err(S_R)': latex_float,
+        'err(PE)' : latex_float,
+        'err(tot)': latex_float,
+    }
+
+    with pd.option_context('display.max_colwidth', -1):
+
+        display(Markdown("\nAchieved Gate Error for all optimizations, with "
+        "total error 'err(tot)' as average of the error for all targets:\n"))
+        err_table = stage_table.sort('err(tot)')
+        html = err_table.to_html(formatters=formatters,
+                                 escape=False, index=False)
+        html = pd_insert_col_width(html, widths=([50,]*3+[100,]*6))
+        display(HTML(html))
+
+        display(Markdown("\nOptimized pulses for optimizations with err(tot)"
+                         " < %s:\n" % latex_float(err_limit)))
+        pulse_fig_table = get_prop_fig_table(
+                          stage_table[stage_table['err(tot)']<err_limit]
+                          .sort('err(tot)'), what='pulse')
+        html = pulse_fig_table.to_html(formatters=formatters,
+                                       escape=False, index=False)
+        html = pd_insert_col_width(html, widths=([50,]*3+[300,]*5))
+        display(HTML(html))
+
+        display(Markdown("Population dynamics for optimizations with err(tot)"
+                         " < %s:\n" % latex_float(err_limit)))
+        popdyn_fig_table = get_prop_fig_table(
+                           stage_table[stage_table['err(tot)']<err_limit]
+                           .sort('err(tot)'), what='popdyn')
+        html = popdyn_fig_table.to_html(formatters=formatters,
+                                        escape=False, index=False)
+        html = pd_insert_col_width(html, widths=([50,]*3+[400,]*5))
+        display(HTML(html))
 
 
 def oct_overview(T, stage, rwa=True, inline=True, scatter_size=0,
