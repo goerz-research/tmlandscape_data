@@ -9,31 +9,32 @@ import QDYN
 import numpy as np
 from notebook_utils import find_folders, find_leaf_folders
 
-def get_stage4_runfolders(runs):
+def get_stage4_runfolders(runs, stage4_folder):
     """Return a list of all stage 4 runfolders that contain the file pulse.dat
     (result of OCT)
     """
     runfolders = []
-    for folder in find_folders(runs, 'stage4'):
+    for folder in find_folders(runs, stage4_folder):
         for subfolder in find_leaf_folders(folder):
             if os.path.isfile(os.path.join(subfolder, 'pulse.dat')):
                 runfolders.append(subfolder)
     return runfolders
 
 
-def prepare_prop(stage4_runfolder, dry_run=False):
+def prepare_prop(runfolder, stage4_folder='stage4',
+        stage_prop_folder='stage_prop', dry_run=False):
     """Generate propagation folder based on the given stage 4 runfolder.
 
     The stage4 runfolder must contain a config file and a file pulse.dat that
     is the result of running OCT.
     """
     logger = logging.getLogger(__name__)
-    stage4_guess_file = os.path.join(stage4_runfolder, 'pulse.guess')
-    stage4_pulse_file = os.path.join(stage4_runfolder, 'pulse.dat')
-    stage4_target_gate = os.path.join(stage4_runfolder, 'target_gate.dat')
-    stage4_config = os.path.join(stage4_runfolder, 'config')
-    prop_folder = stage4_runfolder.replace('stage4', 'stage_prop')
-    assert prop_folder != stage4_runfolder
+    stage4_guess_file = os.path.join(runfolder, 'pulse.guess')
+    stage4_pulse_file = os.path.join(runfolder, 'pulse.dat')
+    stage4_target_gate = os.path.join(runfolder, 'target_gate.dat')
+    stage4_config = os.path.join(runfolder, 'config')
+    prop_folder = runfolder.replace(stage4_folder, stage_prop_folder)
+    assert prop_folder != runfolder
     prop_pulse_file = os.path.join(prop_folder, 'pulse.dat')
     prop_config = os.path.join(prop_folder, 'config')
     prop_U_dat = os.path.join(prop_folder, 'U.dat')
@@ -102,6 +103,13 @@ def main(argv=None):
     arg_parser.add_option(
         '--debug', action='store_true', dest='debug',
         default=False, help="Enable debugging output")
+    arg_parser.add_option(
+        '--stage4-folder', action='store', dest='stage4_folder',
+        default='stage4', help="Name of stage 4 folder. Defaults to 'stage4'")
+    arg_parser.add_option(
+        '--stage-prop-folder', action='store', dest='stage_prop_folder',
+        default='stage4', help="Name of propagation stage folder. Defaults "
+        "to 'stage_prop'")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = os.path.join('.', os.path.normpath(args[1]))
@@ -117,9 +125,11 @@ def main(argv=None):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    folders = get_stage4_runfolders(runs)
+    folders = get_stage4_runfolders(runs, stage_folder=options.stage4_folder)
     for folder in folders:
-        prepare_prop(folder, dry_run=options.dry_run)
+        prepare_prop(folder, stage4_folder=options.stage4_folder,
+                stage_prop_folder=options.stage_prop_folder,
+                dry_run=options.dry_run)
 
 
 if __name__ == "__main__":

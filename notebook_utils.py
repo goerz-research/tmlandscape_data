@@ -1088,7 +1088,8 @@ def get_wd(configfile):
                 return w_d / 1000.0 # to GHz
     raise AssertionError("Could not get w_d from config")
 
-def get_prop_fig_table(stage4_table, what='pulse'):
+def get_prop_fig_table(stage4_table, stage4_folder='stage4',
+        stage_prop_folder='stage_prop', what='pulse'):
     """Generate table of plots used in prop_overview routine"""
     index = stage4_table.index
     targets = ['PE_1freq', 'SQ_1freq_H_left', 'SQ_1freq_H_right',
@@ -1102,7 +1103,8 @@ def get_prop_fig_table(stage4_table, what='pulse'):
     for target in targets:
         fig_s[target] = []
     for stage4_folder in index:
-        stage_prop_folder = stage4_folder.replace('stage4', 'stage_prop')
+        stage_prop_folder = stage4_folder.replace(stage4_folder,
+                                                  stage_prop_folder)
         for target in targets:
             runfolder = os.path.join(stage_prop_folder, target)
             w_d = get_wd(os.path.join(runfolder, 'config'))
@@ -1140,7 +1142,8 @@ def get_prop_fig_table(stage4_table, what='pulse'):
     return table
 
 
-def prop_overview(T, rwa=True, err_limit=1.0e-3, table_loader=None):
+def prop_overview(T, rwa=True, err_limit=1.0e-3, stage4_folder='stage4',
+        stage_prop_folder='stage_prop', table_loader=None):
     """Find all stage_prop folders for the given pulse duration and plot their
     results. Pulses and population dynamics are only shown for total errors
     below the given limit"""
@@ -1151,7 +1154,7 @@ def prop_overview(T, rwa=True, err_limit=1.0e-3, table_loader=None):
     display(Markdown('## T = %d ns (%s) ##' % (T, frame)))
     if table_loader is None:
         table_loader = get_stage4_table
-    stage_table = table_loader(root)
+    stage_table = table_loader(root, stage4_folder=stage4_folder)
 
     formatters = { # col value -> HTML
         'err(H_L)': latex_float,
@@ -1176,7 +1179,8 @@ def prop_overview(T, rwa=True, err_limit=1.0e-3, table_loader=None):
                          " < %s:\n" % latex_float(err_limit)))
         pulse_fig_table = get_prop_fig_table(
                           stage_table[stage_table['err(tot)']<err_limit]
-                          .sort('err(tot)'), what='pulse')
+                          .sort('err(tot)'), stage4_folder=stage4_folder,
+                          stage_prop_folder=stage_prop_folder, what='pulse')
         html = pulse_fig_table.to_html(formatters=formatters,
                                        escape=False, index=False)
         html = pd_insert_col_width(html, widths=([50,]*3+[300,]*5))
@@ -1186,7 +1190,8 @@ def prop_overview(T, rwa=True, err_limit=1.0e-3, table_loader=None):
                          " < %s:\n" % latex_float(err_limit)))
         popdyn_fig_table = get_prop_fig_table(
                            stage_table[stage_table['err(tot)']<err_limit]
-                           .sort('err(tot)'), what='popdyn')
+                           .sort('err(tot)'), stage4_folder=stage4_folder,
+                           stage_prop_folder=stage_prop_folder, what='popdyn')
         html = popdyn_fig_table.to_html(formatters=formatters,
                                         escape=False, index=False)
         html = pd_insert_col_width(html, widths=([50,]*3+[400,]*5))
@@ -1465,14 +1470,14 @@ def read_target_gate(filename):
     return QDYN.gate2q.Gate2Q(gate)
 
 
-def get_stage4_table(runs):
+def get_stage4_table(runs, stage_folder='stage4'):
     """Summarize the results of the stage4 calculations in a DataFrame table
 
     Assumes that the runfolder structure is
     [runs]/w2_[w2]MHz_wc_[wc]MHz/stage4/[SQ|PE]_[category]_[gate]/
 
     Each runfolder must contain a file U.dat (resulting from
-    propagation of the optimized pulse.dat), and a file target_gate.dat that
+    ropagation of the optimized pulse.dat), and a file target_gate.dat that
     contains the optimization target.
 
     The resulting table will have the columns
@@ -1490,7 +1495,7 @@ def get_stage4_table(runs):
     The index is given by the full stage4 path corresponding to a tuple
     (w1, w2, wc)
     """
-    stage4_folders = list(find_folders(runs, 'stage4'))
+    stage4_folders = list(find_folders(runs, stage_folder))
     w1_s       = pd.Series(6.0, index=stage4_folders)
     w2_s       = pd.Series(index=stage4_folders)
     wc_s       = pd.Series(index=stage4_folders)
@@ -1502,8 +1507,7 @@ def get_stage4_table(runs):
     err_tot    = pd.Series(index=stage4_folders)
     rx_stage4_folder = re.compile(r'''
                 \/w2_(?P<w2>[\d.]+)MHz_wc_(?P<wc>[\d.]+)MHz
-                \/stage4
-                ''', re.X)
+                \/'''+stage_folder, re.X)
     err = { # map between part of runfolder name and the data series
         'H_left':   err_H_L_s,
         'H_right':  err_H_R_s,
@@ -1512,14 +1516,12 @@ def get_stage4_table(runs):
         'PE':       err_PE_s
     }
     for i, stage4_folder in enumerate(stage4_folders):
-        print("stage4_folder = "+stage4_folder) # DEBUG
         m_stage4_folder = rx_stage4_folder.search(stage4_folder)
         if not m_stage4_folder:
             raise ValueError("%s does not match rx_stage4_folder" % folder)
         w2_s[i] = float(m_stage4_folder.group('w2'))
         wc_s[i] = float(m_stage4_folder.group('wc'))
         for runfolder in find_leaf_folders(stage4_folder):
-            print("  "+runfolder) # DEBUG
             assert '1freq' in runfolder
             processed = False
             for target in err:

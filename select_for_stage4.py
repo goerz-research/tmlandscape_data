@@ -68,7 +68,7 @@ def get_stage3_runfolders(root, w2_wc, SQ, single_frequency=False):
     return stage3_runfolders
 
 
-def prepare_stage4(stage3_runfolder, SQ, dry_run=False):
+def prepare_stage4(stage3_runfolder, SQ, stage_folder='stage4', dry_run=False):
     """Generate all stage4 runfolder based on the given stage3_runfolder.
 
     If SQ is True, stage3_runfolder must contain a config file that is
@@ -85,7 +85,7 @@ def prepare_stage4(stage3_runfolder, SQ, dry_run=False):
     parts = stage3_runfolder.split(os.path.sep)
     assert parts[-2] == 'stage3', "stage3_runfolder must be contain 'stage3'" \
                                   "as penultimate folder"
-    stage4_root = os.path.join(*(parts[:-2]+['stage4',]))
+    stage4_root = os.path.join(*(parts[:-2]+[stage_folder,]))
     logger.debug("Constructing runfolders based on stage 3 %s",
                  stage3_runfolder)
     pulse_dat = os.path.join(stage3_runfolder, "pulse.dat")
@@ -153,6 +153,10 @@ def main(argv=None):
     arg_parser.add_option(
         '--params-file', action='store', dest='params_file',
         help="File from which to read w2, wc tuples.")
+    arg_parser.add_option(
+        '--stage-folder', action='store', dest='stage_folder',
+        default='stage4', help="Name of stage folder. Alternative stage "
+        "folder names may be used to explore different OCT strategies")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = os.path.join('.', os.path.normpath(args[1]))
@@ -177,7 +181,8 @@ def main(argv=None):
         folders = get_stage3_runfolders(runs, w2_wc, SQ,
                                         options.single_frequency)
         for folder in folders:
-            prepare_stage4(folder, SQ, dry_run=options.dry_run)
+            prepare_stage4(folder, SQ, stage_folder=options.stage_folder,
+                           dry_run=options.dry_run)
 
 
 if __name__ == "__main__":

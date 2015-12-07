@@ -79,7 +79,7 @@ def check_oct(stage_table):
                     print("  %s does not exist" % rf_SQ)
 
 
-def collect(reader, checker, formatter):
+def collect(reader, reader_kwargs, checker, formatter):
     """For each folder in ./runs*_RWA, read in a summary table using
     reader[folder], check it using checker[folder], and write it to a dat file
     in ascii, either directly or by filtering it through formatter[folder]
@@ -92,13 +92,19 @@ def collect(reader, checker, formatter):
     reader[folder]: folder => pandas dataframe
     checker[folder]: pandas_dataframe => None (prints info about missing data)
     formatter[folder] pandas dataframe => pandas dataframe (used for writing)
+
+    The reader_kwargs is a dictionary of dictionaries
+    reader_kwargs[folder]: folder => keyword args for reader[folder]
     """
     for stage in reader:
         print("\n*** %s ***" % stage)
         dump_file = stage+'_table.cache'
         for folder in glob("./runs*_RWA"):
             print("processing folder: %s..." % folder)
-            table = reader[stage](folder)
+            if stage in reader_kwargs:
+                table = reader[stage](folder, **reader_kwargs[stage])
+            else:
+                table = reader[stage](folder)
             table_file_name = "{stage}_table_{runs}.dat".format(
                     stage=stage, runs=re.sub(r'^.*runs_(.*)$', r'\1', folder))
             with open(table_file_name, 'w') as out_fh:
@@ -130,6 +136,9 @@ def main(argv=None):
         'stage3': QDYN.memoize.memoize(get_stage3_table),
         'stage4': QDYN.memoize.memoize(get_stage4_table)
     }
+    reader_kwargs = {
+        'stage4': {'stage_folder': 'stage4'},
+    }
     if options.check:
         checker = {
             'stage1': check_stage1,
@@ -142,7 +151,7 @@ def main(argv=None):
     formatter = {
         'stage4': format_stage4,
     }
-    collect(reader, checker, formatter)
+    collect(reader, reader_kwargs, checker, formatter)
 
 if __name__ == "__main__":
     sys.exit(main())

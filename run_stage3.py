@@ -22,10 +22,6 @@ import os
 PROP_ONLY = False
 STAGE = 'stage3'
 from clusterjob import Job
-if __name__ == "__main__":
-    Job.default_backend = 'slurm'
-    Job.cache_folder='./.clusterjob_cache/'+STAGE+'/'
-    Job.default_sleep_interval = 180
 OUTFILES = ['oct_iters.dat', 'pulse.dat', 'U.dat']
 
 from run_stage1 import jobscript, epilogue, split_seq
@@ -59,6 +55,11 @@ def main(argv=None):
         default=False, help="Submit all jobs to a SLURM cluster running "
         "directly on the local workstation")
     arg_parser.add_option(
+        '--stage-folder', action='store', dest='stage_folder',
+        default=STAGE, help="Name of stage folder. Alternative stage "
+        "folder names may be used to explore different OCT strategies. "
+        "Defaults to "+STAGE)
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -78,14 +79,17 @@ def main(argv=None):
     jobs = []
     job_ids = {}
 
+    Job.default_backend = 'slurm'
+    Job.cache_folder='./.clusterjob_cache/'+options.stage_folder+'/'
+    Job.default_sleep_interval = 180
     if not options.local:
         Job.default_remote = 'kcluster'
         Job.default_opts['queue'] = 'AG-KOCH'
         Job.default_rootdir = '~/jobs/ConstrainedTransmon'
 
-    with open(os.path.join(runs, STAGE+".log"), "a") as log:
+    with open(os.path.join(runs, options.stage_folder+".log"), "a") as log:
         log.write("%s\n" % time.asctime())
-        for folder in find_folders(runs, STAGE):
+        for folder in find_folders(runs, options.stage_folder):
             for subfolder in os.listdir(folder):
                 runfolder = os.path.join(folder, subfolder)
                 call_run_oct = False
@@ -110,7 +114,8 @@ def main(argv=None):
             if len(commands) == 0:
                 continue
             jobname = ('%s_%s_%02d') % (
-                      runs.replace('.','').replace('/',''), STAGE, i_job+1)
+                      runs.replace('.','').replace('/',''),
+                      options.stage_folder, i_job+1)
             if options.local:
                 prologue_commands = None
                 epilogue_commands = None
