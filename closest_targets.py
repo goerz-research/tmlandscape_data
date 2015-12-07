@@ -132,7 +132,7 @@ def get_closest(gatefile, target, raise_exceptions=False, method='Powell',
             else:
                 return None
     with open(outfile, 'w') as out_fh:
-        QDYN.io.print_matrix(U_closest, out=out_fh)
+        QDYN.io.print_matrix(U_closest, out=out_fh, fmt="%25.16E")
     return U_closest
 
 
