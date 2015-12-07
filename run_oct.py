@@ -144,6 +144,15 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False):
         E0 = np.max(np.abs(p_guess.amplitude))
         parameters = {'E0': E0, 'T': p_guess.T, 'w_L': w_d, 'w_d': w_d}
         vary = ['E0', ]; bounds = {'E0': (0.5*E0, 1.5*E0)}
+    elif formula == 'CRAB_rwa':
+        assert(rwa)
+        w_d = get_w_d_from_config(config)
+        E0 = np.max(np.abs(p_guess.amplitude))
+        parameters = {'E0': E0, 'T': p_guess.T, 'w_d': w_d, 'r': np.zeroes(5),
+                'a'=np.zeros(5), 'b':np.zeros(5)}
+        vary = ['E0', 'r', 'a', 'b'];
+        bounds = {'E0': (0.8*E0, 1.2*E0), 'r': (-0.5, 0.5), 'a': (0, 1),
+                  'b': (0, 1)}
     else:
         raise ValueError("Don't know what to do with formula %s" % formula)
     try:

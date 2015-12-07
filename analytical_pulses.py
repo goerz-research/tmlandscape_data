@@ -195,6 +195,10 @@ class AnalyticalPulse(object):
         if vary is None:
             vary = sorted(parameters.keys())
         n_params = len(vary)
+        # some of the parameters may be numpy-arrays
+        for key in vary:
+            if not np.isscalar(parameters[key]):
+                n_params += len(parameters[key])-1
         if via_spectrum:
             freq, spectrum = pulse.spectrum()
         else:
@@ -211,16 +215,30 @@ class AnalyticalPulse(object):
             scipy_bounds = None
         else:
             scipy_bounds = []
-            for i, key in enumerate(vary):
+            i = 0
+            for key in vary:
                 if key in bounds:
                     val_min, val_max = bounds[key]
-                    scipy_bounds.append((val_min, val_max))
-                    if val_min is not None:
-                        min_vals[i] = val_min
-                    if val_max is not None:
-                        max_vals[i] = val_max
+                    if np.isscalar(parameters[key]):
+                        n = 1
+                    else:
+                        n = len(parameters[key])
+                    for __ in range(n):
+                        scipy_bounds.append((val_min, val_max))
+                        if val_min is not None:
+                            min_vals[i] = val_min
+                        if val_max is not None:
+                            max_vals[i] = val_max
+                        i += 1
                 else:
-                    scipy_bounds.append((None, None))
+                    if np.isscalar(parameters[key]):
+                        n = 1
+                    else:
+                        n = len(parameters[key])
+                    for __ in range(n):
+                        scipy_bounds.append((None, None))
+                        i += 1
+        assert i == n_params
 
         guess = cls(formula, T, nt, parameters, t0, time_unit, ampl_unit,
                     freq_unit, mode)
@@ -248,7 +266,7 @@ class AnalyticalPulse(object):
                 guess.array_to_parameters(x, keys=vary)
                 if via_spectrum:
                     __, guess_spectrum = guess.pulse().spectrum()
-                    result = f_a(spectrum , guess_spectrum, 1.0)
+                    result = f_a(spectrum , guess_spectrum)
                 else:
                     result = f_a(guess.pulse().amplitude, pulse.amplitude)
             logger.debug("%s -> %s", str(guess.parameters), result)
@@ -524,7 +542,9 @@ def CRAB_carrier(t, time_unit, freq, freq_unit, a, b, normalize=False,
         else:
             signal += a_n * np.cos(c*w_n*t) + b_n * np.sin(c*w_n*t)
     if normalize:
-        signal *= 1.0 / (np.abs(signal).max())
+        nrm = np.abs(signal).max()
+        if nrm > 1.0e-16:
+            signal *= 1.0 / nrm
     return signal
 
 
@@ -580,6 +600,29 @@ def ampl_5freq_rwa(tgrid, E0, T, freq_low, a_low, b_low, freq_high, a_high,
     return E0 * a / np.max(np.abs(a))
 
 
+def ampl_CRAB_rwa(tgrid, E0, T, r, a, b, w_d):
+    # note that w_d is neccessary a pulse parameter, even though it does not
+    # occur in the formula: the simplex adapts the config file based on the w_d
+    # parameter in the pulse.
+    #
+    # frequencies are freq[k] = 2*pi*k*(1+r_k)/T, so the r vector must take
+    # values in [-0.5, 0.5]
+    n = len(a)
+    #if np.max(r) > 0.5:
+        #raise ValueError("Each value in r must be in [-0.5, 0.5]")
+    #if np.min(r) < -0.5:
+        #raise ValueError("Each value in r must be in [-0.5, 0.5]")
+    freq = np.array([2*np.pi*k*(1+r[k])/float(T) for k in range(n)])
+    crab_shape = CRAB_carrier(tgrid, 'ns', freq, 'GHz', a, b,
+                              normalize=True)
+    # note: amplitude reduction by 1/2 is included in construction of ham
+    a = blackman(tgrid, 0, T) * crab_shape
+    if np.max(np.abs(a)) > 1.0e-16:
+        return E0 * a / np.max(np.abs(a))
+    else:
+        return np.zeros(len(a))
+
+
 AnalyticalPulse.register_formula('field_free', ampl_field_free)
 AnalyticalPulse.register_formula('1freq',      ampl_1freq)
 AnalyticalPulse.register_formula('2freq',      ampl_2freq)
@@ -587,7 +630,7 @@ AnalyticalPulse.register_formula('5freq',      ampl_5freq)
 AnalyticalPulse.register_formula('1freq_rwa',  ampl_1freq_rwa)
 AnalyticalPulse.register_formula('2freq_rwa',  ampl_2freq_rwa)
 AnalyticalPulse.register_formula('5freq_rwa',  ampl_5freq_rwa)
-
+AnalyticalPulse.register_formula('CRAB_rwa',  ampl_CRAB_rwa)
 
 
 def test():
@@ -698,6 +741,34 @@ def test():
     delta = np.abs(  p5.parameters_to_array() \
                    - p5_recovered.parameters_to_array())
     assert np.max(delta) <= 1.0e-16
+
+    T = 200
+    r = np.random.random(5)-0.5
+    a = np.random.random(5)
+    b = np.random.random(5)
+    p6 = AnalyticalPulse('CRAB_rwa', T=T, nt=(T*11*100),
+         parameters={'E0': 100, 'T': T, 'w_d': 0.0,
+             'r': r, 'a': a, 'b': b},
+         time_unit='ns', ampl_unit='MHz')
+
+    p6_recovered = AnalyticalPulse.create_from_fit(
+            p6.pulse(), formula=p6.formula_name,
+            parameters={'E0': 100, 'T': T, 'w_d': 0.0,
+                'r': r, 'a': a*(1.0+0.1*(np.random.random(5)-0.5)),
+                'b': b*(1.0+0.1*(np.random.random(5)-0.5))},
+            vary=['a', 'b'],
+            bounds={'a': (0,1), 'b': (0,1)},
+            via_spectrum=False, method='L-BFGS-B', #f_bound_err=1e10,
+            )
+    delta = np.abs(  p6.parameters_to_array() \
+                   - p6_recovered.parameters_to_array())
+    print(p6)
+    print(p6_recovered)
+    print("deviations in parameters:: %s" % str(delta))
+    delta_ampl = np.max(
+                 np.abs(p6.pulse().amplitude - p6_recovered.pulse().amplitude))
+    print("deviation in total amplitude: %s" % delta_ampl)
+    assert (delta_ampl <= 1.0e-5)
 
 
 def main(argv=None):
