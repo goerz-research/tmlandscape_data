@@ -10,12 +10,14 @@ import numpy as np
 from QDYN.pulse import Pulse, pulse_tgrid, carrier, blackman
 import json
 import inspect
+import logging
+from scipy.optimize import minimize, basinhopping, curve_fit
 
 
 class NumpyAwareJSONEncoder(json.JSONEncoder):
     """JSON Encoder than can handle 1D real numpy arrays by converting them to
     to a special object. The result can be decoded using the
-    NumpyAwaraJSONDecoder to recover the numpy arrays."""
+    NumpyAwareJSONDecoder to recover the numpy arrays."""
     def default(self, obj):
         if isinstance(obj, np.ndarray) and obj.ndim == 1:
             return {'type': 'np.'+obj.dtype.name, 'vals' :obj.tolist()}
@@ -104,11 +106,207 @@ class AnalyticalPulse(object):
             n_opt = len(argspec.defaults)
         cls._required_args[name] = argspec.args[1:-n_opt]
 
+    @classmethod
+    def create_from_fit(cls, pulse, formula, parameters, method='curve_fit',
+            vary=None, bounds=None, f_bound_err=None,
+            raise_runtime_error=False, via_spectrum=False, **kwargs):
+        """Construct an analytical pulse that matches the given numerical pulse
+        as closely as possible, by fitting the pulse parameters via either
+        scipy.optimize.curve_fit or scipy.optimize.minimize
+
+        Parameters
+        ----------
+        pulse: QDYN.pulse.Pulse
+            Numerical pulse to approximate
+        formulas: str
+            Name of a previously registered formula
+        parameters: dict
+            Dictionary of "guess" parameter values. Will not be modified.
+        method: str
+            Name of optimization method. Either 'curve_fit', or any of the
+            methods known to scipy.optimize.minimize. If not using the default
+            'curve_fit', the recommended method is 'L-BFGS-B' when defining
+            bounds, and 'BFGS' otherwise.
+        vary: list or None
+            List of keys in parameters whose values should be varied to match
+            the given `pulse` as closely as possible. All other parameters are
+            kept fix that the value given in the `parameters` dict. If None,
+            all keys will be varied.
+        bounds: dict or None
+            If not None, dictionary of parameter name => tuple([min, max]),
+            where min and max are either None or a float that indicates the
+            minimum or maximum value that the parameter is allowed to take.
+            If using the 'curve_fit' method, a RuntimeError will be raised if
+            any parameters goes outside of the defined bounds. For any other
+            optimization method, this will be converted and passed to the
+            scipy.optimize.minimize `bounds` argument in an appropriate
+            format.
+        f_bound_err: None or float
+            If `method` specifies a gradient-free method (Nelder-Mead, Powell)
+            that has no support for enforcing bounds, the bounds may be
+            enforced through setting an artificially high figure of merit if
+            any parameter takes a value outside of the defined bound. The
+            desired value for the figure of merit in such a case is given
+            by `f_bound_err`.
+        raise_runtime_error: boolean
+            If True, and using an optimization method other than 'curve_fit',
+            raise a RuntimeError if the optimization fails. Otherwise,
+            only log a warning
+        via_spectrum: boolean
+            If True, instead of matching the pulse amplitude directly, match
+            the pulse spectrum. This will slow down the optimization by at
+            least an order of magnitude.
+
+        All remaining keyword arguments are passed to the
+        scipy.optimize.minimize routine, or are discarded if `method` is
+        'curve_fit'
+
+        Raises
+        ------
+
+        RuntimeError: if method == 'curve_fit' and any variable violates the
+            defined bounds. Also raised if raise_runtime_error is
+            True and optimization via scipy.optimize.minimize fails.
+
+        If method is 'curve_fit', further exceptions may be raise by
+        scipy.optimize.curve_fit.
+
+        Notes
+        -----
+
+        Fitting a pulse formula to a numerical pulse will fail for any
+        oscillating pulse. You should only try this for smooth pulse shapes
+        (e.g. pulses in the rotating wave approximation).
+
+        During the fit, a summary of the trial parameters and a figure of merit
+        are debug-logged via the logging module. When trying out different
+        optimization methods, or deciding on a value for `f_bound_err`, these
+        debug messages may provide useful information
+        """
+        logger = logging.getLogger(__name__)
+        T = pulse.T
+        nt = len(pulse.amplitude) + 1
+        t0 = pulse.t0
+        time_unit = pulse.time_unit
+        ampl_unit = pulse.ampl_unit
+        freq_unit = pulse.freq_unit
+        mode = pulse.mode
+        parameters = parameters.copy()
+        if vary is None:
+            vary = sorted(parameters.keys())
+        n_params = len(vary)
+        if via_spectrum:
+            freq, spectrum = pulse.spectrum()
+        else:
+            freq, spectrum = None, None
+        # Calculate the effective range limits for all parameters (so we can
+        # check quickly whether any parameters are out of range). Also convert
+        # to the format required by scipy.optimize.minimize
+        min_float = np.finfo(np.float64).min
+        max_float = np.finfo(np.float64).max
+        min_vals = np.full(shape=n_params, fill_value=min_float)
+        max_vals = np.full(shape=n_params, fill_value=max_float)
+        if bounds is None:
+            f_bound_err = None
+            scipy_bounds = None
+        else:
+            scipy_bounds = []
+            for i, key in enumerate(vary):
+                if key in bounds:
+                    val_min, val_max = bounds[key]
+                    scipy_bounds.append((val_min, val_max))
+                    if val_min is not None:
+                        min_vals[i] = val_min
+                    if val_max is not None:
+                        max_vals[i] = val_max
+                else:
+                    scipy_bounds.append((None, None))
+
+        guess = cls(formula, T, nt, parameters, t0, time_unit, ampl_unit,
+                    freq_unit, mode)
+
+        best = {'f': None, 'x': None}
+        # best['f'] = best seen value of f(x)
+        # best['x'] = argument of best f(x)
+        # Defining this as a dict is a hack that gives us write-access to
+        # best['f'], best['x'] inside f(x) below
+
+        def f_a(a1, a2):
+            """norm of difference of two complex arrays a1, a2."""
+            return np.sqrt(np.sum((np.abs(a1-a2))**2))
+
+        def f(x):
+            """Return figure of merit for scipy.optimize.minimize.
+            Keep track of best values in global 'best' dictionary."""
+            result = None
+            if f_bound_err is not None:
+                if np.any(np.greater(x, max_vals)):
+                    result = f_bound_err
+                if np.any(np.less(x, min_vals)):
+                    result = f_bound_err
+            if result is None:
+                guess.array_to_parameters(x, keys=vary)
+                if via_spectrum:
+                    __, guess_spectrum = guess.pulse().spectrum()
+                    result = f_a(spectrum , guess_spectrum, 1.0)
+                else:
+                    result = f_a(guess.pulse().amplitude, pulse.amplitude)
+            logger.debug("%s -> %s", str(guess.parameters), result)
+            if result < best['f']:
+                best['f'] = result
+                best['x'] = x
+            return result
+
+        def f_curve_fit(t, *x):
+            """Return pulse (concatenated real and imaginary part) obtained
+            from plugging in parameters encoded in x. Used for non-linear
+            least-squares"""
+            if np.any(np.greater(x, max_vals)) or np.any(np.less(x, min_vals)):
+                raise RuntimeError('Violated bounds. Please use another '
+                                   'method')
+            guess.array_to_parameters(x, keys=vary)
+            p = guess.pulse()
+            logger.debug("%s -> %s", str(guess.parameters),
+                         f_a(p.amplitude, pulse.amplitude))
+            if via_spectrum:
+                __, spec = p.spectrum()
+                return np.concatenate((spec.real, spec.imag))
+            else:
+                return np.concatenate((p.amplitude.real, p.amplitude.imag))
+
+        x0 = guess.parameters_to_array(keys=vary)
+        best['x'] = x0
+        best['f'] = f_a(guess.pulse().amplitude, pulse.amplitude)
+        logger.debug("Optimization starting from %s = %s, bounds: %s",
+                     str(vary), str(x0), str(scipy_bounds))
+        if method == 'curve_fit':
+            if via_spectrum:
+                ydata = np.concatenate((spectrum.real, spectrum.imag))
+            else:
+                ydata = np.concatenate(
+                        (pulse.amplitude.real, pulse.amplitude.imag))
+            best['x'], __ = curve_fit(f=f_curve_fit, xdata=pulse.tgrid,
+                                      ydata=ydata, p0=x0)
+        else: # using a full-fledged optimization (scipy.optimize.minimize)
+            res = minimize(f, x0, bounds=scipy_bounds, method=method, **kwargs)
+            if not res.success:
+                msg = "Optimization failed: %s" % res.message
+                if raise_runtime_error:
+                    raise RuntimeError(msg)
+                else:
+                    logger.warn(msg)
+        guess.array_to_parameters(best['x'], keys=vary)
+        return guess
+
     def __init__(self, formula, T, nt, parameters, t0=0.0, time_unit='au',
         ampl_unit='au', freq_unit=None, mode=None):
-        """Instantiate a new analytical pulse"""
+        """Instantiate a new analytical pulse
+
+        The `formula` parameter must be the name of a previously registered
+        formula. All other parameters set the corresponding attribute.
+        """
         if not formula in self._formulas:
-            raise ValueError("Unkown formula '%s'" % formula)
+            raise ValueError("Unknown formula '%s'" % formula)
         self._formula = formula
         self.parameters = parameters
         self._check_parameters()
@@ -124,7 +322,7 @@ class AnalyticalPulse(object):
         """
         Unpack the given array (numpy array or regular list) into the pulse
         parameters. This is especially useful for optimizing parameters with
-        the `scipy.optimize.mimimize` routine.
+        the `scipy.optimize.minimize` routine.
 
         For each key, set the value of the `parameters[key]` attribute by
         popping values from the beginning of the array. If `parameters[key]` is
@@ -146,8 +344,8 @@ class AnalyticalPulse(object):
         if len(array) > 0:
             raise IndexError("not all values in array placed in parameters")
 
-    def parameters_to_array(self, keys):
-        """Inverse method to `array_to_paramters`. Returns the "packed"
+    def parameters_to_array(self, keys=None):
+        """Inverse method to `array_to_parameters`. Returns the "packed"
         parameter values for the given keys as a numpy array"""
         result = []
         if keys is None:
@@ -202,14 +400,14 @@ class AnalyticalPulse(object):
         return self.to_json(pretty=True)
 
     def write(self, filename, pretty=True):
-        """Write the analytica pulse to the given filename as a json data
+        """Write the analytical pulse to the given filename as a json data
         structure"""
         with open(filename, 'w') as out_fh:
             out_fh.write(self.to_json(pretty=pretty))
 
     @property
     def header(self):
-        """Single line summarizing the pulse. Suitable for preample for
+        """Single line summarizing the pulse. Suitable for preamble for
         numerical pulse"""
         result = '# Formula "%s"' % self._formula
         if len(self.parameters) > 0:
@@ -224,7 +422,7 @@ class AnalyticalPulse(object):
 
     @staticmethod
     def read(filename):
-        """Read in a json datastructure and return a new AnalyticalPulse"""
+        """Read in a json data structure and return a new AnalyticalPulse"""
         with open(filename, 'r') as in_fh:
             kwargs = json.load(in_fh, cls=NumpyAwareJSONDecoder)
             pulse = AnalyticalPulse(**kwargs)
@@ -463,24 +661,43 @@ def test():
         print("p3.json and p3_copy.json DO NOT MATCH")
         return 1
 
-    freq = np.array([0.01, 0.0243, 8.32, 10.1, 5.3])
-    a    = np.array([ 1.0, 0.21  , 0.58, 0.89, 0.1])
-    b    = np.array([ 1.0, 0.51  , 0.09, 0.12, 0.71])
+    freq_low  = np.array([0.01, 0.0243])
+    freq_high = np.array([8.32, 10.1, 5.3])
+    a_low     = np.array([1.0, 0.21])
+    a_high    = np.array([0.58, 0.89, 0.1])
+    b_low     = np.array([1.0, 0.51])
+    b_high    = np.array([0.09, 0.12, 0.71])
     p4 = AnalyticalPulse('5freq', T=200, nt=(200*11*100),
-            parameters={'E0': 100, 'T': 200, 'freq': freq, 'a': a, 'b': b},
+            parameters={'E0': 100, 'T': 200, 'freq_low': freq_low,
+                        'freq_high': freq_high, 'a_low': a_low,
+                        'a_high': a_high, 'b_low': b_low, 'b_high': b_high},
             time_unit='ns', ampl_unit='MHz')
     print(p4.header)
     p4.write('p4.json', pretty=True)
     p4.pulse().write('p4.dat')
     p4_copy = AnalyticalPulse.read('p4.json')
-    assert isinstance(p4_copy.parameters['a'], np.ndarray), \
-    "Coefficients 'a' should be a numpy array"
+    assert isinstance(p4_copy.parameters['a_low'], np.ndarray), \
+    "Coefficients 'a_low' should be a numpy array"
     p4_copy.write('p4_copy.json', pretty=True)
     if filecmp.cmp("p4.json", "p4_copy.json"):
         print("p4.json and p4_copy.json match")
     else:
         print("p4.json and p4_copy.json DO NOT MATCH")
         return 1
+
+    p5 = AnalyticalPulse('1freq_rwa', T=200, nt=(200*11*100),
+         parameters={'E0': 100, 'T': 200, 'w_L': 6.5, 'w_d': 6.5},
+         time_unit='ns', ampl_unit='MHz')
+
+    p5_recovered = AnalyticalPulse.create_from_fit(
+            p5.pulse(), formula=p5.formula_name,
+            parameters={'E0': 0, 'T': 190, 'w_L': 6.5, 'w_d': 6.5},
+            vary=['E0', 'T'], bounds={'E0': (0, 1000.0), 'T': (1.0, 500.0)},
+            via_spectrum=False,
+            )
+    delta = np.abs(  p5.parameters_to_array() \
+                   - p5_recovered.parameters_to_array())
+    assert np.max(delta) <= 1.0e-16
 
 
 def main(argv=None):
@@ -489,4 +706,5 @@ def main(argv=None):
     return test()
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     sys.exit(main())

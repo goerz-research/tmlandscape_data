@@ -73,12 +73,29 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
     return False
 
 
-def run_simplex(runfolder, target, rwa=False):
+def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
+        extra_files_to_copy=None):
     """Run a simplex over all the pulse parameters, optimizing towards the
-    given target ('PE' or 'SQ')
-    Write the optimized pulse out as pulse.dat
-    """
+    given target ('PE', 'SQ', or an instance of Gate2Q, implying an F_avg
+    functional)
 
+    The guess pulse will be read as an analytical pulse from the file
+    pulse.json. The optimized pulse will be written out as as pulse_opt.json
+
+    Besides the guess pulse, the runfolder must contain a config file set up to
+    propagate a (numerical) pulse stored in a file with the name by
+    `prop_pulse_dat`. In `extra_files_to_copy`, any files that the config file
+    depends on and which thus must be copied from the runfolder to the
+    temporary propagation folder may be listed.
+    """
+    if not (target in ['PE', 'SQ'] or isinstance(target, QDYN.gate2q.Gate2Q)):
+        raise ValueError("target must be 'PE', 'SQ', or an instance of Gate2Q")
+    if isinstance(target, QDYN.gate2q.Gate2Q):
+        if not target.pop_loss() < 1.0e-14:
+            raise ValueError("If target is given as a Gate2Q instance, it "
+                             "must be unitary")
+    if extra_files_to_copy is None:
+        extra_files_to_copy = []
     logger = logging.getLogger(__name__)
     cachefile = os.path.join(runfolder, 'get_U.cache')
     config = os.path.join(runfolder, 'config')
@@ -91,7 +108,10 @@ def run_simplex(runfolder, target, rwa=False):
     assert os.path.isfile(pulse0), "Runfolder must contain pulse.json"
     temp_runfolder = get_temp_runfolder(runfolder)
     QDYN.shutil.mkdir(temp_runfolder)
-    QDYN.shutil.copy(config, temp_runfolder)
+    files_to_copy = ['config', ]
+    files_to_copy.extend(extra_files_to_copy)
+    for file in files_to_copy:
+        QDYN.shutil.copy(os.path.join(runfolder, file), temp_runfolder)
     pulse = AnalyticalPulse.read(pulse0)
     parameters = [p for p in sorted(pulse.parameters.keys())
                   if p not in ['T', 'w_d']]
@@ -103,7 +123,13 @@ def run_simplex(runfolder, target, rwa=False):
         """Return the resulting gate for the given pulse. The argument 'x' is
            not used except as a key for memoize
         """
-        pulse.pulse().write(os.path.join(temp_runfolder, 'pulse.guess'))
+        p = pulse.pulse()
+        p.write(os.path.join(temp_runfolder, prop_pulse_dat))
+        if prop_pulse_dat != 'pulse.guess':
+            # all config files in this project need 'pulse.guess' to exist,
+            # even if that's not the pulse that is propagated
+            if 'pulse.guess' not in extra_files_to_copy:
+                p.write(os.path.join(temp_runfolder, 'pulse.guess'))
         # rewrite config file to match pulse (time grid and w_d)
         pulse_config_compat(pulse, os.path.join(temp_runfolder, 'config'),
                             adapt_config=True)
@@ -144,9 +170,12 @@ def run_simplex(runfolder, target, rwa=False):
             pulse.parameters['w_d'] = w_d
             pulse.nt = int(max(2000, 100 * w_max * pulse.T))
         U = get_U(x, pulse)
-        C = U.closest_unitary().concurrence()
-        max_loss = np.max(1.0 - U.logical_pops())
-        J = J_target(target, C, max_loss)
+        if target in ['PE', 'SQ']:
+            C = U.closest_unitary().concurrence()
+            max_loss = np.max(1.0 - U.logical_pops())
+            J = J_target(target, C, max_loss)
+        else:
+            J = 1.0 - U.F_avg(target)
         logger.debug("%s: %s -> %f", runfolder, pulse.header, J)
         if log_fh is not None:
             log_fh.write("%s -> %f\n" % (pulse.header, J))
