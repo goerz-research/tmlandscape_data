@@ -60,6 +60,9 @@ def main(argv=None):
         "folder names may be used to explore different OCT strategies. "
         "Defaults to "+STAGE)
     arg_parser.add_option(
+        '--pre-simplex', action='store', dest='formula',
+        help="Run simplex pre-optimization before Krotov")
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -75,6 +78,9 @@ def main(argv=None):
     rwa = ''
     if options.rwa:
         rwa = '--rwa'
+    pre_simplex = ''
+    if options.formula is not None:
+        pre_simplex = '--pre-simplex=%s' % options.formula
     submitted = []
     jobs = []
     job_ids = {}
@@ -102,11 +108,13 @@ def main(argv=None):
                 if call_run_oct:
                     log.write("scheduled %s for OCT\n" % runfolder)
                     if PROP_ONLY:
-                        command = './run_oct.py --prop-only --keep {rwa} {runfolder}'\
-                                .format(rwa=rwa, runfolder=runfolder)
+                        command = './run_oct.py --prop-only --keep {rwa} {pre_simplex} {runfolder}'\
+                                .format(rwa=rwa, pre_simplex=pre_simplex,
+                                        runfolder=runfolder)
                     else:
-                        command = './run_oct.py --continue {rwa} {runfolder}'\
-                                .format(rwa=rwa, runfolder=runfolder)
+                        command = './run_oct.py --continue {rwa} {pre_simplex} {runfolder}'\
+                                .format(rwa=rwa, pre_simplex=pre_simplex,
+                                        runfolder=runfolder)
                     jobs.append(command)
                 else:
                     log.write("skipped %s (output complete)\n" % runfolder)
