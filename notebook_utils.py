@@ -270,6 +270,21 @@ class PlotGrid(object):
             return fig
 
 
+def get_w_d_from_config(config_file):
+    """Return driving frequency from the given config file, in GHz
+
+    Raise AssertionError is config file does not contain w_d
+    """
+    config_w_d = None
+    with open(config_file) as in_fh:
+        for line in in_fh:
+            m = re.match(r'w_d\s*=\s*([\d.]+)_MHz', line)
+            if m:
+                config_w_d = float(m.group(1))
+    assert config_w_d is not None, "config does not contain w_d"
+    return config_w_d / 1000.0
+
+
 def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
     """Ensure that the given config file matches the time grid and RWA
     parameters for the given analytical pulse, or raise an AssertionError
@@ -288,15 +303,9 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
             "T does not match"
         # RWA parameters
         if 'rwa' in analytical_pulse.formula_name:
-            config_w_d = None
-            with open(config_file) as in_fh:
-                for line in in_fh:
-                    m = re.match(r'w_d\s*=\s*([\d.]+)_MHz', line)
-                    if m:
-                        config_w_d = float(m.group(1))
-            assert config_w_d is not None, "config does not contain w_d"
+            config_w_d = get_w_d_from_config(config_file)
             assert 'w_d' in analytical_pulse.parameters
-            pulse_w_d = analytical_pulse.parameters['w_d'] * 1000.0 # MHz
+            pulse_w_d = analytical_pulse.parameters['w_d'] # GHz
             assert (abs(config_w_d - pulse_w_d) < 1.0e-8), 'w_d does not match'
     except AssertionError:
         if adapt_config:
