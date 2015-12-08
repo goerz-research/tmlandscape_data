@@ -97,8 +97,10 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     scipy.minimize routine
     """
     logger = logging.getLogger(__name__)
-    if not (target in ['PE', 'SQ'] or isinstance(target, QDYN.gate2q.Gate2Q)):
-        raise ValueError("target must be 'PE', 'SQ', or an instance of Gate2Q")
+    if not isinstance(target, QDYN.gate2q.Gate2Q):
+        if not target in ['PE', 'SQ']:
+            raise ValueError("target must be 'PE', 'SQ', or an instance "
+                             "of Gate2Q")
     if isinstance(target, QDYN.gate2q.Gate2Q):
         if not target.pop_loss() < 1.0e-14:
             logger.error("target:\n%s" % str(target))
@@ -180,12 +182,13 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
             pulse.parameters['w_d'] = w_d
             pulse.nt = int(max(2000, 100 * w_max * pulse.T))
         U = get_U(x, pulse)
-        if target in ['PE', 'SQ']:
+        if isinstance(target, QDYN.gate2q.Gate2Q):
+            J = 1.0 - U.F_avg(target)
+        else:
+            assert target in ['PE', 'SQ']
             C = U.closest_unitary().concurrence()
             max_loss = np.max(1.0 - U.logical_pops())
             J = J_target(target, C, max_loss)
-        else:
-            J = 1.0 - U.F_avg(target)
         logger.debug("%s: %s -> %f", runfolder, pulse.header, J)
         if log_fh is not None:
             log_fh.write("%s -> %f\n" % (pulse.header, J))
