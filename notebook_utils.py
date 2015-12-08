@@ -1272,6 +1272,20 @@ def oct_overview(T, stage, rwa=True, inline=True, scatter_size=0,
 
 def show_oct_summary_table(gate_times=None, rwa=True, stage1_table_reader=None,
         oct_table_reader=None):
+    """Show a table with the following columns:
+
+    min f-free error: error with which the field-free evolution implements the
+        closest unitary gate (over all points in the parameter space)
+    f-free error: error with which the field-free evolution implements the
+        closest unitary gate, at the parameter point (w_2, w_c) at which the
+        quality is maximal (see w2, wc column)
+    PE error: smallest error with which an arbitrary perfect entangler can be
+        implemented (over all points in the parameter space)
+    Q error: smallest quality error (avg of PE and SQ error) than can be
+        achieved
+    w2 [GHz]: Value of w_2 at which the Q error is minimal
+    wc [GHz]: Value of w_c at which the Q error is minimal
+    """
     frame = 'LAB'
     if rwa:
         frame = 'RWA'
@@ -1280,6 +1294,7 @@ def show_oct_summary_table(gate_times=None, rwa=True, stage1_table_reader=None,
     predicted_min_error = {}
     min_field_free_error = {}
     field_free_error = {}
+    achieved_PE_error = {}
     achieved_Q_error = {}
     w2_val = {}
     wc_val = {}
@@ -1301,6 +1316,7 @@ def show_oct_summary_table(gate_times=None, rwa=True, stage1_table_reader=None,
         w2_val[T] = Q_table['w2 [GHz]'][i]
         wc_val[T] = Q_table['wc [GHz]'][i]
         achieved_Q_error[T] = 1.0 - Q_table['Q'][i]
+        achieved_PE_error[T] = 1.0 - Q_table['F_avg (PE)'].max()
         field_free_error[T] = 1.0 - stage1_table[
                                       (stage1_table['wc [GHz]'] == wc_val[T])\
                                     & (stage1_table['w2 [GHz]'] == w2_val[T])
@@ -1309,8 +1325,9 @@ def show_oct_summary_table(gate_times=None, rwa=True, stage1_table_reader=None,
     df = pd.DataFrame(index=gate_times,
         data=OrderedDict([
             #('predicted min error', [diss_error(gamma=1.2e-5, t=t) for t in gate_times]),
-            ('min f-free error', [min_field_free_error[t] for t in gate_times]),
-            ('f-free error', [field_free_error[t] for t in gate_times]),
+            ('min f-free err', [min_field_free_error[t] for t in gate_times]),
+            ('f-free err', [field_free_error[t] for t in gate_times]),
+            ('PE error', [achieved_PE_error[t] for t in gate_times]),
             ('Q error', [achieved_Q_error[t] for t in gate_times]),
             ('w2 [GHz]', [w2_val[t] for t in gate_times]),
             ('wc [GHz]', [wc_val[t] for t in gate_times]),
