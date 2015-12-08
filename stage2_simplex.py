@@ -79,7 +79,7 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
 
 
 def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
-        extra_files_to_copy=None):
+        extra_files_to_copy=None, options=None):
     """Run a simplex over all the pulse parameters, optimizing towards the
     given target ('PE', 'SQ', or an instance of Gate2Q, implying an F_avg
     functional)
@@ -92,16 +92,21 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     `prop_pulse_dat`. In `extra_files_to_copy`, any files that the config file
     depends on and which thus must be copied from the runfolder to the
     temporary propagation folder may be listed.
+
+    The options dictionary may be passed to overwrite any options to the
+    scipy.minimize routine
     """
+    logger = logging.getLogger(__name__)
     if not (target in ['PE', 'SQ'] or isinstance(target, QDYN.gate2q.Gate2Q)):
         raise ValueError("target must be 'PE', 'SQ', or an instance of Gate2Q")
     if isinstance(target, QDYN.gate2q.Gate2Q):
         if not target.pop_loss() < 1.0e-14:
+            logger.error("target:\n%s" % str(target))
+            logger.error("target pop loss = %s" % target.pop_loss())
             raise ValueError("If target is given as a Gate2Q instance, it "
                              "must be unitary")
     if extra_files_to_copy is None:
         extra_files_to_copy = []
-    logger = logging.getLogger(__name__)
     cachefile = os.path.join(runfolder, 'get_U.cache')
     config = os.path.join(runfolder, 'config')
     # We need the system parameters to ensure that the pulse frequencies stay
@@ -191,12 +196,14 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
 
     x0 = pulse.parameters_to_array(keys=parameters)
     try:
+        scipy_options={'maxfev': 100*len(parameters), 'xtol': 0.1,
+                       'ftol': 0.05}
+        if options is not None:
+            scipy_options.update(options)
         with open(os.path.join(runfolder, 'simplex.log'), 'a', 0) as log_fh:
             log_fh.write("%s\n" % time.asctime())
             res = scipy.optimize.minimize(f, x0, method='Nelder-Mead',
-                  options={'maxfev': 100*len(parameters), 'xtol': 0.1,
-                           'ftol': 0.05},
-                  args=(log_fh, ), callback=dump_cache)
+                  options=scipy_options, args=(log_fh, ), callback=dump_cache)
         pulse.array_to_parameters(res.x, parameters)
         get_U.func(res.x, pulse) # memoization disabled
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'config'), runfolder)
