@@ -144,6 +144,7 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False):
         E0 = np.max(np.abs(p_guess.amplitude))
         parameters = {'E0': E0, 'T': p_guess.T, 'w_L': w_d, 'w_d': w_d}
         vary = ['E0', ]; bounds = {'E0': (0.5*E0, 1.5*E0)}
+        scipy_options = None
     elif formula == 'CRAB_rwa':
         assert(rwa)
         w_d = get_w_d_from_config(config)
@@ -153,6 +154,7 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False):
         vary = ['E0', 'r', 'a', 'b'];
         bounds = {'E0': (0.8*E0, 1.2*E0), 'r': (-0.5, 0.5), 'a': (0, 1),
                   'b': (0, 1)}
+        scipy_options ={'maxfev': 50000}
     else:
         raise ValueError("Don't know what to do with formula %s" % formula)
     try:
@@ -177,7 +179,8 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False):
     logger.debug("Running simplex to optimize for target gate")
     run_simplex(runfolder, target=target_gate, rwa=rwa,
                 prop_pulse_dat='pulse.dat',
-                extra_files_to_copy=['target_gate.dat', ])
+                extra_files_to_copy=['target_gate.dat', ],
+                options=scipy_options)
 
     # switch pulse.guess from original to simplex-optimized version
     p_guess.write(pulse_guess_pre_simplex)
