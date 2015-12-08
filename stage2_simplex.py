@@ -67,6 +67,11 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
                 return True
             if w_c-1.2*delta <= w <= w_c+1.2*delta:
                 return True
+    elif analytical_pulse.formula_name in ['CRAB_rwa']:
+        if w_1-1.2*abs(alpha_1) <= p['w_d'] <= w_2+0.2*abs(alpha_2):
+            return True
+        if w_c-1.2*delta <= p['w_d'] <= w_c+1.2*delta:
+            return True
     else:
         raise ValueError("Unknown formula name: %s"
                          % analytical_pulse.formula_name)

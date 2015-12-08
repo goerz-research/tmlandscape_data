@@ -148,8 +148,8 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False):
         assert(rwa)
         w_d = get_w_d_from_config(config)
         E0 = np.max(np.abs(p_guess.amplitude))
-        parameters = {'E0': E0, 'T': p_guess.T, 'w_d': w_d, 'r': np.zeroes(5),
-                'a'=np.zeros(5), 'b':np.zeros(5)}
+        parameters = {'E0': E0, 'T': p_guess.T, 'w_d': w_d, 'r': np.zeros(5),
+                      'a':np.zeros(5), 'b':np.zeros(5)}
         vary = ['E0', 'r', 'a', 'b'];
         bounds = {'E0': (0.8*E0, 1.2*E0), 'r': (-0.5, 0.5), 'a': (0, 1),
                   'b': (0, 1)}

@@ -1723,13 +1723,15 @@ def avg_freq(analytical_pulse):
         weights = np.sqrt(np.abs(p['a_high'])**2 + np.abs(p['b_high'])**2)
         weights *= 1.0/np.sum(weights)
         return np.sum(weights * p['freq_high'])
+    elif analytical_pulse.formula_name in ['CRAB_rwa',]:
+        return p['w_d']
     else:
         raise ValueError("Unknown formula name")
 
 
 def max_freq_delta(analytical_pulse, w_L):
     """Return the maximum frequency that must be resolved for the given pulse
-    in a rotating frame wL"""
+    in a rotating frame wL. All frequencies in GHz."""
     import numpy as np
     p = analytical_pulse.parameters
     if analytical_pulse.formula_name == 'field_free':
@@ -1740,6 +1742,9 @@ def max_freq_delta(analytical_pulse, w_L):
         return max(abs(w_L - p['freq_1']),  abs(w_L - p['freq_2']))
     elif analytical_pulse.formula_name in ['5freq', '5freq_rwa']:
         return np.max(np.abs(w_L - p['freq_high']))
+    elif analytical_pulse.formula_name in ['CRAB_rwa',]:
+        assert (w_L == p['w_d'])
+        return 0.0
     else:
         raise ValueError("Unknown formula name")
 
