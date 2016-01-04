@@ -31,6 +31,7 @@ import subprocess as sp
 import QDYN
 import logging
 import numpy as np
+from numpy.random import random
 from glob import glob
 from clusterjob.utils import read_file
 from stage2_simplex import get_temp_runfolder, run_simplex
@@ -73,7 +74,7 @@ def reset_pulse(pulse, iter):
     logger.debug("no accepted snapshot")
 
 
-def run_pre_krotov_simplex(runfolder, formula, rwa=False):
+def run_pre_krotov_simplex(runfolder, formula, rwa=False, randomize=False):
     """Read a numerical guess pulse from pulse.guess and map it as closely as
     possible to an analytical pulse, which is stored in pulse.json. Then, a
     simplex optimization is performed to optimize towards a target gate that
@@ -142,6 +143,9 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False):
         assert(rwa)
         w_d = get_w_d_from_config(config)
         E0 = np.max(np.abs(p_guess.amplitude))
+        if randomize:
+            w_d  += 0.2 * (random() - 1.0) * w_d # 10% variation
+            E0   += 0.2 * (random() - 1.0) * E0 # 10% variation
         parameters = {'E0': E0, 'T': p_guess.T, 'w_L': w_d, 'w_d': w_d}
         vary = ['E0', ]; bounds = {'E0': (0.5*E0, 1.5*E0)}
         scipy_options = None
@@ -149,27 +153,42 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False):
         assert(rwa)
         w_d = get_w_d_from_config(config)
         E0 = np.max(np.abs(p_guess.amplitude))
-        parameters = {'E0': E0, 'T': p_guess.T, 'w_d': w_d, 'r': np.zeros(5),
-                      'a':np.zeros(5), 'b':np.zeros(5)}
+        if randomize:
+            w_d  += 0.2 * (random() - 1.0) * w_d # 10% variation
+            E0   += 0.2 * (random() - 1.0) * E0 # 10% variation
+            parameters = {'E0': E0, 'T': p_guess.T, 'w_d': w_d,
+                          'r': (random(5)-0.5), 'a': random(5),
+                          'b': random(5)}
+        else:
+            parameters = {'E0': E0, 'T': p_guess.T, 'w_d': w_d,
+                          'r': np.zeros(5), 'a': np.zeros(5),
+                          'b': np.zeros(5)}
         vary = ['E0', 'r', 'a', 'b'];
         bounds = {'E0': (0.8*E0, 1.2*E0), 'r': (-0.5, 0.5), 'a': (0, 1),
                   'b': (0, 1)}
         scipy_options ={'maxfev': 50000}
     else:
         raise ValueError("Don't know what to do with formula %s" % formula)
-    try:
-        guess_analytical = AnalyticalPulse.create_from_fit(p_guess,
-                              formula=formula, parameters=parameters,
-                              vary=vary, bounds=bounds, method='curve_fit')
-    except RuntimeError:
-        # curve-fit may violate the bounds (-> RuntimeError), in which case
-        # L-BFGS-B will (hopefully) find a solution that honors them
-        guess_analytical = AnalyticalPulse.create_from_fit(p_guess,
-                              formula=formula, parameters=parameters,
-                              vary=vary, bounds=bounds, method='L-BFGS-B')
+    if randomize:
+        nt = len(p_guess.amplitude) + 1
+        guess_analytical = AnalyticalPulse(formula, p_guess.T, nt, parameters,
+                t0=0.0, time_unit=p_guess.time_unit,
+                ampl_unit=p_guess.ampl_unit, freq_unit=p_guess.freq_unit,
+                mode=p_guess.mode)
+    else:
+        try:
+            guess_analytical = AnalyticalPulse.create_from_fit(p_guess,
+                                formula=formula, parameters=parameters,
+                                vary=vary, bounds=bounds, method='curve_fit')
+        except RuntimeError:
+            # curve-fit may violate the bounds (-> RuntimeError), in which case
+            # L-BFGS-B will (hopefully) find a solution that honors them
+            guess_analytical = AnalyticalPulse.create_from_fit(p_guess,
+                                formula=formula, parameters=parameters,
+                                vary=vary, bounds=bounds, method='L-BFGS-B')
     guess_analytical.write(os.path.join(runfolder, 'pulse.json'))
     logger.debug("Mapped pulse.guess to analytic pulse.json: %s"
-                 % guess_analytical.header)
+                % guess_analytical.header)
 
     # run simplex optimization (pulse.json -> pulse_opt.json)
     target_gate_dat = os.path.join(runfolder, 'target_gate.dat')
@@ -464,6 +483,11 @@ def main(argv=None):
     arg_parser.add_option(
         '--pre-simplex', action='store', dest='formula',
         help="Run simplex pre-optimization before Krotov")
+    arg_parser.add_option(
+        '--randomize', action='store_true', dest='randomize',
+        default=False, help="In combination with --pre-simplex, start from "
+        "a randomized analytic guess pulse, instead of one matching the "
+        "original numerical pulse.guess as closely as possible.")
     options, args = arg_parser.parse_args(argv)
     try:
         runfolder = args[1]
@@ -499,7 +523,8 @@ def main(argv=None):
     if perform_optimization:
         if options.formula is not None:
             run_pre_krotov_simplex(runfolder, formula=options.formula,
-                                   rwa=options.rwa)
+                                   rwa=options.rwa,
+                                   randomize=options.randomize)
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             # if we're doing a new oct, we should delete U.dat
             os.unlink(os.path.join(runfolder, 'U.dat'))
