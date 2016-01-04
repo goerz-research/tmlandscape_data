@@ -21,7 +21,7 @@ get_stage2_table.load('stage2_table.cache')
 get_stage3_table = QDYN.memoize.memoize(get_stage3_table)
 get_stage3_table.load('stage3_table.cache')
 
-OUTFOLDER = '/Users/goerz/Documents/Presentations/2015-10-23_IBM_tmlandscape/images'
+OUTFOLDER = './ibm_images'
 
 
 def generate_field_free_plot(stage_table, T, outfile):
@@ -126,12 +126,12 @@ def generate_error_plot(outfile):
     data = r'''
     #                   minimum error  achieved PE error  achieved quality error
     # gate duration [ns]
-    5                        3.77e-04           1.47e-03                7.80e-04
-    10                       7.54e-04           3.62e-04                5.22e-04
-    20                       1.51e-03           9.34e-04                1.22e-03
-    50                       3.76e-03           3.39e-03                3.46e-03
-    100                      7.50e-03           7.15e-03                7.14e-03
-    200                      1.49e-02           1.44e-02                1.46e-02
+    5                        3.77e-04           1.54e-03                9.83e-04
+    10                       7.54e-04           8.84e-04                8.22e-04
+    20                       1.51e-03           1.56e-03                1.54e-03
+    50                       3.76e-03           3.87e-03                3.82e-03
+    100                      7.51e-03           7.59e-03                7.56e-03
+    200                      1.49e-02           1.50e-02                1.50e-02
     '''
     T, eps_0, eps_PE, eps_Q = np.genfromtxt(StringIO(data), unpack=True)
     fig = new_figure(fig_width, fig_height, style=STYLE)
@@ -161,7 +161,7 @@ def main(argv=None):
     generate_popdyn_plot(outfile='popdyn.png')
     generate_error_plot(outfile='qsl.pdf')
     generate_field_free_plot(get_stage1_table('./runs_050_RWA'), T=50, outfile='field_free_050.png')
-    generate_map_plot(get_stage2_table('./runs_200_RWA'), T=200, outfile='map_200.png')
+    generate_map_plot(get_stage3_table('./runs_200_RWA'), T=200, outfile='map_200.png')
     generate_map_plot(get_stage3_table('./runs_100_RWA'), T=100, outfile='map_100.png')
     generate_map_plot(get_stage3_table('./runs_050_RWA'), T=50,  outfile='map_050.png')
     generate_map_plot(get_stage3_table('./runs_020_RWA'), T=20,  outfile='map_020.png')
