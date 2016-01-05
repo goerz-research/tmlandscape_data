@@ -508,18 +508,18 @@ def main(argv=None):
         perform_optimization = False
     else:
         perform_optimization = True
-    if os.path.isfile(pulse_file):
-        pulse = Pulse(pulse_file)
-        if pulse.oct_iter <= 1:
-            os.unlink(pulse_file)
-            logger.debug("pulse.dat in %s removed as invalid", runfolder)
-        else:
-            if pulse.oct_iter == iter_stop:
-                logger.info("OCT for %s already complete", runfolder)
-                perform_optimization = False
-            for line in pulse.preamble:
-                if "converged" in line:
+        if os.path.isfile(pulse_file):
+            pulse = Pulse(pulse_file)
+            if pulse.oct_iter <= 1:
+                os.unlink(pulse_file)
+                logger.debug("pulse.dat in %s removed as invalid", runfolder)
+            else:
+                if pulse.oct_iter == iter_stop:
+                    logger.info("OCT for %s already complete", runfolder)
                     perform_optimization = False
+                for line in pulse.preamble:
+                    if "converged" in line:
+                        perform_optimization = False
     if perform_optimization:
         if options.formula is not None:
             run_pre_krotov_simplex(runfolder, formula=options.formula,
