@@ -1487,11 +1487,12 @@ def read_target_gate(filename):
     return QDYN.gate2q.Gate2Q(gate)
 
 
-def get_stage4_table(runs, stage_folder='stage4'):
-    """Summarize the results of the stage4 calculations in a DataFrame table
+def get_stage4_table(runs, stage_folder):
+    """Summarize the results of the stage4 calculations in a DataFrame table.
+    The default value for `stage_folder` should be 'stage4'.
 
     Assumes that the runfolder structure is
-    [runs]/w2_[w2]MHz_wc_[wc]MHz/stage4/[SQ|PE]_[category]_[gate]/
+    [runs]/w2_[w2]MHz_wc_[wc]MHz/[stage_folder]/[SQ|PE]_[category]_[gate]/
 
     Each runfolder must contain a file U.dat (resulting from
     ropagation of the optimized pulse.dat), and a file target_gate.dat that
@@ -1512,6 +1513,8 @@ def get_stage4_table(runs, stage_folder='stage4'):
     The index is given by the full stage4 path corresponding to a tuple
     (w1, w2, wc)
     """
+    # `stage_folder` has no default value, to that memoization isn't too
+    # confusing
     stage4_folders = list(find_folders(runs, stage_folder))
     w1_s       = pd.Series(6.0, index=stage4_folders)
     w2_s       = pd.Series(index=stage4_folders)

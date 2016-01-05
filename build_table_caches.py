@@ -134,10 +134,12 @@ def main(argv=None):
         'stage1': QDYN.memoize.memoize(get_stage1_table),
         'stage2': QDYN.memoize.memoize(get_stage2_table),
         'stage3': QDYN.memoize.memoize(get_stage3_table),
-        'stage4': QDYN.memoize.memoize(get_stage4_table)
+        'stage4': QDYN.memoize.memoize(get_stage4_table),
+        'stage4_1freq': QDYN.memoize.memoize(get_stage4_table)
     }
     reader_kwargs = {
-        'stage4': {'stage_folder': 'stage4'},
+        'stage4':       {'stage_folder': 'stage4'},
+        'stage4_1freq': {'stage_folder': 'stage4_1freq'},
     }
     if options.check:
         checker = {
@@ -145,11 +147,13 @@ def main(argv=None):
             'stage2': check_oct,
             'stage3': check_oct,
             'stage4': check_stage4,
+            'stage4_1freq': check_stage4,
         }
     else:
         checker = {}
     formatter = {
         'stage4': format_stage4,
+        'stage4_1freq': format_stage4,
     }
     collect(reader, reader_kwargs, checker, formatter)
 
