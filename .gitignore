@@ -5,6 +5,8 @@
 *.bak
 *.pyc
 *.png
+*.cache
+*.tgz
 oct_pulses
 .ipynb_checkpoints
 /venv/
