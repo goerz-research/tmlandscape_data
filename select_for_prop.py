@@ -125,7 +125,7 @@ def main(argv=None):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    folders = get_stage4_runfolders(runs, stage_folder=options.stage4_folder)
+    folders = get_stage4_runfolders(runs, stage4_folder=options.stage4_folder)
     for folder in folders:
         prepare_prop(folder, stage4_folder=options.stage4_folder,
                 stage_prop_folder=options.stage_prop_folder,
