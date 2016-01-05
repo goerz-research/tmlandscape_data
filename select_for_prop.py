@@ -8,6 +8,7 @@ import filecmp
 import QDYN
 import numpy as np
 from notebook_utils import find_folders, find_leaf_folders
+from clusterjob.utils import read_file
 
 def get_stage4_runfolders(runs, stage4_folder):
     """Return a list of all stage 4 runfolders that contain the file pulse.dat
@@ -26,7 +27,8 @@ def prepare_prop(runfolder, stage4_folder='stage4',
     """Generate propagation folder based on the given stage 4 runfolder.
 
     The stage4 runfolder must contain a config file and a file pulse.dat that
-    is the result of running OCT.
+    is the result of running OCT. The config file will be modified such that it
+    is valid both for Liouville and Hilbert space propagation.
     """
     logger = logging.getLogger(__name__)
     stage4_guess_file = os.path.join(runfolder, 'pulse.guess')
@@ -77,6 +79,7 @@ def prepare_prop(runfolder, stage4_folder='stage4',
         msg = "Transfer %s -> %s" % (stage4_config, prop_config)
         if not dry_run:
             logger.debug(msg)
+            config_content = read_file(stage4_config)
             with \
             open(stage4_config, 'r') as in_fh, \
             open(prop_config, 'w') as out_fh:
@@ -84,7 +87,24 @@ def prepare_prop(runfolder, stage4_folder='stage4',
                     if 'prop_guess' in line:
                         line = re.sub(r'/prop_guess\s*=\s*[T|F]',
                                       r'prop_guess = F', line)
+                    # the following two cases are for making the propagation
+                    # work for Liouville space as well
+                    if 'user_strings:' in line:
+                        if not 'rho_prop_mode' in line:
+                            line = line.strip()+", rho_prop_mode = full\n"
+                    if 'gamma_2 =' in line:
+                        if not 'gamma_phi_1' in config_content:
+                            if not line.endswith(", &\n"):
+                                line = line.strip() + ", &\n"
+                            line += "gamma_phi_1 = 0.0, &\n" \
+                                    "gamma_phi_2 = 0.0, &\n"
                     out_fh.write(line)
+            # Ensure that the config file has the required settings for
+            # Liouville space.
+            config_content = read_file(prop_config)
+            assert "rho_prop_mode = full" in config_content
+            assert "gamma_phi_1 = 0.0" in config_content
+            assert "gamma_phi_2 = 0.0" in config_content
         else:
             print("  "+msg)
 
