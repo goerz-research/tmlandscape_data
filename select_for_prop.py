@@ -108,7 +108,7 @@ def main(argv=None):
         default='stage4', help="Name of stage 4 folder. Defaults to 'stage4'")
     arg_parser.add_option(
         '--stage-prop-folder', action='store', dest='stage_prop_folder',
-        default='stage4', help="Name of propagation stage folder. Defaults "
+        default='stage_prop', help="Name of propagation stage folder. Defaults "
         "to 'stage_prop'")
     options, args = arg_parser.parse_args(argv)
     try:
