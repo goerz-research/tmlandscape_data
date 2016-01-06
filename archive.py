@@ -7,7 +7,7 @@ import sys
 import click
 
 
-ALLOWED_STAGE_VALUES = ['1', '2', '3', '4', '4_1freq', 'prop']
+ALLOWED_STAGE_VALUES = ['1', '2', '3', '4', '4_1freq', 'prop', 'prop_1freq']
 
 
 def validate_stage(ctx, param, values):
@@ -16,8 +16,8 @@ def validate_stage(ctx, param, values):
         if value not in ALLOWED_STAGE_VALUES:
             raise click.BadParameter('Allowed values are: %s'
                                      % str(ALLOWED_STAGE_VALUES))
-        if value =='prop':
-            stage_names.append('stage_prop')
+        if value.startswith('prop'):
+            stage_names.append('stage_'+value)
         else:
             stage_names.append('stage'+value)
     return stage_names
@@ -36,7 +36,7 @@ def archive(folders, stage, dry_run):
         exclude = set([])
     else:
         exclude = set(['stage1', 'stage2', 'stage3', 'stage4', 'stage4_1freq',
-                       'stage_prop'])
+                       'stage_prop', 'stage_prop_1freq'])
         for stage_name in stage:
             exclude.remove(stage_name)
 
