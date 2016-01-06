@@ -370,26 +370,53 @@ def scale_lambda_a(config, factor):
             raise ValueError("no lambda_a in %s" % config)
 
 
-def propagate(runfolder, rwa, keep=False):
+def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
+        n_cavity=None, keep=False):
     """
     Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
 
-    If `keep` is True, keep all files resulting from the propagation in the
-    runfolder. Otherwise, only prop.log and U.dat will be kept.
+    If `rho` is True, propagate in Liouville. Note that in this case, the
+    returned 2QGate is a unitary approximation of the dynamics. The exact value
+    of F_avg should be extracted from the 'prop.log' file resulting from the
+    propagation. The `rho_pop_plot` option may be used (in combination with
+    rho=True and keep=True) to produce the files necessary for a population
+    plot. Note that with this option, the propage average gate fidelity can not
+    be extracted from the prop.log file.
 
-    Assumes the runfolder contains a file pulse.dat or pulse.guess with the
-    pulse to be propagated (pulse.guess is only used if no pulse.dat exists).
-    The folder must also contain a matching config file.
+    By giving the n_qubit and/or n_cavity options, the number of qubit and
+    cavity levels can be changed from the value given in the config file.
+
+    If `keep` is True, keep all files resulting from the propagation in the
+    runfolder. Otherwise, only prop.log and U.dat will be kept. Note that
+    the original config file is never overwritten, but the config file from the
+    temporary propagation folder (which was possibly modified due to the
+    `rho_pop_plot`, `n_qubit`, or `n_cavity` options) is copied in as
+    ``config.prop``.
+
+    This routine assumes the runfolder contains a file pulse.dat or pulse.guess
+    with the pulse to be propagated (pulse.guess is only used if no pulse.dat
+    exists).  The folder must also contain a matching config file.
     """
+    logger = logging.getLogger(__name__)
     for file in ['config', 'pulse.guess', 'pulse.dat', 'target_gate.dat']:
         file = os.path.join(runfolder, file)
         if not os.path.isfile(file):
             raise IOError("%s does not exist" % file)
-    logger = logging.getLogger(__name__)
+    if n_qubit is not None:
+        n_qubit = int(n_qubit)
+        assert n_qubit > 2
+    if n_cavity is not None:
+        n_cavity = int(n_cavity)
+        assert n_cavity > 1
     gatefile = os.path.join(runfolder, 'U.dat')
     config = os.path.join(runfolder, 'config')
-    if re.search('prop_guess\s*=\s*T', read_file(config)):
+    config_content = read_file(config)
+    if re.search('prop_guess\s*=\s*T', config_content):
         raise ValueError("prop_guess must be set to F in %s" % config)
+    if rho:
+        assert "rho_prop_mode" in config_content
+        assert "gamma_phi_1" in config_content
+        assert "gamma_phi_2" in config_content
     pulse_dat = os.path.join(runfolder, 'pulse.dat')
     pulse_guess = os.path.join(runfolder, 'pulse.guess')
     target_gate_dat = os.path.join(runfolder, 'target_gate.dat')
@@ -406,20 +433,50 @@ def propagate(runfolder, rwa, keep=False):
             else:
                 QDYN.shutil.copy(pulse_guess,
                                  os.path.join(temp_runfolder, 'pulse.dat'))
-            QDYN.shutil.copy(config, temp_runfolder)
+            # copy over the config file, with modifications
+            temp_config = os.path.join(temp_runfolder, 'config')
+            with open(config, 'r') as in_fh, open(temp_config, 'w') as out_fh:
+                for line in in_fh:
+                    if rho_pop_plot:
+                         line = re.sub(
+                                r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
+                                r'rho_prop_mode = pop_dynamics', line)
+                    else:
+                         line = re.sub(
+                                r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
+                                r'rho_prop_mode = full', line)
+                    if n_qubit is not None:
+                         line = re.sub(r'n_qubit\s*=\s*\d+',
+                                       r'n_qubit = %d' % n_qubit, line)
+                    if n_cavity is not None:
+                         line = re.sub(r'n_cavity\s*=\s*\d+',
+                                       r'n_cavity = %d' % n_cavity, line)
+                    out_fh.write(line)
             logger.info("Propagating %s", runfolder)
             env = os.environ.copy()
             env['OMP_NUM_THREADS'] = '1'
             start = time.time()
             with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
                 cmds = []
-                if (rwa):
-                    cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+                if rho:
+                    if (rwa):
+                        cmds.append(['tm_en_gh', '--rwa', '.'])
+                    else:
+                        cmds.append(['tm_en_gh', '.'])
+                    # Note: no equivalent of "rewrite_dissipation": the
+                    # difference is going to be completely negligble, I don't
+                    # care enough at this point to re-implement the density
+                    # matrix propagation with a more general dissipator.
+                    cmds.append(['tm_en_logical_eigenstates.py', '.'])
+                    cmds.append(['tm_en_rho_prop', '.'])
                 else:
-                    cmds.append(['tm_en_gh', '--dissipation', '.'])
-                cmds.append(['rewrite_dissipation.py',])
-                cmds.append(['tm_en_logical_eigenstates.py', '.'])
-                cmds.append(['tm_en_prop', '.'])
+                    if (rwa):
+                        cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+                    else:
+                        cmds.append(['tm_en_gh', '--dissipation', '.'])
+                    cmds.append(['rewrite_dissipation.py',])
+                    cmds.append(['tm_en_logical_eigenstates.py', '.'])
+                    cmds.append(['tm_en_prop', '.'])
                 for cmd in cmds:
                     stdout.write("**** " + " ".join(cmd) +"\n")
                     sp.call(cmd , cwd=temp_runfolder, env=env,
@@ -432,6 +489,7 @@ def propagate(runfolder, rwa, keep=False):
             logger.error(e)
         finally:
             if keep:
+                os.rename(temp_config, temp_config + ".prop")
                 sp.call(['rsync', '-a', '%s/'%temp_runfolder, runfolder])
             QDYN.shutil.rmtree(temp_runfolder)
     else:
@@ -477,6 +535,23 @@ def main(argv=None):
     arg_parser.add_option(
         '--prop-only', action='store_true', dest='prop_only',
         default=False, help="Only propagate, instead of doing OCT")
+    arg_parser.add_option(
+        '--prop-rho', action='store_true', dest='prop_rho',
+        default=False, help="Do the propagation in Liouville space.")
+    arg_parser.add_option(
+        '--prop-n_qubit', action='store', dest='n_qubit', type="int",
+        default=None, help="In the (post-oct) propagation, use the given "
+        "number of qubit levels, instead of the number specified in the "
+        "config file. Does not affect OCT.")
+    arg_parser.add_option(
+        '--prop-n_cavity', action='store', dest='n_cavity', type="int",
+        default=None, help="In the (post-OCT) propagation, use the given "
+        "number of cavity levels, instead of the number specified in the "
+        "config file. Does not affect OCT.")
+    arg_parser.add_option(
+        '--rho-pop-plot', action='store_true', dest='rho_pop_plot',
+        default=False, help="In combination with --prop-rho and --keep, "
+        "produce a population plot")
     arg_parser.add_option(
         '--keep', action='store_true', dest='keep',
         default=False, help="Keep all files from the propagation")
@@ -532,7 +607,10 @@ def main(argv=None):
                 os.unlink(os.path.join(runfolder, 'U_closest_PE.dat'))
         run_oct(runfolder, rwa=options.rwa, continue_oct=options.cont)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
-        propagate(runfolder, rwa=options.rwa, keep=options.keep)
+        propagate(runfolder, rwa=options.rwa, rho=options.prop_rho,
+                  rho_pop_plot=options.rho_pop_plot,
+                  n_qubit=options.n_qubit, n_cavity=options.n_cavity,
+                  keep=options.keep)
 
 
 if __name__ == "__main__":
