@@ -23,7 +23,6 @@ from QDYN.pulse import tgrid_from_config
 from QDYN.shutil import copy
 from QDYN.weyl import WeylChamber
 import QDYNTransmonLib
-import re
 #rcParams['xtick.direction'] = 'in'
 #rcParams['ytick.direction'] = 'in'
 
@@ -1102,13 +1101,13 @@ def get_prop_fig_table(stage4_table, stage4_folder='stage4',
     fig_s = {}
     for target in targets:
         fig_s[target] = []
-    for stage4_folder in index:
-        stage_prop_folder = stage4_folder.replace(stage4_folder,
-                                                  stage_prop_folder)
+    for stage_folder in index:
+        stage_prop_folder = stage_folder.replace(stage4_folder,
+                                                 stage_prop_folder)
         for target in targets:
             runfolder = os.path.join(stage_prop_folder, target)
             w_d = get_wd(os.path.join(runfolder, 'config'))
-            err = stage4_table[err_col[target]][stage4_folder]
+            err = stage4_table[err_col[target]][stage_folder]
             title = "$\omega_d =$ %.3f GHz, $\epsilon = $%s" \
                     % (w_d, latex_float(err))
             if what == 'pulse':
@@ -1142,8 +1141,59 @@ def get_prop_fig_table(stage4_table, stage4_folder='stage4',
     return table
 
 
+def get_rho_prop_table(stage4_table, stage4_folder='stage4',
+        stage_prop_folder='stage_prop_rho'):
+    """Generate table comparing the gate error in Hilbert space to the gate
+    error in Liouville space"""
+    index = stage4_table.index
+    targets = ['PE_1freq', 'SQ_1freq_H_left', 'SQ_1freq_H_right',
+                'SQ_1freq_Ph_left', 'SQ_1freq_Ph_right']
+    err_col = {'PE_1freq'         : 'err(PE)',
+               'SQ_1freq_H_left'  : 'err(H_L)',
+               'SQ_1freq_H_right' : 'err(H_R)',
+               'SQ_1freq_Ph_left' : 'err(S_L)',
+               'SQ_1freq_Ph_right': 'err(S_R)'}
+    L_err = {}
+    for target in targets:
+        L_err[target] = pd.Series(index=index)
+    for stage_folder in index:
+        stage_prop_folder = stage_folder.replace(stage4_folder,
+                                                 stage_prop_folder)
+        for target in targets:
+            runfolder = os.path.join(stage_prop_folder, target)
+            err = None
+            with open(os.path.join(runfolder, 'prop.log')) as in_fh:
+                for line in in_fh:
+                    m = re.search(r'F_avg\(L\)\s*:\s*([\d.Ee+-]+)')
+                    if m:
+                        err = 1.0 - float(m.group(1))
+            L_err[target][stage_folder] = err
+    L_err['tot']  = pd.Series(index=index)
+    for target in targets:
+        L_err['tot'] += L_err[target]
+    L_err['tot'] *= 1.0/len(targets)
+    table = pd.DataFrame(OrderedDict([
+                ('w1 [GHz]',    stage4_table['w1 [GHz]']),
+                ('w2 [GHz]',    stage4_table['w2 [GHz]']),
+                ('wc [GHz]',    stage4_table['wc [GHz]']),
+                ('err_H(H_L)',  stage4_table['err(H_L)']),
+                ('err_L(H_L)',  L_err['SQ_1freq_H_left']),
+                ('err_H(S_L)',  stage4_table['err(S_L)']),
+                ('err_L(S_L)',  L_err['SQ_1freq_Ph_left']),
+                ('err_H(H_R)',  stage4_table['err(H_R)']),
+                ('err_L(H_R)',  L_err['SQ_1freq_H_right']),
+                ('err_H(S_R)',  stage4_table['err(S_R)']),
+                ('err_L(S_R)',  L_err['SQ_1freq_Ph_right']),
+                ('err_H(PE)',   stage4_table['err(PE)']),
+                ('err_L(PE)',   L_err['PE_1freq']),
+                ('err_H(tot)',  stage4_table['err(tot)']),
+                ('err_L(tot)',  L_err['tot']),
+            ]))
+    return table
+
+
 def prop_overview(T, rwa=True, err_limit=1.0e-3, stage4_folder='stage4',
-        stage_prop_folder='stage_prop', table_loader=None):
+        stage_prop_folder='stage_prop', rho=False, table_loader=None):
     """Find all stage_prop folders for the given pulse duration and plot their
     results. Pulses and population dynamics are only shown for total errors
     below the given limit"""
@@ -1163,39 +1213,63 @@ def prop_overview(T, rwa=True, err_limit=1.0e-3, stage4_folder='stage4',
         'err(S_R)': latex_float,
         'err(PE)' : latex_float,
         'err(tot)': latex_float,
+        'err_H(H_L)': latex_float,
+        'err_L(H_L)': latex_float,
+        'err_H(S_L)': latex_float,
+        'err_L(S_L)': latex_float,
+        'err_H(H_R)': latex_float,
+        'err_L(H_R)': latex_float,
+        'err_H(S_R)': latex_float,
+        'err_L(S_R)': latex_float,
+        'err_H(PE)':  latex_float,
+        'err_L(PE)':  latex_float,
+        'err_H(tot)': latex_float,
+        'err_L(tot)': latex_float,
     }
 
     with pd.option_context('display.max_colwidth', -1):
 
-        display(Markdown("\nAchieved Gate Error for all optimizations, with "
-        "total error 'err(tot)' as average of the error for all targets:\n"))
-        err_table = stage_table.sort('err(tot)')
-        html = err_table.to_html(formatters=formatters,
-                                 escape=False, index=False)
-        html = pd_insert_col_width(html, widths=([50,]*3+[100,]*6))
-        display(HTML(html))
+        if rho:
+            display(Markdown("\nComparison of Gate Errors in Hilbert "
+            "space and Liouville space:\n"))
+            err_table = get_rho_prop_table(stage_table,
+                            stage4_folder=stage4_folder,
+                            stage_prop_folder=stage_prop_folder
+                        ).sort('err_H(tot)')
+            html = err_table.to_html(formatters=formatters,
+                                    escape=False, index=False)
+            html = pd_insert_col_width(html, widths=([50,]*3+[100,]*6))
+            display(HTML(html))
+        else:
+            display(Markdown("\nAchieved Gate Error for all optimizations, with "
+            "total error 'err(tot)' as average of the error for all targets:\n"))
+            err_table = stage_table.sort('err(tot)')
+            html = err_table.to_html(formatters=formatters,
+                                    escape=False, index=False)
+            html = pd_insert_col_width(html, widths=([50,]*3+[100,]*6))
+            display(HTML(html))
 
-        display(Markdown("\nOptimized pulses for optimizations with err(tot)"
-                         " < %s:\n" % latex_float(err_limit)))
-        pulse_fig_table = get_prop_fig_table(
-                          stage_table[stage_table['err(tot)']<err_limit]
-                          .sort('err(tot)'), stage4_folder=stage4_folder,
-                          stage_prop_folder=stage_prop_folder, what='pulse')
-        html = pulse_fig_table.to_html(formatters=formatters,
-                                       escape=False, index=False)
-        html = pd_insert_col_width(html, widths=([50,]*3+[300,]*5))
-        display(HTML(html))
-
-        display(Markdown("Population dynamics for optimizations with err(tot)"
-                         " < %s:\n" % latex_float(err_limit)))
-        popdyn_fig_table = get_prop_fig_table(
-                           stage_table[stage_table['err(tot)']<err_limit]
-                           .sort('err(tot)'), stage4_folder=stage4_folder,
-                           stage_prop_folder=stage_prop_folder, what='popdyn')
-        html = popdyn_fig_table.to_html(formatters=formatters,
+            display(Markdown("\nOptimized pulses for optimizations with err(tot)"
+                            " < %s:\n" % latex_float(err_limit)))
+            pulse_fig_table = get_prop_fig_table(
+                            stage_table[stage_table['err(tot)']<err_limit]
+                            .sort('err(tot)'), stage4_folder=stage4_folder,
+                            stage_prop_folder=stage_prop_folder, what='pulse')
+            html = pulse_fig_table.to_html(formatters=formatters,
                                         escape=False, index=False)
-        html = pd_insert_col_width(html, widths=([50,]*3+[400,]*5))
-        display(HTML(html))
+            html = pd_insert_col_width(html, widths=([50,]*3+[300,]*5))
+            display(HTML(html))
+
+            display(Markdown("Population dynamics for optimizations with err(tot)"
+                            " < %s:\n" % latex_float(err_limit)))
+            popdyn_fig_table = get_prop_fig_table(
+                            stage_table[stage_table['err(tot)']<err_limit]
+                            .sort('err(tot)'), stage4_folder=stage4_folder,
+                            stage_prop_folder=stage_prop_folder, what='popdyn')
+            html = popdyn_fig_table.to_html(formatters=formatters,
+                                            escape=False, index=False)
+            html = pd_insert_col_width(html, widths=([50,]*3+[400,]*5))
+            display(HTML(html))
 
 
 def oct_overview(T, stage, rwa=True, inline=True, scatter_size=0,
