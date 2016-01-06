@@ -1162,11 +1162,11 @@ def get_rho_prop_table(stage4_table, stage4_folder='stage4',
             err = None
             with open(os.path.join(runfolder, 'prop.log')) as in_fh:
                 for line in in_fh:
-                    m = re.search(r'F_avg\(L\)\s*:\s*([\d.Ee+-]+)')
+                    m = re.search(r'F_avg\(L\)\s*:\s*([\d.Ee+-]+)', line)
                     if m:
                         err = 1.0 - float(m.group(1))
             L_err[target][fld_stage4] = err
-    L_err['tot']  = pd.Series(index=index)
+    L_err['tot']  = pd.Series(index=index, data=0.0)
     for target in targets:
         L_err['tot'] += L_err[target]
     L_err['tot'] *= 1.0/len(targets)
@@ -1186,6 +1186,7 @@ def get_rho_prop_table(stage4_table, stage4_folder='stage4',
                 ('err_L(PE)',   L_err['PE_1freq']),
                 ('err_H(tot)',  stage4_table['err(tot)']),
                 ('err_L(tot)',  L_err['tot']),
+                ('err_L/err_H(tot)',  L_err['tot']/stage4_table['err(tot)']),
             ]))
     return table
 
@@ -1236,7 +1237,7 @@ def prop_overview(T, rwa=True, err_limit=1.0e-3, stage4_folder='stage4',
                         ).sort('err_H(tot)')
             html = err_table.to_html(formatters=formatters,
                                     escape=False, index=False)
-            html = pd_insert_col_width(html, widths=([50,]*3+[100,]*6))
+            html = pd_insert_col_width(html, widths=([50,]*3+[100,]*12))
             display(HTML(html))
         else:
             display(Markdown("\nAchieved Gate Error for all optimizations, with "
@@ -1244,7 +1245,7 @@ def prop_overview(T, rwa=True, err_limit=1.0e-3, stage4_folder='stage4',
             err_table = stage_table.sort('err(tot)')
             html = err_table.to_html(formatters=formatters,
                                     escape=False, index=False)
-            html = pd_insert_col_width(html, widths=([50,]*3+[100,]*6))
+            html = pd_insert_col_width(html, widths=([50,]*3+[100,]*7))
             display(HTML(html))
 
             display(Markdown("\nOptimized pulses for optimizations with err(tot)"
