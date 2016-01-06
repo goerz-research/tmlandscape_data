@@ -1101,13 +1101,12 @@ def get_prop_fig_table(stage4_table, stage4_folder='stage4',
     fig_s = {}
     for target in targets:
         fig_s[target] = []
-    for stage_folder in index:
-        stage_prop_folder = stage_folder.replace(stage4_folder,
-                                                 stage_prop_folder)
+    for fld_stage4 in index: # e.g ./runs_050_RWA/w2_6200MHz_wc_5800MHz/stage4
+        fld_prop = fld_stage4.replace(stage4_folder, stage_prop_folder)
         for target in targets:
-            runfolder = os.path.join(stage_prop_folder, target)
+            runfolder = os.path.join(fld_prop, target) # assumed to exist
             w_d = get_wd(os.path.join(runfolder, 'config'))
-            err = stage4_table[err_col[target]][stage_folder]
+            err = stage4_table[err_col[target]][fld_stage4]
             title = "$\omega_d =$ %.3f GHz, $\epsilon = $%s" \
                     % (w_d, latex_float(err))
             if what == 'pulse':
@@ -1156,18 +1155,17 @@ def get_rho_prop_table(stage4_table, stage4_folder='stage4',
     L_err = {}
     for target in targets:
         L_err[target] = pd.Series(index=index)
-    for stage_folder in index:
-        stage_prop_folder = stage_folder.replace(stage4_folder,
-                                                 stage_prop_folder)
+    for fld_stage4 in index:
+        fld_prop = fld_stage4.replace(stage4_folder, stage_prop_folder)
         for target in targets:
-            runfolder = os.path.join(stage_prop_folder, target)
+            runfolder = os.path.join(fld_prop, target)
             err = None
             with open(os.path.join(runfolder, 'prop.log')) as in_fh:
                 for line in in_fh:
                     m = re.search(r'F_avg\(L\)\s*:\s*([\d.Ee+-]+)')
                     if m:
                         err = 1.0 - float(m.group(1))
-            L_err[target][stage_folder] = err
+            L_err[target][fld_stage4] = err
     L_err['tot']  = pd.Series(index=index)
     for target in targets:
         L_err['tot'] += L_err[target]
@@ -1204,7 +1202,7 @@ def prop_overview(T, rwa=True, err_limit=1.0e-3, stage4_folder='stage4',
     display(Markdown('## T = %d ns (%s) ##' % (T, frame)))
     if table_loader is None:
         table_loader = get_stage4_table
-    stage_table = table_loader(root, stage4_folder=stage4_folder)
+    stage_table = table_loader(root, stage_folder=stage4_folder)
 
     formatters = { # col value -> HTML
         'err(H_L)': latex_float,
