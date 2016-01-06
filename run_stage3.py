@@ -38,7 +38,23 @@ def main(argv=None):
     arg_parser.add_option(
         '--rwa', action='store_true', dest='rwa',
         default=False, help="Perform all calculations in the RWA.")
-    if not PROP_ONLY:
+    if PROP_ONLY:
+        arg_parser.add_option(
+            '--rho', action='store_true', dest='prop_rho',
+            default=False, help="Do the propagation in Liouville space.")
+        arg_parser.add_option(
+            '--n_qubit', action='store', dest='n_qubit', type="int",
+            default=None, help="Use the given number of qubit levels, "
+            "instead of the number specified in the config file.")
+        arg_parser.add_option(
+            '--n_cavity', action='store', dest='n_cavity', type="int",
+            default=None, help="Use the given number of cavity levels, "
+            "instead of the number specified in the config file.")
+        arg_parser.add_option(
+            '--rho-pop-plot', action='store_true', dest='rho_pop_plot',
+            default=False, help="In combination with --rho, "
+            "produce a population plot")
+    else:
         arg_parser.add_option(
             '--continue', action='store_true', dest='cont',
             default=False, help="Continue optimization from aborted OCT. "
@@ -108,8 +124,18 @@ def main(argv=None):
                 if call_run_oct:
                     log.write("scheduled %s for OCT\n" % runfolder)
                     if PROP_ONLY:
-                        command = './run_oct.py --prop-only --keep {rwa} {pre_simplex} {runfolder}'\
+                        prop_opts = '-prop-only --keep'
+                        if options.prop_rho:
+                            prop_opts += " --prop-rho"
+                        if options.rho_pop_plot:
+                            prop_opts += " --rho-pop-plot"
+                        if options.n_qubit is not None:
+                            prop_opts += " --prop-n_qubit=%d" % options.n_qubit
+                        if options.n_cavity is not None:
+                            prop_opts += " --prop-n_cavity=%d" % options.n_cavity
+                        command = './run_oct.py {prop_opts} {rwa} {pre_simplex} {runfolder}'\
                                 .format(rwa=rwa, pre_simplex=pre_simplex,
+                                        prop_opts=prop_opts,
                                         runfolder=runfolder)
                     else:
                         command = './run_oct.py --continue {rwa} {pre_simplex} {runfolder}'\
