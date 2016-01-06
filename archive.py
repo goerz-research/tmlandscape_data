@@ -7,7 +7,8 @@ import sys
 import click
 
 
-ALLOWED_STAGE_VALUES = ['1', '2', '3', '4', '4_1freq', 'prop', 'prop_1freq']
+ALLOWED_STAGE_VALUES = ['1', '2', '3', '4', '4_1freq', 'prop', 'prop_1freq',
+    'prop_rho', 'prop_rho_larger']
 
 
 def validate_stage(ctx, param, values):
@@ -36,7 +37,8 @@ def archive(folders, stage, dry_run):
         exclude = set([])
     else:
         exclude = set(['stage1', 'stage2', 'stage3', 'stage4', 'stage4_1freq',
-                       'stage_prop', 'stage_prop_1freq'])
+                       'stage_prop', 'stage_prop_1freq', 'stage_prop_rho',
+                       'stage_prop_rho_larger'])
         for stage_name in stage:
             exclude.remove(stage_name)
 
