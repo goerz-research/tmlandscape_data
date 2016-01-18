@@ -686,6 +686,34 @@ def diss_error(gamma, t):
 ###############################################################################
 
 
+def level_to_qu_numbers(level_index, n_qubit, n_cavity):
+    """Convert 1-based level index to quantum number (i,j,n)"""
+    l = level_index - 1
+    nn = n_qubit * n_cavity
+    i = l // nn; l = l - i * nn
+    j = l // n_cavity
+    n = l - j * n_cavity
+    return (i,j,n)
+
+
+def bare_decomposition(state, n_qubit, n_cavity, limit=0.001):
+    """Return the decomposition into the dominant bare states.
+
+    Arguments:
+        state (numpy array): Complex amplitude array of a quantum state
+        EV (QDYNTransmonLib.io.fullHamLevels): Level and eigenvalue information
+    """
+    label = lambda k: "{%d%d%d}" % level_to_qu_numbers(k+1, n_qubit, n_cavity)
+    result = ""
+    for k in range(len(state)):
+        i, j, n = level_to_qu_numbers(k+1, n_qubit, n_cavity)
+        if abs(state[k])**2 > limit:
+            result += " + {percent:.1f}% {label}".format(
+                          percent=(100*abs(state[k])**2),
+                          label=label(k))
+    return result[3:] # strip out leading ' + '
+
+
 def stage1_rf_to_params(runfolder):
     """From the full path to a stage 1 runfolder, extract and return
     (w_2, w_c, E0, pulse_label), where w_2 is the second qubit frequency in
