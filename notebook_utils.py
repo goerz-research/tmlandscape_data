@@ -779,6 +779,103 @@ def J_SQ(concurrence, loss):
     return loss + concurrence - concurrence*loss
 
 
+def get_zeta_table(runs, T=None, limit=1e-3):
+    """Summarize the value of the field-free entangling energy zeta over the
+    parameter space
+
+    Assumes that the runfolder structure is
+
+        [runs]/w2_[w2]MHz_wc_[wc]MHz/stage1/field_free
+
+    Each runfolder must contain a file U.dat (resulting from propagation of
+    pulse), and a file 'prop.log' that contain the output of the tm_en_prop
+    program, including lines like
+
+        eigen dist 00:   0.0000E+00 nrm:   0.0000E+00 En:  0.0000E+00  0.0000E+00 MHz
+        eigen dist 01:   0.0000E+00 nrm:   3.7699E-05 En: -5.5301E-28 -6.0000E-03 MHz
+        eigen dist 10:   6.8746E-05 nrm:   5.4840E-01 En:  8.7281E+01 -1.4310E-02 MHz
+        eigen dist 11:   6.8808E-04 nrm:   1.0171E-01 En: -1.6188E+01 -2.4046E-02 MHz
+
+    If T is given as the gate duration in ns, the gate stored in U.dat is
+    compared to expected gate, and a warning is shown if they do not match.
+
+    The resulting table will have the columns
+
+    'w1 [GHz]'  : value of left qubit frequency
+    'w2 [GHz]'  : value of right qubit frequency
+    'wc [GHz]'  : value of cavity frequency
+    'zeta [MHz]': value of zeta
+
+    and use the runfolder path as an index
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    runfolders = []
+    for folder in find_folders(runs, 'field_free'):
+        U_dat = os.path.join(folder, 'U.dat')
+        prop_log = os.path.join(folder, 'prop.log')
+        if os.path.isfile(U_dat) and os.path.isfile(prop_log):
+            runfolders.append(folder)
+        else:
+            logger.warn("folder %s is missing U.dat or prop.log" % folder)
+    w1_s       = pd.Series(6.0, index=runfolders)
+    w2_s       = pd.Series(index=runfolders)
+    wc_s       = pd.Series(index=runfolders)
+    zeta_s     = pd.Series(index=runfolders)
+    errors = []
+    for i, folder in enumerate(runfolders):
+        w2, wc, E0, pulse_label = stage1_rf_to_params(folder)
+        w2_s[i] = w2
+        wc_s[i] = wc
+        U_dat = os.path.join(folder, 'U.dat')
+        prop_log = os.path.join(folder, 'prop.log')
+        U = QDYN.gate2q.Gate2Q(U_dat)
+        if np.isnan(U).any():
+            logger.error("NaN in %s" % U_dat)
+            errors.append(folder)
+        elif np.max(U.logical_pops()) > 1.00001:
+            logger.error("increase of norm in %s" % U_dat)
+            errors.append(folder)
+        with open(prop_log) as in_fh:
+            E = {} # E['00'], E['01'], ... extracted from eigen_dist lines
+            rx = re.compile(r'''
+                eigen[ ]dist[ ](?P<state>[01]{2}):
+                \s*[0-9.E+-]+ \s+ nrm: \s+ [0-9.E+-]+ \s+
+                En: \s+ (?P<E>[0-9.E+-]+) \s+  [0-9.E+-]+ \s+ MHz''', re.X)
+            for line in in_fh:
+                m = rx.match(line)
+                if m:
+                    E[m.group('state')] = float(m.group('E'))
+        for state in ['00', '01', '10', '11']:
+            assert state in E
+        zeta_s[i] = E['00'] - E['01'] - E['10'] + E['11']
+        # check that gate is diagonal
+        err = QDYN.linalg.norm(U-np.diag(np.diag(U)))
+        if err > limit:
+            logger.warn("Gate %s has non-diagonal, err = %g" % (U_dat, err))
+        two_pi = 2.0 * np.pi
+        # check that phases are as expected
+        if T is not None:
+            observed_phases = np.angle(np.array([
+                                U[0,0], U[1,1], U[2,2], U[3,3] ]))
+            expected_phases = np.angle(np.array([
+                 np.exp(-1j * two_pi * (E['00']/1000.0) * T),
+                 np.exp(-1j * two_pi * (E['01']/1000.0) * T),
+                 np.exp(-1j * two_pi * (E['10']/1000.0) * T),
+                 np.exp(-1j * two_pi * (E['11']/1000.0) * T)]))
+            err = QDYN.linalg.norm(observed_phases - expected_phases)
+            if (err > limit*100):
+                logger.warn("Phases in gate  %s have error of %g"
+                            % (U_dat, err))
+    table = pd.DataFrame(OrderedDict([
+                ('w1 [GHz]',    w1_s),
+                ('w2 [GHz]',    w2_s/1000.0),
+                ('wc [GHz]',    wc_s/1000.0),
+                ('zeta [MHz]',  zeta_s),
+            ]))
+    return table[~table.index.isin(errors)]
+
+
 def get_stage1_table(runs):
     """Summarize the results of the stage1 calculations in a DataFrame table.
 
@@ -804,6 +901,8 @@ def get_stage1_table(runs):
     'J_PE'      : Value of functional for perfect-entangler target
     'J_SQ'      : Value of functional for single-qubit target
     'F_avg(unitary)': Value of average fidelity w.r.t the closest unitary
+
+    and use the runfolder path as an index
     """
     runfolders = []
     for folder in find_folders(runs, 'stage1'):

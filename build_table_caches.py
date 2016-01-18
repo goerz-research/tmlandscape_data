@@ -4,10 +4,11 @@ import sys
 import os
 import re
 from glob import glob
+import logging
 
 import QDYN
 from notebook_utils import (get_stage1_table, get_stage2_table,
-        get_stage3_table, get_stage4_table)
+        get_stage3_table, get_stage4_table, get_zeta_table)
 import pandas as pd
 pd.options.display.max_colwidth = 512
 
@@ -155,8 +156,16 @@ def main(argv=None):
         'stage4': format_stage4,
         'stage4_1freq': format_stage4,
     }
-    collect(reader, reader_kwargs, checker, formatter)
+    # zeta table
+    reader = QDYN.memoize.memoize(get_zeta_table)
+    reader('./runs_050_RWA', T=50)
+    dump_file = './zeta_table.cache'
+    reader.dump(dump_file)
+    # stage tables
+    #collect(reader, reader_kwargs, checker, formatter)
+    print("Written %s" % dump_file)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     sys.exit(main())
 
