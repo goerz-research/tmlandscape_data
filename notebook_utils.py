@@ -81,10 +81,10 @@ class PlotGrid(object):
 
     cell_width: float
         width of each panel area [cm]
+    cell_height: float
+        height of each panel area [cm]
     left_margin: float
         distance from left cell edge to axes [cm]
-    top_margin: float
-        distance from top cell edge to axes [cm]
     h: float
         height of axes [cm]
     w: float
@@ -108,12 +108,14 @@ class PlotGrid(object):
         Minimum qubit frequency [GHz].
     w2_max: float
         Maximum qubit frequency [GHz].
+    draw_cell_box: boolean
+        Draw a box around each cell (for debugging, defaults to False)
     """
-    def __init__(self, publication=False):
-        if publication:
+    def __init__(self, layout='inline'):
+        if layout == 'poster':
             self.cell_width      =  6.5
+            self.cell_height     =  6.2
             self.left_margin     =  1.0
-            self.top_margin      =  0.2
             self.bottom_margin   =  0.7
             self.h               =  5.3
             self.w               =  4.0
@@ -127,10 +129,27 @@ class PlotGrid(object):
             self.xlabelpad       =  0.3
             self.clabelpad       =  1.0
             self.scatter_size    =  0.0
-        else:
+        elif layout == 'paper':
+            self.cell_width      =  6.5
+            self.cell_height     =  6.2
+            self.left_margin     =  1.0
+            self.bottom_margin   =  0.7
+            self.h               =  5.3
+            self.w               =  4.0
+            self.cbar_width      =  0.2
+            self.cbar_gap        =  0.5
+            self.density         =  100
+            self.n_cols          =  2
+            self.contour_labels  = False
+            self.cbar_title      = True
+            self.ylabelpad       = -1.0
+            self.xlabelpad       =  0.3
+            self.clabelpad       =  1.0
+            self.scatter_size    =  0.0
+        elif layout == 'inline':
             self.cell_width      =  15.0
+            self.cell_height     =  10.0 + 1.25 + 0.8
             self.left_margin     =  1.8
-            self.top_margin      =  0.8
             self.bottom_margin   =  1.25
             self.h               =  10.0
             self.w               =  10.0
@@ -144,15 +163,28 @@ class PlotGrid(object):
             self.xlabelpad       =  1.0
             self.clabelpad       =  1.0
             self.scatter_size    =  5.0
+        else:
+            raise ValueError("Unknown 'layout' value")
         self._cells          = [] # array of cell_dicts
         self.wc_min = 4.5
         self.wc_max = 11.1
         self.w2_min = 5.0
         self.w2_max = 7.5
+        self.x_major_ticks = 0.5
+        self.x_minor = 5
+        self.y_major_ticks = 0.5
+        self.y_minor = 5
+        self.show_cell_box = False
 
     def add_cell(self, w2, wc, val, val_alpha=None, logscale=False, vmin=None,
-            vmax=None, contour_levels=0, title=None, cmap=None, bg='white'):
+            vmax=None, contour_levels=0, title=None, cmap=None, bg='white',
+            x_labels=True, y_labels=True, left_margin=None,
+            bottom_margin=None):
         """Add a cell to the plot grid
+
+        The `left_margin` and `bottom_margin` parameters can be used to
+        override the corresponding instance attribute for that specific cell
+        (in order to account for for changes in the labeling.
 
         All other parameters will be passed to the render_values routine
         """
@@ -174,6 +206,12 @@ class PlotGrid(object):
         cell_dict['title'] = title
         cell_dict['cmap'] = cmap
         cell_dict['bg'] = bg
+        cell_dict['x_labels'] = x_labels
+        cell_dict['y_labels'] = y_labels
+        if left_margin is not None:
+            cell_dict['left_margin'] = left_margin
+        if bottom_margin is not None:
+            cell_dict['bottom_margin'] = bottom_margin
         self._cells.append(cell_dict)
 
     def plot(self, quiet=True, show=True, style=None):
@@ -186,25 +224,48 @@ class PlotGrid(object):
         if n_rows * n_cols < n_cells:
             n_rows += 1
         cell_width = self.cell_width
-        cell_height = self.bottom_margin + self.h + self.top_margin
+        cell_height = self.cell_height
         fig_height = n_rows * cell_height
         fig = new_figure(fig_width, fig_height, quiet=quiet, style=style)
 
         col = 0
         row = 0
 
+        if self.draw_cell_box:
+            # insert hidden axes instance
+            ax_background = fig.add_axes([0,0,1,1], frameon=False)
+            ax_background.axes.get_yaxis().set_visible(False)
+            ax_background.axes.get_xaxis().set_visible(False)
+
         for i, cell_dict in enumerate(self._cells):
 
-            pos_contour = [(col*cell_width + self.left_margin)/fig_width,
+            # draw a rectangle around the cell
+            if self.draw_cell_box:
+                ax_background.add_patch(
+                    Rectangle(
+                        ( (col*cell_width)/fig_width,
+                        (n_rows-row-1)*cell_height/fig_height
+                        ), cell_width/fig_width, cell_height/fig_height,
+                        edgecolor='black', fill=False
+                    )
+                )
+
+            left_margin = self.left_margin
+            if 'left_margin' in cell_dict:
+                left_margin = cell_dict['left_margin']
+            bottom_margin = self.bottom_margin
+            if 'bottom_margin' in cell_dict:
+                bottom_margin = cell_dict['bottom_margin']
+            pos_contour = [(col*cell_width + left_margin)/fig_width,
                            ((n_rows-row-1)*cell_height
-                            + self.bottom_margin)/fig_height,
+                            + bottom_margin)/fig_height,
                             self.w/fig_width, self.h/fig_height]
             ax_contour = fig.add_axes(pos_contour)
 
-            pos_cbar = [(col*cell_width + self.left_margin + self.w
+            pos_cbar = [(col*cell_width + left_margin + self.w
                          + self.cbar_gap)/fig_width,
                         ((n_rows-row-1)*cell_height
-                            + self.bottom_margin)/fig_height,
+                            + bottom_margin)/fig_height,
                             self.cbar_width/fig_width, self.h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
 
@@ -219,7 +280,9 @@ class PlotGrid(object):
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
                               scatter_size=self.scatter_size,
-                              cmap=cell_dict['cmap'], bg=cell_dict['bg'])
+                              cmap=cell_dict['cmap'], bg=cell_dict['bg'],
+                              x_labels=cell_dict['x_labels'],
+                              y_labels=cell_dict['y_labels'])
                 ax_cbar.set_yticks([])
                 ax_cbar.set_yticklabels('',visible=False)
             else:
@@ -232,9 +295,9 @@ class PlotGrid(object):
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
                               scatter_size=self.scatter_size,
-                              cmap=cell_dict['cmap'], bg=cell_dict['bg'])
-            ax_contour.set_xlabel(r"$\omega_2$ (GHz)", labelpad=self.xlabelpad)
-            ax_contour.set_ylabel(r"$\omega_c$ (GHz)", labelpad=self.ylabelpad)
+                              cmap=cell_dict['cmap'], bg=cell_dict['bg'],
+                              x_labels=cell_dict['x_labels'],
+                              y_labels=cell_dict['y_labels'])
 
             # show the resonance line (cavity on resonace with qubit 2)
             ax_contour.plot(np.linspace(self.wc_min, self.wc_max, 10),
@@ -250,9 +313,21 @@ class PlotGrid(object):
             #ax_contour.axvline(6.58, color='white', ls='--')
             #ax_contour.axvline(6.62, color='white', ls='--')
             # ticks and axis labels
-            set_axis(ax_contour, 'x', self.w2_min, self.w2_max, 0.5, minor=5)
-            set_axis(ax_contour, 'y', self.wc_min, self.wc_max, 0.5, minor=5)
+            set_axis(ax_contour, 'x', self.w2_min, self.w2_max,
+                     self.x_major_ticks, minor=self.x_minor)
+            set_axis(ax_contour, 'y', self.wc_min, self.wc_max,
+                     self.y_major_ticks, minor=self.y_minor)
             ax_contour.tick_params(which='both', direction='out')
+            if cell_dict['x_labels']:
+                ax_contour.set_xlabel(r"$\omega_2$ (GHz)",
+                                      labelpad=self.xlabelpad)
+            else:
+                ax_contour.set_xticklabels([])
+            if cell_dict['y_labels']:
+                ax_contour.set_ylabel(r"$\omega_c$ (GHz)",
+                                      labelpad=self.ylabelpad)
+            else:
+                ax_contour.set_yticklabels([])
 
             if cell_dict['title'] is not None:
                 if self.cbar_title:
@@ -340,7 +415,8 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
 
 def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     logscale=False, val_alpha=None, vmin=None, vmax=None, contour_levels=11,
-    contour_labels=False, scatter_size=5, clip=True, cmap=None, bg='white'):
+    contour_labels=False, scatter_size=5, clip=True, cmap=None, bg='white',
+    y_labels=True, x_labels=True):
     """Render the given data onto the given axes
 
     Parameters
@@ -382,6 +458,10 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         based on the data.
     bg: string
         Color of background, i.e., the color that val_alpha will fade into
+    x_labels: boolean
+        If False, suppress both the x-ticklabels and the x-axis-label
+    y_labels: boolean
+        If False, suppress both the y-ticklabels and the y-axis-label
     """
     x = np.linspace(w_2.min(), w_2.max(), int((w_2.max()-w_2.min())*density))
     y = np.linspace(w_c.min(), w_c.max(), int((w_c.max()-w_c.min())*density))
@@ -434,8 +514,6 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     if scatter_size > 0:
         ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
                         linewidth=0.1*scatter_size, zorder=10)
-    ax_contour.set_xlabel(r"$\omega_2$ (GHz)")
-    ax_contour.set_ylabel(r"$\omega_c$ (GHz)")
     ax_contour.set_axis_bgcolor('white')
     fig = ax_cbar.figure
     fig.colorbar(cmesh, cax=ax_cbar)
@@ -952,6 +1030,25 @@ def get_stage1_table(runs):
                 ('F_avg(unitary)', F_avg_s),
             ]))
     return table[~table.index.isin(errors)]
+
+
+def plot_zeta(zeta_table, T=50, scatter_size=0, outfile=None):
+    """Plot zeta"""
+    plots = PlotGrid()
+    plots.scatter_size = scatter_size
+    zeta = zeta_table['zeta [MHz]']
+    w2 = zeta_table['w2 [GHz]']
+    wc = zeta_table['wc [GHz]']
+    plots.add_cell(w2, wc, np.abs(zeta), title='$\zeta [MHz]$', logscale=True)
+    gamma = -2.0 * np.pi * (zeta/1000.0) * T
+    C = np.abs(np.sin(0.5*gamma))
+    plots.add_cell(w2, wc, C, vmin=0.0, vmax=1.0, title='concurrence')
+    if outfile is None:
+        plots.plot(quiet=True, show=True)
+    else:
+        fig = plots.plot(quiet=True, show=False)
+        fig.savefig(outfile)
+        plt.close(fig)
 
 
 def plot_field_free_data(stage1_table, scatter_size=0, outfile=None):

@@ -23,7 +23,7 @@ OUTFOLDER = '/Users/goerz/Documents/Presentations/2015-09-30_UMD_tmlandscape/Pos
 def generate_map_plot(stage_table, T, outfile):
 
     # set up plot
-    plots = PlotGrid(publication=True)
+    plots = PlotGrid(layout='poster')
     min_err = diss_error(gamma=1.2e-5, t=T)
 
     # filter stage table to single frequencies

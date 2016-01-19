@@ -26,7 +26,7 @@ OUTFOLDER = './ibm_images'
 
 def generate_field_free_plot(stage_table, T, outfile):
     """Plot field-free concurrence"""
-    plots = PlotGrid(publication=True)
+    plots = PlotGrid(layout='poster')
     plots.n_cols = 1
     plots.scatter_size = 0
     table = stage_table[stage_table['category']=='field_free']
@@ -43,7 +43,7 @@ def generate_field_free_plot(stage_table, T, outfile):
 def generate_map_plot(stage_table, T, outfile):
 
     # set up plot
-    plots = PlotGrid(publication=True)
+    plots = PlotGrid(layout='poster')
     min_err = diss_error(gamma=1.2e-5, t=T)
 
     # filter stage table to single frequencies
