@@ -10,28 +10,65 @@ from collections import OrderedDict
 matplotlib.use('Agg')
 import matplotlib.pylab as plt
 from notebook_utils import get_Q_table, diss_error, PlotGrid
-from notebook_utils import get_stage1_table, get_stage2_table, get_stage3_table
+from notebook_utils import (get_stage1_table, get_stage2_table,
+        get_stage3_table, get_zeta_table)
 from mgplottools.mpl import new_figure, set_axis
+from matplotlib.ticker import FuncFormatter
 
 STYLE = 'paper.mplstyle'
 
 get_stage3_table = QDYN.memoize.memoize(get_stage3_table)
 get_stage3_table.load('stage3_table.cache')
+get_zeta_table = QDYN.memoize.memoize(get_zeta_table)
+get_zeta_table.load('zeta_table.cache')
 
 OUTFOLDER = './paper_images'
 
 
-def generate_field_free_plot(stage_table, T, outfile):
-    """Plot field-free concurrence"""
-    plots = PlotGrid(publication=True)
-    plots.n_cols = 1
-    plots.scatter_size = 0
-    table = stage_table[stage_table['category']=='field_free']
-    plots.add_cell(table['w2 [GHz]'], table['wc [GHz]'], table['C'],
-                   vmin=0.0, vmax=1.0, title='concurrence')
-    fig = plots.plot(quiet=True, show=False, style=STYLE)
+def generate_field_free_plot(zeta_table, T, outfile):
+    """Plot field-free entangling energy zeta, and projected concurrence after
+    the given gate duration T in ns.
+    """
+    plots = PlotGrid(layout='paper')
+    # parameters matching those in generate_map_plot
+    plots.cell_width      =  6.375
+    plots.cell_height     =  4.6 # top + bottom + h from generate_map_plot
+    #plots.left_margin     =  1.2 # set dynamically below
+    plots.bottom_margin   =  0.8
+    plots.h               =  3.6
+    plots.w               =  3.875
+    plots.cbar_width      =  0.25
+    plots.cbar_gap        =  0.6
+    plots.density         =  100
+    plots.n_cols          =  2
+    plots.contour_labels  = False
+    plots.cbar_title      = True
+    plots.ylabelpad       = -1.0
+    plots.xlabelpad       =  0.5
+    plots.clabelpad       =  4.0
+    plots.scatter_size    =  0.0
+    plots.x_major_ticks   = 0.5
+    plots.x_minor         = 5
+    plots.y_major_ticks   = 1.0
+    plots.y_minor         = 5
+    plots.draw_cell_box   = False
+
+    zeta = zeta_table['zeta [MHz]']
+    w2 = zeta_table['w2 [GHz]']
+    wc = zeta_table['wc [GHz]']
+
+    plots.add_cell(w2, wc, np.abs(zeta), title=r'$\zeta$~(MHz)', logscale=True,
+                   left_margin=1.2, y_labels=True)
+
+    gamma = -2.0 * np.pi * (zeta/1000.0) * T
+    C = np.abs(np.sin(0.5*gamma))
+    plots.add_cell(w2, wc, C, vmin=0.0, vmax=1.0, title='concurrence at $T = 50$~ns',
+                   left_margin=0.7, y_labels=False)
+
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
+
+    fig = plots.plot(quiet=False, show=False, style=STYLE)
     fig.savefig(outfile)
     print("written %s" % outfile)
     plt.close(fig)
@@ -81,7 +118,7 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
     bottom = 0.8  # bottom of figure to T=010 axes
     gap = 0.4     # vertical gap between axes
     h = 3.6       # height of all axes
-    cell_height = ((bottom + top + 2*gap) / 3.0) + h
+    cell_height = ((bottom + top + 2*gap) / 3.0) + h # 4.2
     bottom_margin = { # within each cell
          10: bottom,
          50: (bottom + h + gap) - cell_height,
@@ -305,9 +342,10 @@ def main(argv=None):
     stage_table_200 = get_stage3_table('./runs_200_RWA')
     stage_table_050 = get_stage3_table('./runs_020_RWA')
     stage_table_010 = get_stage3_table('./runs_010_RWA')
+    zeta_table = get_zeta_table('./runs_050_RWA', T=50)
 
     # Fig 1
-    #generate_field_free_plot(get_stage1_table('./runs_050_RWA'), T=50, outfile='field_free_050.png')
+    generate_field_free_plot(zeta_table, T=50, outfile='fig1.pdf')
     # Fig 2
     #generate_weyl_plot(get_stage3_table('./runs_200_RWA'), outfile='weyl_200.pdf')
     generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
