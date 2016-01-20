@@ -23,6 +23,7 @@ get_zeta_table = QDYN.memoize.memoize(get_zeta_table)
 get_zeta_table.load('zeta_table.cache')
 
 OUTFOLDER = './paper_images'
+OUTFOLDER = '/Users/goerz/Documents/Papers/TransmonLandscape'
 
 
 def generate_field_free_plot(zeta_table, T, outfile):
@@ -292,12 +293,12 @@ def generate_popdyn_plot(outfile):
 
 def generate_error_plot(outfile):
 
-    fig_height      =  7.5*0.666
-    fig_width       = 10.5*0.666        # Total canvas (cv) width
-    left_margin     = 1.1*0.666         # Left cv -> plot area
-    right_margin    = 0.4*0.666         # plot area -> right cv
-    top_margin      = 0.4*0.666         # top cv -> plot area
-    bottom_margin   = 1.3*0.666         # bottom cv -> plot area
+    fig_height      = 4.0
+    fig_width       = 8.5               # Total canvas (cv) width
+    left_margin     = 1.2               # Left cv -> plot area
+    right_margin    = 0.2               # plot area -> right cv
+    top_margin      = 0.25              # top cv -> plot area
+    bottom_margin   = 0.6
     h = fig_height - (bottom_margin + top_margin)
     w = fig_width  - (left_margin + right_margin)
     data = r'''
@@ -315,17 +316,19 @@ def generate_error_plot(outfile):
     pos = [left_margin/fig_width, bottom_margin/fig_height,
            w/fig_width, h/fig_height]
     ax = fig.add_axes(pos)
-    ax.plot(T, eps_0, label=r'$\varepsilon_{\text{avg}}^0$', marker='o')
-    ax.plot(T, eps_PE, label=r'$\varepsilon_{\text{avg}}^{\text{PE}}$', marker='o')
-    ax.plot(T, eps_Q, label=r'$\varepsilon_{\text{avg}}^{\text{Q}}$', marker='o')
+    ax.plot(T, eps_0, label=r'$\varepsilon_{\text{avg}}^0$', marker='o', ls='dotted')
+    ax.plot(T, eps_PE, label=r'$\varepsilon_{\text{avg}}^{\text{PE}}$', marker='o', ls='dashed')
+    ax.plot(T, eps_Q, label=r'$\varepsilon_{\text{avg}}^{\text{Q}}$', marker='o', ls='solid')
     ax.legend(loc='lower right')
     ax.annotate('QSL', xy=(10, 1e-3),  xycoords='data',
                 xytext=(10, 1e-2), textcoords='data',
                 arrowprops=dict(facecolor='black', width=1, headwidth=3, shrink=0.05),
                 horizontalalignment='center', verticalalignment='top',
                 )
-    set_axis(ax, 'x', 4, 210, label='gate time (ns)', logscale=True)
+    set_axis(ax, 'x', 4, 210, label='gate time (ns)', logscale=True, labelpad=-2)
     set_axis(ax, 'y', 1e-4, 1.0e-1, label='lowest gate error', logscale=True)
+    ax.tick_params(axis='x', pad=3)
+
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
     fig.savefig(outfile, format=os.path.splitext(outfile)[1][1:])
@@ -347,11 +350,10 @@ def main(argv=None):
     # Fig 1
     generate_field_free_plot(zeta_table, T=50, outfile='fig1.pdf')
     # Fig 2
-    #generate_weyl_plot(get_stage3_table('./runs_200_RWA'), outfile='weyl_200.pdf')
     generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
                       outfile='fig2.pdf')
-    # Fig 4
-    generate_error_plot(outfile='qsl.pdf')
+    # Fig 3
+    generate_error_plot(outfile='fig3.pdf')
     # Fig 5
     #generate_popdyn_plot(outfile='popdyn.png')
 
