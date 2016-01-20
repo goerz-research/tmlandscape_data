@@ -37,6 +37,37 @@ def generate_field_free_plot(stage_table, T, outfile):
     plt.close(fig)
 
 
+@FuncFormatter
+def weyl_x_tick_fmt(x, pos):
+    'The two args are the value and tick position'
+    if x == 0:
+        return '0'
+    elif x == 1:
+        return '1'
+    else:
+        return ''
+        #return ("%.1f" % x)[1:]
+
+@FuncFormatter
+def weyl_y_tick_fmt(y, pos):
+    'The two args are the value and tick position'
+    if y == 0:
+        return '0'
+    elif y == 0.5:
+        return '0.5'
+    else:
+        return ''
+
+
+@FuncFormatter
+def weyl_z_tick_fmt(z, pos):
+    'The two args are the value and tick position'
+    if z == 0.5:
+        return '0.5'
+    else:
+        return ''
+
+
 def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
         outfile):
 
@@ -57,29 +88,50 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
         200: (bottom + 2*(h+gap)) - 2*cell_height,
     }
 
-    # set up plot
-    plots = PlotGrid(layout='paper')
-    plots.cell_width      =  6.375
-    plots.cell_height     =  cell_height
-    #plots.left_margin     =  1.2 # set dynamically below
-    #plots.bottom_margin   =  1.0 # set dynamically below
-    plots.h               =  h
-    plots.w               =  3.875
-    plots.cbar_width      =  0.25
-    plots.cbar_gap        =  0.6
-    plots.density         =  100
-    plots.n_cols          =  2
-    plots.contour_labels  = False
-    plots.cbar_title      = True
-    plots.ylabelpad       = -1.0
-    plots.xlabelpad       =  0.5
-    plots.clabelpad       =  4.0
-    plots.scatter_size    =  0.0
-    plots.x_major_ticks   = 0.5
-    plots.x_minor         = 5
-    plots.y_major_ticks   = 1.0
-    plots.y_minor         = 5
-    plots.draw_cell_box   = False
+    weyl_bottom_offset = {
+         10: bottom,
+         50: cell_height + bottom_margin[50],
+        200: 2*cell_height + bottom_margin[200],
+    }
+
+    weyl_label_offset = {
+         10: bottom + h - 0.25,
+         50: cell_height + bottom_margin[50] + h - 0.25,
+        200: 2*cell_height + bottom_margin[200] + h -  0.25,
+    }
+
+    # set up map plot
+    map_plots = PlotGrid(layout='paper')
+    map_plots.cell_width      =  6.375
+    map_plots.cell_height     =  cell_height
+    #map_plots.left_margin     =  1.2 # set dynamically below
+    #map_plots.bottom_margin   =  1.0 # set dynamically below
+    map_plots.h               =  h
+    map_plots.w               =  3.875
+    map_plots.cbar_width      =  0.25
+    map_plots.cbar_gap        =  0.6
+    map_plots.density         =  100
+    map_plots.n_cols          =  2
+    map_plots.contour_labels  = False
+    map_plots.cbar_title      = True
+    map_plots.ylabelpad       = -1.0
+    map_plots.xlabelpad       =  0.5
+    map_plots.clabelpad       =  4.0
+    map_plots.scatter_size    =  0.0
+    map_plots.x_major_ticks   = 0.5
+    map_plots.x_minor         = 5
+    map_plots.y_major_ticks   = 1.0
+    map_plots.y_minor         = 5
+    map_plots.draw_cell_box   = False
+
+    # set up Weyl plot
+    weyl_fig_width = 4.35
+    weyl_fig_height = 3 * cell_height
+    fig_weyl = new_figure(weyl_fig_width, weyl_fig_height, style=STYLE)
+    weyl_left_margin = 0.3
+    weyl_w = 3.8
+    weyl_h = 3.2
+    ax_weyl = {}
 
     data = OrderedDict([
             (200, stage_table_200),
@@ -87,10 +139,6 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
             (10,  stage_table_010), ])
 
     for T in data.keys():
-
-        x_labels = False
-        if T == 10:
-            x_labels = True
 
         stage_table = data[T]
         min_err = diss_error(gamma=1.2e-5, t=T)
@@ -112,27 +160,64 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
                 .apply(lambda df: df.sort('J_PE').head(1))\
                 .reset_index(level=0, drop=True)
 
-        # plotting
-        plots.add_cell(C_table['w2 [GHz]'], C_table['wc [GHz]'],
+        # plot the maps
+        map_x_labels = False
+        if T == 10:
+            map_x_labels = True
+
+        map_plots.add_cell(C_table['w2 [GHz]'], C_table['wc [GHz]'],
                     C_table['C'], vmin=0.0, vmax=1.0,
                     val_alpha=(1-t_PE['max loss']), bg='black',
                     contour_levels=0, logscale=False, title='concurrence',
                     left_margin=1.2, bottom_margin=bottom_margin[T],
-                    x_labels=x_labels, y_labels=True)
-        plots.add_cell(Q_table['w2 [GHz]'], Q_table['wc [GHz]'],
+                    x_labels=map_x_labels, y_labels=True)
+        map_plots.add_cell(Q_table['w2 [GHz]'], Q_table['wc [GHz]'],
                        1.0-Q_table['Q'], vmin=min_err, vmax=1.0, logscale=True,
                         val_alpha=(1-t_PE['max loss']), bg='black',
                         cmap=plt.cm.gnuplot2_r,
                         contour_levels=0, title='$1-Q$',
                         left_margin=0.7, bottom_margin=bottom_margin[T],
-                        x_labels=x_labels, y_labels=False)
+                        x_labels=map_x_labels, y_labels=False)
 
-    fig = plots.plot(quiet=False, show=False, style=STYLE)
+        # plot the weyl_chamber
+        pos_weyl = [weyl_left_margin/weyl_fig_width,
+                    (weyl_bottom_offset[T])/weyl_fig_height,
+                    weyl_w/weyl_fig_width, weyl_h/weyl_fig_height]
+        ax_weyl = fig_weyl.add_axes(pos_weyl, projection='3d')
+        w = QDYN.weyl.WeylChamber()
+        t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
+        w.scatter(t_PE_weyl['c1'], t_PE_weyl['c2'], t_PE_weyl['c3'],
+                  s=5, linewidth=0)
+        w.render(ax_weyl)
+        ax_weyl.xaxis._axinfo['ticklabel']['space_factor'] = 1.0
+        ax_weyl.yaxis._axinfo['ticklabel']['space_factor'] = 1.0
+        ax_weyl.zaxis._axinfo['ticklabel']['space_factor'] = 1.3
+        ax_weyl.xaxis._axinfo['label']['space_factor'] = 1.5
+        ax_weyl.yaxis._axinfo['label']['space_factor'] = 1.5
+        ax_weyl.zaxis._axinfo['label']['space_factor'] = 1.5
+        ax_weyl.xaxis.set_major_formatter(weyl_x_tick_fmt)
+        ax_weyl.yaxis.set_major_formatter(weyl_y_tick_fmt)
+        ax_weyl.zaxis.set_major_formatter(weyl_z_tick_fmt)
+        fig_weyl.text(0.5, weyl_label_offset[T]/weyl_fig_height,
+                      r'$T = %d$~ns' % T, verticalalignment='top',
+                      horizontalalignment='center', size=10)
+
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
-    fig.savefig(outfile)
-    print("written %s" % outfile)
-    plt.close(fig)
+
+    out_path, out_filename = os.path.split(outfile)
+    out_base, out_ext = os.path.splitext(out_filename)
+    outfile_maps = os.path.join(out_path, "%s_map%s" % (out_base, out_ext))
+    outfile_weyl = os.path.join(out_path, "%s_weyl%s" % (out_base, out_ext))
+
+    fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
+    fig_maps.savefig(outfile_maps)
+    print("written %s" % outfile_maps)
+    plt.close(fig_maps)
+
+    fig_weyl.savefig(outfile_weyl)
+    print("written %s" % outfile_weyl)
+    plt.close(fig_weyl)
 
 
 def generate_weyl_plot(stage_table, outfile):
@@ -226,7 +311,7 @@ def main(argv=None):
     # Fig 2
     #generate_weyl_plot(get_stage3_table('./runs_200_RWA'), outfile='weyl_200.pdf')
     generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
-                      outfile='fig2_map.pdf')
+                      outfile='fig2.pdf')
     # Fig 4
     generate_error_plot(outfile='qsl.pdf')
     # Fig 5
