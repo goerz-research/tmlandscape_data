@@ -13,7 +13,7 @@ from notebook_utils import get_Q_table, diss_error, PlotGrid
 from notebook_utils import (get_stage1_table, get_stage2_table,
         get_stage3_table, get_zeta_table)
 from mgplottools.mpl import new_figure, set_axis
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, ScalarFormatter
 
 STYLE = 'paper.mplstyle'
 
@@ -40,7 +40,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
     plots.w               =  3.875
     plots.cbar_width      =  0.25
     plots.cbar_gap        =  0.6
-    plots.density         =  100
+    plots.density         =  300
     plots.n_cols          =  2
     plots.contour_labels  = False
     plots.cbar_title      = True
@@ -55,21 +55,36 @@ def generate_field_free_plot(zeta_table, T, outfile):
     plots.draw_cell_box   = False
 
     zeta = zeta_table['zeta [MHz]']
+    abs_zeta = np.clip(np.abs(zeta), a_min=1e-5, a_max=1e5)
     w2 = zeta_table['w2 [GHz]']
     wc = zeta_table['wc [GHz]']
 
-    plots.add_cell(w2, wc, np.abs(zeta), title=r'$\zeta$~(MHz)', logscale=True,
-                   left_margin=1.2, y_labels=True)
+    plots.add_cell(w2, wc, abs_zeta, title=r'$\zeta$~(MHz)', logscale=True,
+                   vmin=1e-3, left_margin=1.2, y_labels=True)
 
-    gamma = -2.0 * np.pi * (zeta/1000.0) * T
+    T_entangling = 500.0/abs_zeta
+    plots.add_cell(w2, wc, T_entangling, logscale=True, vmax=1e3,
+                    #vmin=0.0, vmax=100.0,
+                   title='$T(\gamma=\pi)$ (ns)', left_margin=0.7, y_labels=False)
+
+    gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
     C = np.abs(np.sin(0.5*gamma))
     plots.add_cell(w2, wc, C, vmin=0.0, vmax=1.0, title='concurrence at $T = 50$~ns',
+                   left_margin=1.2, y_labels=True)
+
+    gamma_bare = 0.012
+    rel_decay = zeta_table['gamma [MHz]'] / gamma_bare
+    print("Min: %s" % np.min(rel_decay))
+    print("Max: %s" % np.max(rel_decay))
+    plots.add_cell(w2, wc, rel_decay, logscale=False, vmin=1, vmax=2.3,
+                   title=r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$',
                    left_margin=0.7, y_labels=False)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
 
     fig = plots.plot(quiet=False, show=False, style=STYLE)
+
     fig.savefig(outfile)
     print("written %s" % outfile)
     plt.close(fig)
@@ -350,10 +365,10 @@ def main(argv=None):
     # Fig 1
     generate_field_free_plot(zeta_table, T=50, outfile='fig1.pdf')
     # Fig 2
-    generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
-                      outfile='fig2.pdf')
+    #generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
+                      #outfile='fig2.pdf')
     # Fig 3
-    generate_error_plot(outfile='fig3.pdf')
+    #generate_error_plot(outfile='fig3.pdf')
     # Fig 5
     #generate_popdyn_plot(outfile='popdyn.png')
 
