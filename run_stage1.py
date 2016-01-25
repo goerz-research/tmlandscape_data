@@ -139,6 +139,9 @@ def main(argv=None):
         '--debug', action='store_true', dest='debug',
         default=False, help="Enable debugging output")
     arg_parser.add_option(
+        '--field-free-only', action='store_true', dest='field_free_only',
+        default=False, help="Only propagate field-free Hamiltonian")
+    arg_parser.add_option(
         '-n', action='store_true', dest='dry_run',
         help="Perform a dry run")
     options, args = arg_parser.parse_args(argv)
@@ -163,6 +166,9 @@ def main(argv=None):
     debug = ''
     if options.debug:
         debug = '--debug'
+    field_free_only = ''
+    if options.field_free_only:
+        field_free_only = '--field-free-only'
     submitted = []
     jobs = []
     job_ids = {}
@@ -178,10 +184,12 @@ def main(argv=None):
         else:
             w2_wc = read_w2_wc(options.params_file)
         for (w2, wc) in w2_wc:
-            command = './pre_simplex_scan.py --parallel=1 {debug} {rwa} {singlefreq} {runs} {w2} {wc} {T}'\
-                      .format(debug=debug, rwa=rwa,
-                              singlefreq=single_frequency, runs=runs, w2=w2,
-                              wc=wc, T=options.T)
+            command = (('./pre_simplex_scan.py --parallel=1 {debug} '
+                        '{field_free_only} {rwa} {singlefreq} {runs} {w2} '
+                        '{wc} {T}').format(debug=debug,
+                         field_free_only=field_free_only, rwa=rwa,
+                         singlefreq=single_frequency, runs=runs, w2=w2,
+                         wc=wc, T=options.T))
             jobs.append(command)
         for i_job, commands in enumerate(split_seq(jobs, options.jobs)):
             if len(commands) == 0:

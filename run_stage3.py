@@ -124,7 +124,7 @@ def main(argv=None):
                 if call_run_oct:
                     log.write("scheduled %s for OCT\n" % runfolder)
                     if PROP_ONLY:
-                        prop_opts = '-prop-only --keep'
+                        prop_opts = '--prop-only --keep'
                         if options.prop_rho:
                             prop_opts += " --prop-rho"
                         if options.rho_pop_plot:

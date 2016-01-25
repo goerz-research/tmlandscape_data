@@ -68,7 +68,8 @@ def make_random_freq(w_1, w_2, w_c, alpha_1, alpha_2, sidebands=True):
     return random_freq
 
 
-def generate_runfolders(runs, w2, wc, T, rwa=False, single_frequency=False):
+def generate_runfolders(runs, w2, wc, T, rwa=False, single_frequency=False,
+        field_free_only=False):
     """Generate a set of runfolders, ready for propagation. Returns a list of
     runfolder paths.
 
@@ -78,7 +79,9 @@ def generate_runfolders(runs, w2, wc, T, rwa=False, single_frequency=False):
     T:    gate duration [ns]
     rwa:  if True, write runs in the rotating wave approximation
     single_frequency: if True, do not use more than a single frequency in
-                      pulses
+        pulses
+    field_free_only: If True, only create the runfolder for the field-free
+        propagation
 
     Runfolders are created according to the pattern
     [runs]/w2_[w2]MHz_wc_[wc]MHz/stage1/[pulse_label]/E[E0]/
@@ -182,6 +185,9 @@ def generate_runfolders(runs, w2, wc, T, rwa=False, single_frequency=False):
                 parameters={}, time_unit='ns', ampl_unit='MHz')
         write_runfolder(runfolder, pulse, config, rwa)
     runfolders.append(runfolder)
+    if field_free_only:
+        logger.debug("Finished generate_runfolders")
+        return runfolders
 
     # single-frequency (center)
     for E0 in amplitudes:
@@ -402,7 +408,7 @@ def make_threadpool_map(p):
 
 
 def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False,
-        parallel=1):
+        parallel=1, field_free_only=False):
     """Perform scan for the given qubit and cavity frequency
 
     runs: root folder in which to generate runs
@@ -412,6 +418,8 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False,
     rwa:  if True, write runs in the rotating wave approximation
     single_frequency: if True, write only runs that have a single frequency
     parallel: number of parallel propagations to run
+    field_free_only: If True, create and propagate only the runfolder for the
+    field-free case.
     """
     # create state 1 runfolders and propagate them
     logger = logging.getLogger(__name__)
@@ -420,7 +428,8 @@ def pre_simplex_scan(runs, w2, wc, T, rwa=False, single_frequency=False,
     # Ensure that all runfolders exist and contain the files 'pulse.json' and
     # 'config'
     runfolders = generate_runfolders(runs, w2, wc, T, rwa=rwa,
-                                     single_frequency=single_frequency)
+                                     single_frequency=single_frequency,
+                                     field_free_only=True)
     threadpool_map = make_threadpool_map(parallel)
     logger.info('*** Propagate ***')
     # Ensure that all runfolders contain the file 'U.dat'
@@ -450,6 +459,9 @@ def main(argv=None):
     arg_parser.add_option(
         '--parallel', action='store', dest='parallel', type=int,
         default=1, help="Number of parallel propagation per job [1]")
+    arg_parser.add_option(
+        '--field-free-only', action='store_true', dest='field_free_only',
+        default=False, help="Propagate only the field-free Hamiltonian")
     options, args = arg_parser.parse_args(argv)
     try:
         runs = args[1]
