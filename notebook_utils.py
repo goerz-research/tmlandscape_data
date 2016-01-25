@@ -174,7 +174,11 @@ class PlotGrid(object):
         self.x_minor = 5
         self.y_major_ticks = 0.5
         self.y_minor = 5
-        self.show_cell_box = False
+        self.draw_cell_box = False
+        self._axes = []
+        # after rendering, self._axes[i] is a list of axes in the i'th cell
+        self._cbars = []
+        # after rendering, self._cbars[i] is the colorbar in the i'th cell
 
     def add_cell(self, w2, wc, val, val_alpha=None, logscale=False, vmin=None,
             vmax=None, contour_levels=0, title=None, cmap=None, bg='white',
@@ -231,6 +235,9 @@ class PlotGrid(object):
         col = 0
         row = 0
 
+        self._axes = []
+        self._cbars = []
+
         if self.draw_cell_box:
             # insert hidden axes instance
             ax_background = fig.add_axes([0,0,1,1], frameon=False)
@@ -238,6 +245,8 @@ class PlotGrid(object):
             ax_background.axes.get_xaxis().set_visible(False)
 
         for i, cell_dict in enumerate(self._cells):
+
+            cell_axes = []
 
             # draw a rectangle around the cell
             if self.draw_cell_box:
@@ -261,6 +270,7 @@ class PlotGrid(object):
                             + bottom_margin)/fig_height,
                             self.w/fig_width, self.h/fig_height]
             ax_contour = fig.add_axes(pos_contour)
+            cell_axes.append(ax_contour)
 
             pos_cbar = [(col*cell_width + left_margin + self.w
                          + self.cbar_gap)/fig_width,
@@ -268,10 +278,12 @@ class PlotGrid(object):
                             + bottom_margin)/fig_height,
                             self.cbar_width/fig_width, self.h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
+            cell_axes.append(ax_cbar)
 
             if self.cbar_title:
                 axT = ax_cbar.twinx()
-                render_values(cell_dict['w2'], cell_dict['wc'],
+                cell_axes.append(axT)
+                cbar = render_values(cell_dict['w2'], cell_dict['wc'],
                               cell_dict['val'], ax_contour, axT,
                               density=self.density,
                               logscale=cell_dict['logscale'],
@@ -286,7 +298,7 @@ class PlotGrid(object):
                 ax_cbar.set_yticks([])
                 ax_cbar.set_yticklabels('',visible=False)
             else:
-                render_values(cell_dict['w2'], cell_dict['wc'],
+                cbar = render_values(cell_dict['w2'], cell_dict['wc'],
                               cell_dict['val'], ax_contour, ax_cbar,
                               density=self.density,
                               val_alpha=cell_dict['val_alpha'],
@@ -340,6 +352,9 @@ class PlotGrid(object):
             if col == self.n_cols:
                 col = 0
                 row += 1
+
+            self._axes.append(cell_axes)
+            self._cbars.append(cbar)
 
         if show:
             plt.show(fig)
@@ -462,6 +477,11 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         If False, suppress both the x-ticklabels and the x-axis-label
     y_labels: boolean
         If False, suppress both the y-ticklabels and the y-axis-label
+
+    Returns
+    -------
+
+    cbar instance
     """
     x = np.linspace(w_2.min(), w_2.max(), int((w_2.max()-w_2.min())*density))
     y = np.linspace(w_c.min(), w_c.max(), int((w_c.max()-w_c.min())*density))
@@ -516,7 +536,8 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
                         linewidth=0.1*scatter_size, zorder=10)
     ax_contour.set_axis_bgcolor('white')
     fig = ax_cbar.figure
-    fig.colorbar(cmesh, cax=ax_cbar)
+    cbar = fig.colorbar(cmesh, cax=ax_cbar)
+    return cbar
 
 
 def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
