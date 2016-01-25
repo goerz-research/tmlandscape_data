@@ -879,10 +879,12 @@ def get_zeta_table(runs, T=None, limit=1e-3):
 
     The resulting table will have the columns
 
-    'w1 [GHz]'  : value of left qubit frequency
-    'w2 [GHz]'  : value of right qubit frequency
-    'wc [GHz]'  : value of cavity frequency
-    'zeta [MHz]': value of zeta
+    'w1 [GHz]'   : value of left qubit frequency
+    'w2 [GHz]'   : value of right qubit frequency
+    'wc [GHz]'   : value of cavity frequency
+    'zeta [MHz]' : value of zeta
+    'gamma [MHz]': Effective (population) decay rate for the qubit, due to
+                   Purcell effect
 
     and use the runfolder path as an index
     """
@@ -900,7 +902,10 @@ def get_zeta_table(runs, T=None, limit=1e-3):
     w2_s       = pd.Series(index=runfolders)
     wc_s       = pd.Series(index=runfolders)
     zeta_s     = pd.Series(index=runfolders)
+    gamma_s    = pd.Series(index=runfolders)
     errors = []
+    two_pi = 2.0 * np.pi
+    four_pi = 4.0 * np.pi
     for i, folder in enumerate(runfolders):
         w2, wc, E0, pulse_label = stage1_rf_to_params(folder)
         w2_s[i] = w2
@@ -916,22 +921,28 @@ def get_zeta_table(runs, T=None, limit=1e-3):
             errors.append(folder)
         with open(prop_log) as in_fh:
             E = {} # E['00'], E['01'], ... extracted from eigen_dist lines
+            Gamma = {} # imaginary part of energy levels -> decay
             rx = re.compile(r'''
                 eigen[ ]dist[ ](?P<state>[01]{2}):
                 \s*[0-9.E+-]+ \s+ nrm: \s+ [0-9.E+-]+ \s+
-                En: \s+ (?P<E>[0-9.E+-]+) \s+  [0-9.E+-]+ \s+ MHz''', re.X)
+                En: \s+ (?P<E>[0-9.E+-]+)
+                \s+ (?P<MinusGamma>[0-9.E+-]+) \s+ MHz''', re.X)
             for line in in_fh:
                 m = rx.match(line)
                 if m:
-                    E[m.group('state')] = float(m.group('E'))
+                    state = m.group('state')
+                    E[state] = float(m.group('E'))
+                    Gamma[state] = -1.0*float(m.group('MinusGamma'))
         for state in ['00', '01', '10', '11']:
             assert state in E
         zeta_s[i] = E['00'] - E['01'] - E['10'] + E['11']
+        gamma_s[i] = np.sum(np.array(Gamma.values(), dtype=np.float64)) / 2.0
+        #          = 2 * (\sum_i \Gamma_i) / 4,
+        #            with factor 2 due to amplitude -> population
         # check that gate is diagonal
         err = QDYN.linalg.norm(U-np.diag(np.diag(U)))
         if err > limit:
             logger.warn("Gate %s has non-diagonal, err = %g" % (U_dat, err))
-        two_pi = 2.0 * np.pi
         # check that phases are as expected
         if T is not None:
             observed_phases = np.angle(np.array([
@@ -950,6 +961,7 @@ def get_zeta_table(runs, T=None, limit=1e-3):
                 ('w2 [GHz]',    w2_s/1000.0),
                 ('wc [GHz]',    wc_s/1000.0),
                 ('zeta [MHz]',  zeta_s),
+                ('gamma [MHz]', gamma_s),
             ]))
     return table[~table.index.isin(errors)]
 
