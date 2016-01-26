@@ -711,6 +711,40 @@ def get_max_1freq_quality(t_PE, t_SQ):
     return Q_table['Q'].max()
 
 
+def plot_zeta_data(zeta_table, T, scatter_size=0, outfile=None):
+    plots = PlotGrid()
+    plots.scatter_size = scatter_size
+    zeta = zeta_table['zeta [MHz]']
+    abs_zeta = np.clip(np.abs(zeta), a_min=1e-5, a_max=1e5)
+    w2 = zeta_table['w2 [GHz]']
+    wc = zeta_table['wc [GHz]']
+
+    plots.add_cell(w2, wc, abs_zeta, title=r'$\zeta$ (MHz)', logscale=True,
+                   vmin=1e-3, left_margin=1.2, y_labels=True)
+
+    T_entangling = 500.0/abs_zeta
+    plots.add_cell(w2, wc, T_entangling, logscale=True, vmax=1e3,
+                    #vmin=0.0, vmax=100.0,
+                   title='$T(\gamma=\pi)$ (ns)', left_margin=0.7, y_labels=False)
+
+    gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
+    C = np.abs(np.sin(0.5*gamma))
+    plots.add_cell(w2, wc, C, vmin=0.0, vmax=1.0,
+                   title='concurrence at $T = %s$ ns' % T,
+                   left_margin=1.2, y_labels=True)
+
+    gamma_bare = 0.012
+    rel_decay = zeta_table['gamma [MHz]'] / gamma_bare
+    plots.add_cell(w2, wc, rel_decay, logscale=False, vmin=1, vmax=2.3,
+                   title=r'$\gamma_{dressed} / \gamma_{bare}$',
+                   left_margin=0.7, y_labels=False)
+    if outfile is None:
+        plots.plot(quiet=True, show=True)
+    else:
+        fig = plots.plot(quiet=True, show=False)
+        fig.savefig(outfile)
+        plt.close(fig)
+
 
 def plot_quality(t_PE, t_SQ, outfile=None, include_total=True,
     categories=None, vmin=1.0e-3, vmax=1.0, scatter_size=0):
