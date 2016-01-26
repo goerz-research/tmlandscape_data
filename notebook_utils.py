@@ -662,6 +662,18 @@ def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
         plt.close(fig)
 
 
+def filter_table(table, select_points):
+    """Given a table that must contain the columns 'w2 [GHz]' and 'wc [GHz]',
+    and a list of points (w2, wc), return a copy of the table with only the
+    rows exactly matching the values for w2 and wc
+    """
+    w2, wc = select_points[0]
+    filter = (table['w2 [GHz]'] == w2) & (table['wc [GHz]'] == wc)
+    for (w2, wc) in select_points[1:]:
+        filter = filter | (table['w2 [GHz]'] == w2) & (table['wc [GHz]'] == wc)
+    return table[filter]
+
+
 def latex_float(f):
     """Format a float for LaTeX, using scientific notation"""
     float_str = "{0:.2e}".format(f)
