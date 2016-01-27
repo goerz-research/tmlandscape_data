@@ -1033,6 +1033,77 @@ def get_zeta_table(runs, T=None, limit=1e-3):
     return table[~table.index.isin(errors)]
 
 
+def get_logical_energies(runfolder, frame='rwa'):
+    """Return E00, E01, E10, E11 in MHz from the given runfolder. If frame is
+    'rwa', energies are in the frame defined in the runfolder. The runfolder
+    must contain 'prop.log' with "eigen-dist" lines that give the logical
+    energies.  If frame is 'lab', the energies are transformed into the lab
+    frame. For this, the runfolder must contain the files 'logical_states.dat',
+    and a config file that defines a value for w_d"""
+    frame = frame.lower()
+    prop_log = os.path.join(runfolder, 'prop.log')
+    logical_states_dat = os.path.join(runfolder, 'logical_states.dat')
+    config = os.path.join(runfolder, 'config')
+    with open(prop_log) as in_fh:
+        E = {} # E['00'], E['01'], ... extracted from eigen_dist lines
+        Gamma = {} # imaginary part of energy levels -> decay
+        rx = re.compile(r'''
+            eigen[ ]dist[ ](?P<state>[01]{2}):
+            \s*[0-9.E+-]+ \s+ nrm: \s+ [0-9.E+-]+ \s+
+            En: \s+ (?P<E>[0-9.E+-]+)
+            \s+ (?P<MinusGamma>[0-9.E+-]+) \s+ MHz''', re.X)
+        for line in in_fh:
+            m = rx.match(line)
+            if m:
+                state = m.group('state')
+                E[state] = float(m.group('E'))
+                Gamma[state] = -1.0*float(m.group('MinusGamma'))
+    for state in ['00', '01', '10', '11']:
+        assert state in E
+    if frame == 'lab':
+        Psi = {}
+        Psi['00'], Psi['01'], Psi['10'], Psi['11'] = np.genfromtxt(
+                logical_states_dat, usecols=(0,1,2,3), unpack=True,
+                dtype=np.float64)
+        i_vals, j_vals, n_vals = np.genfromtxt(
+                logical_states_dat, usecols=(4,5,6), unpack=True,
+                dtype=np.int)
+        w_d = None
+        with open(config) as in_fh:
+            for line in in_fh:
+                m = re.match(r'w_d\s*=\s*(?P<w_d>[\d.+-]+)_MHz', line)
+                if m:
+                    w_d = float(m.group('w_d'))
+        assert w_d is not None
+        for l in range(len(Psi['00'])):
+            i, j, n = i_vals[l], j_vals[l], n_vals[l]
+            w_l = (i+j+n) * w_d
+            for state in ['00', '01', '10', '11']:
+                E[state] += abs(Psi[state][l])**2 * w_l
+    return (E['00'], E['01'], E['10'], E['11'])
+
+
+def get_logical_energies_table(runfolders, frame='lab'):
+    """Return a table of energies E00, E01, E10, E11 for the given list of
+    runfolders"""
+    E00_s = []
+    E01_s = []
+    E10_s = []
+    E11_s = []
+    for runfolder in runfolders:
+        E00, E01, E10, E11 = get_logical_energies(runfolder, frame)
+        E00_s.append(E00)
+        E01_s.append(E01)
+        E10_s.append(E10)
+        E11_s.append(E11)
+    return pd.DataFrame(OrderedDict([
+                ('E00 [MHz]',    pd.Series(E00_s, index=runfolders)),
+                ('E01 [MHz]',    pd.Series(E01_s, index=runfolders)),
+                ('E10 [MHz]',    pd.Series(E10_s, index=runfolders)),
+                ('E11 [MHz]',    pd.Series(E11_s, index=runfolders)),
+            ]))
+
+
 def get_stage1_table(runs):
     """Summarize the results of the stage1 calculations in a DataFrame table.
 
