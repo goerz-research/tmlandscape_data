@@ -1989,7 +1989,7 @@ def get_stage4_table(runs, stage_folder):
         w2_s[i] = float(m_stage4_folder.group('w2'))
         wc_s[i] = float(m_stage4_folder.group('wc'))
         for runfolder in find_leaf_folders(stage4_folder):
-            assert '1freq' in runfolder
+            #assert '1freq' in runfolder
             processed = False
             for target in err:
                 if target in runfolder:
