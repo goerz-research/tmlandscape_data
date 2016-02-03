@@ -37,7 +37,8 @@ from clusterjob.utils import read_file
 from stage2_simplex import get_temp_runfolder, run_simplex
 from QDYN.pulse import Pulse
 from analytical_pulses import AnalyticalPulse
-from notebook_utils import get_w_d_from_config, read_target_gate
+from notebook_utils import (get_w_d_from_config, read_target_gate,
+        ensure_ham_files)
 from clusterjob.utils import read_file
 
 MAX_TRIALS = 200
@@ -239,19 +240,7 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
     logger.info("Starting optimization of %s (in %s)", runfolder,
                 temp_runfolder)
     with open(os.path.join(runfolder, 'oct.log'), 'w', 0) as stdout:
-        cmds = []
-        if (rwa):
-            cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
-        else:
-            cmds.append(['tm_en_gh', '--dissipation', '.'])
-        cmds.append(['rewrite_dissipation.py',])
-        cmds.append(['tm_en_logical_eigenstates.py', '.'])
-        env = os.environ.copy()
-        env['OMP_NUM_THREADS'] = '1'
-        for cmd in cmds:
-            stdout.write("**** " + " ".join(cmd) +"\n")
-            sp.call(cmd , cwd=temp_runfolder, env=env,
-                    stderr=sp.STDOUT, stdout=stdout)
+        ensure_ham_files(temp_runfolder)
         # we assume that the value for lambda_a is badly chosen and iterate
         # over optimizations until we find a good value
         bad_lambda = True
@@ -466,25 +455,11 @@ def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
             env['OMP_NUM_THREADS'] = '1'
             start = time.time()
             with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
+                ensure_ham_files(temp_runfolder, rwa, stdout, rho)
                 cmds = []
                 if rho:
-                    if (rwa):
-                        cmds.append(['tm_en_gh', '--rwa', '.'])
-                    else:
-                        cmds.append(['tm_en_gh', '.'])
-                    # Note: no equivalent of "rewrite_dissipation": the
-                    # difference is going to be completely negligble, I don't
-                    # care enough at this point to re-implement the density
-                    # matrix propagation with a more general dissipator.
-                    cmds.append(['tm_en_logical_eigenstates.py', '.'])
                     cmds.append(['tm_en_rho_prop', '.'])
                 else:
-                    if (rwa):
-                        cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
-                    else:
-                        cmds.append(['tm_en_gh', '--dissipation', '.'])
-                    cmds.append(['rewrite_dissipation.py',])
-                    cmds.append(['tm_en_logical_eigenstates.py', '.'])
                     cmds.append(['tm_en_prop', '.'])
                 for cmd in cmds:
                     stdout.write("**** " + " ".join(cmd) +"\n")

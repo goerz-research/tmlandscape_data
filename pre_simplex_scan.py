@@ -346,13 +346,8 @@ def propagate(runfolder, rwa, keep=False):
             env['OMP_NUM_THREADS'] = '1'
             start = time.time()
             with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
+                ensure_ham_files(temp_runfolder, rwa, stdout)
                 cmds = []
-                if (rwa):
-                    cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
-                else:
-                    cmds.append(['tm_en_gh', '--dissipation', '.'])
-                cmds.append(['rewrite_dissipation.py',])
-                cmds.append(['tm_en_logical_eigenstates.py', '.'])
                 cmds.append(['tm_en_prop', '.'])
                 for cmd in cmds:
                     stdout.write("**** " + " ".join(cmd) +"\n")
