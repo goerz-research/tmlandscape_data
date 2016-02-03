@@ -23,6 +23,68 @@ import logging
 TARGETS = ['PE', 'SQ', 'H_left', 'H_right', 'Ph_left', 'Ph_right']
 SQ_TARGETS = ['H_left', 'H_right', 'Ph_left', 'Ph_right']
 
+
+def write_config(config_file, T, nt, wc, w2, wd, gate="target_gate.dat",
+        J_T='SM', prop_guess='F'):
+    """Write out the config file (in the RWA)
+
+    Arguments:
+        config_file (str): path to the config file to write
+        T (float): gate duration in ns
+        wc (float): cavity frequency in GHz
+        w2 (float): 2nd qubit frequency in GHz
+        wd (float): frequency of rotating frame, in GHz
+        gate (str): Gate to optimize for
+        J_T (str): functional to use
+    """
+    config = dedent(r'''
+    tgrid: n = 1
+    1 : t_start = 0.0, t_stop = {T:.4f}_ns, nt = {nt:d}
+
+    pulse: n = 1
+    1: type = file, filename = pulse.guess, id = 1,  time_unit = ns, &
+    ampl_unit = MHz, is_complex = T, oct_increase_factor = 5.0, &
+    oct_outfile = pulse.dat, oct_lambda_a = 1.0e-1, oct_lambda_intens = 0.0, &
+    oct_shape = flattop, shape_t_start = 0.0, t_rise = {t_rise_fall:.4f}_ns, &
+    shape_t_stop = {T:.4f}_ns, t_fall = {t_rise_fall}_ns, check_tgrid = F
+
+    oct: iter_stop = 10000, max_megs = 9000, type = krotovpk, &
+        A = 0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
+        keep_pulses = prev, max_hours = 23,  continue = T, dynamic_sigma = T, &
+        sigma_form = local, J_T_conv = 1.0e-3
+
+    misc: prop = newton, mass = 1.0
+
+    user_ints: n_qubit = 5, n_cavity = 6
+
+    user_strings: gate = {gate}, J_T = {J_T}
+
+    user_logicals: prop_guess = {prop_guess}, dissipation = T
+
+    user_reals: &
+    LI_unitarity_weight = 0.01, &
+    w_c     = {w_c}_MHz, &
+    w_1     = 6000.0_MHz, &
+    w_2     = {w_2}_MHz, &
+    w_d = {w_d}_MHz, &
+    alpha_1 = -290.0_MHz, &
+    alpha_2 = -310.0_MHz, &
+    J       =   0.0_MHz, &
+    g_1     = 70.0_MHz, &
+    g_2     = 70.0_MHz, &
+    n0_qubit  = 0.0, &
+    n0_cavity = 0.0, &
+    kappa   = 0.05_MHz, &
+    gamma_1 = 0.012_MHz, &
+    gamma_2 = 0.012_MHz, &
+    ''')
+    with open(config_file, 'w')  as out_fh:
+        out_fh.write(config.format(
+            T=T, nt=nt, w_c=(float(wc)*1000.0),
+            w_2=(float(w2)*1000.0), w_d=(float(wd)*1000.0),
+            t_rise_fall=min(2, 0.1*float(wd)*1000.0), gate=gate, J_T=J_T,
+            prop_guess=prop_guess))
+
 def generate_folder(w2, wc, wd, T, runs, strategy, target, w_max=1.0,
         dry_run=False):
     """Generate a runfolder for optimization at a given paramter point towards
@@ -59,55 +121,10 @@ def generate_folder(w2, wc, wd, T, runs, strategy, target, w_max=1.0,
         QDYN.shutil.mkdir(runfolder)
     config_file = os.path.join(runfolder, 'config')
     logger.info("Writing %s", config_file)
-    config = dedent(r'''
-    tgrid: n = 1
-    1 : t_start = 0.0, t_stop = {T:.4f}_ns, nt = {nt:d}
-
-    pulse: n = 1
-    1: type = file, filename = pulse.guess, id = 1,  time_unit = ns, &
-    ampl_unit = MHz, is_complex = T, oct_increase_factor = 5.0, &
-    oct_outfile = pulse.dat, oct_lambda_a = 1.0e-1, oct_lambda_intens = 0.0, &
-    oct_shape = flattop, shape_t_start = 0.0, t_rise = {t_rise_fall:.4f}_ns, &
-    shape_t_stop = {T:.4f}_ns, t_fall = {t_rise_fall}_ns, check_tgrid = F
-
-    oct: iter_stop = 10000, max_megs = 9000, type = krotovpk, &
-        A = 0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
-        keep_pulses = prev, max_hours = 23,  continue = T, dynamic_sigma = T, &
-        sigma_form = local, J_T_conv = 1.0e-3
-
-    misc: prop = newton, mass = 1.0
-
-    user_ints: n_qubit = 5, n_cavity = 6
-
-    user_strings: gate = target_gate.dat, J_T = SM
-
-    user_logicals: prop_guess = F, dissipation = T
-
-    user_reals: &
-    LI_unitarity_weight = 0.01, &
-    w_c     = {w_c}_MHz, &
-    w_1     = 6000.0_MHz, &
-    w_2     = {w_2}_MHz, &
-    w_d = {w_d}_MHz, &
-    alpha_1 = -290.0_MHz, &
-    alpha_2 = -310.0_MHz, &
-    J       =   0.0_MHz, &
-    g_1     = 70.0_MHz, &
-    g_2     = 70.0_MHz, &
-    n0_qubit  = 0.0, &
-    n0_cavity = 0.0, &
-    kappa   = 0.05_MHz, &
-    gamma_1 = 0.012_MHz, &
-    gamma_2 = 0.012_MHz, &
-    ''')
     if dry_run:
         logger.info("Writing %s", config_file)
     else:
-        with open(config_file, 'w')  as out_fh:
-            out_fh.write(config.format(
-                T=T, nt=nt_rwa, w_c=(float(wc)*1000.0),
-                w_2=(float(w2)*1000.0), w_d=(float(wd)*1000.0),
-                t_rise_fall=min(2, 0.1*float(wd)*1000.0)))
+        write_config(config_file, T, nt_rwa, wc, w2, wd)
     pulse_guess = os.path.join(runfolder, 'pulse.guess')
     if dry_run:
         logger.info("Writing %s", pulse_guess)
