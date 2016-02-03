@@ -14,6 +14,7 @@ import matplotlib.pylab as plt
 from matplotlib.colors import LogNorm, ColorConverter
 from collections import OrderedDict
 from textwrap import dedent
+import subprocess as sp
 from IPython.display import display, HTML, Markdown, Latex, Math
 from mgplottools.mpl import set_axis, new_figure
 from matplotlib import rcParams
@@ -1033,16 +1034,78 @@ def get_zeta_table(runs, T=None, limit=1e-3):
     return table[~table.index.isin(errors)]
 
 
+def get_transition_table(zeta_table):
+    """Return a table of the dressed qubit transitions based on zeta_table"""
+    transition_table = get_logical_energies_table(zeta_table.index, frame='lab')
+    transition_table['E11 - E10 [MHz]'] = transition_table['E11 [MHz]'] - transition_table['E10 [MHz]']
+    transition_table['E11 - E01 [MHz]'] = transition_table['E11 [MHz]'] - transition_table['E01 [MHz]']
+    transition_table.rename(columns={'E01 [MHz]': 'E01 - E00 [MHz]', 'E10 [MHz]': 'E10 - E00 [MHz]'}, inplace=True)
+    transition_table['bare w2 [MHz]'] = zeta_table['w2 [GHz]'] * 1000.0
+    transition_table['bare w1 [MHz]'] = zeta_table['w1 [GHz]'] * 1000.0
+    transition_table.drop('E00 [MHz]', axis=1, inplace=True)
+    transition_table.drop('E11 [MHz]', axis=1, inplace=True)
+    return transition_table
+
+
+def ensure_ham_files(runfolder, rwa=True, stdout=None, rho=False,
+        force=False):
+    """Make sure that the "Hamiltonian" files ('ham_ctrl.dat', 'ham_drift.dat',
+    'eigenvalues.dat', 'logical_states.dat' exist in the given runfolder.
+    """
+    assert os.path.isfile(os.path.join(runfolder, 'config'))
+    output_files = ['ham_ctrl.dat', 'ham_drift.dat', 'eigenvalues.dat',
+            'logical_states.dat']
+    missing = False
+    for file in output_files:
+        if not os.path.isfile(os.path.join(runfolder, file)):
+            missing = True
+    if missing:
+        cmds = []
+        if rho:
+            if (rwa):
+                cmds.append(['tm_en_gh', '--rwa', '.'])
+            else:
+                cmds.append(['tm_en_gh', '.'])
+            # Note: no equivalent of "rewrite_dissipation": the
+            # difference is going to be completely negligble, I don't
+            # care enough at this point to re-implement the density
+            # matrix propagation with a more general dissipator.
+            cmds.append(['tm_en_logical_eigenstates.py', '.'])
+        else:
+            if (rwa):
+                cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+            else:
+                cmds.append(['tm_en_gh', '--dissipation', '.'])
+            cmds.append(['rewrite_dissipation.py',])
+            cmds.append(['tm_en_logical_eigenstates.py', '.'])
+        if (rwa):
+            cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
+        else:
+            cmds.append(['tm_en_gh', '--dissipation', '.'])
+        cmds.append(['rewrite_dissipation.py',])
+        cmds.append(['tm_en_logical_eigenstates', '.'])
+        env = os.environ.copy()
+        env['OMP_NUM_THREADS'] = '1'
+        for cmd in cmds:
+            if stdout is not None:
+                stdout.write("**** " + " ".join(cmd) +"\n")
+            sp.call(cmd , cwd=runfolder, env=env,
+                    stderr=sp.STDOUT, stdout=stdout)
+
+
 def get_logical_energies(runfolder, frame='rwa'):
     """Return E00, E01, E10, E11 in MHz from the given runfolder. If frame is
     'rwa', energies are in the frame defined in the runfolder. The runfolder
     must contain 'prop.log' with "eigen-dist" lines that give the logical
     energies.  If frame is 'lab', the energies are transformed into the lab
-    frame. For this, the runfolder must contain the files 'logical_states.dat',
-    and a config file that defines a value for w_d"""
+    frame. For this, the runfolder should contain the file
+    'logical_states.dat', and a config file that defines a value for w_d"""
     frame = frame.lower()
     prop_log = os.path.join(runfolder, 'prop.log')
     logical_states_dat = os.path.join(runfolder, 'logical_states.dat')
+    # if the Hamiltonian files are missing, we *always* generate them in the
+    # RWA. The frame parameter only decides whether a conversion happens!
+    ensure_ham_files(runfolder, rwa=True)
     config = os.path.join(runfolder, 'config')
     with open(prop_log) as in_fh:
         E = {} # E['00'], E['01'], ... extracted from eigen_dist lines
