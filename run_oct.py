@@ -371,9 +371,11 @@ def scale_lambda_a(config, factor):
 
 
 def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
-        n_cavity=None, keep=False):
+        n_cavity=None, keep=False, check_files=None, prop_guess='F',
+        force=False):
     """
     Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
+    (if force is False)
 
     If `rho` is True, propagate in Liouville. Note that in this case, the
     returned 2QGate is a unitary approximation of the dynamics. The exact value
@@ -395,10 +397,14 @@ def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
 
     This routine assumes the runfolder contains a file pulse.dat or pulse.guess
     with the pulse to be propagated (pulse.guess is only used if no pulse.dat
-    exists).  The folder must also contain a matching config file.
+    exists).  The folder must also contain a matching config file. By giving a
+    list of files for `check_files`, that list is checked for existence before
+    propagation (in lieu of the default list of files).
     """
     logger = logging.getLogger(__name__)
-    for file in ['config', 'pulse.guess', 'pulse.dat', 'target_gate.dat']:
+    if check_files is None:
+        check_files = ['config', 'pulse.guess', 'pulse.dat', 'target_gate.dat']
+    for file in check_files:
         file = os.path.join(runfolder, file)
         if not os.path.isfile(file):
             raise IOError("%s does not exist" % file)
@@ -411,8 +417,9 @@ def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
     gatefile = os.path.join(runfolder, 'U.dat')
     config = os.path.join(runfolder, 'config')
     config_content = read_file(config)
-    if re.search('prop_guess\s*=\s*T', config_content):
-        raise ValueError("prop_guess must be set to F in %s" % config)
+    if not re.search('prop_guess\s*=\s*'+prop_guess, config_content):
+        raise ValueError("prop_guess must be set to %s in %s"
+                         % (prop_guess, config))
     if rho:
         assert "rho_prop_mode" in config_content
         assert "gamma_phi_1" in config_content
@@ -420,6 +427,8 @@ def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
     pulse_dat = os.path.join(runfolder, 'pulse.dat')
     pulse_guess = os.path.join(runfolder, 'pulse.guess')
     target_gate_dat = os.path.join(runfolder, 'target_gate.dat')
+    if os.path.isfile(gatefile) and force:
+        os.unlink(gatefile)
     if not os.path.isfile(gatefile):
         try:
             temp_runfolder = get_temp_runfolder(runfolder)
