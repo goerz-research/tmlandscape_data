@@ -117,8 +117,18 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     # so we can get get them once in the beginning.
     system_params = read_params(config, 'GHz')
     pulse0 = os.path.join(runfolder, guess_pulse)
+    pulse1 = os.path.join(runfolder, opt_pulse)
     assert os.path.isfile(config), "Runfolder must contain config"
-    assert os.path.isfile(pulse0), "Runfolder must contain "+guess_pulse
+    if not  os.path.isfile(pulse0):
+        if os.path.isfile(pulse1):
+            os.unlink(pulse1)
+        raise AssertionError("Runfolder must contain "+guess_pulse)
+    if os.path.isfile(pulse1):
+        if os.path.getctime(pulse1) > os.path.getctime(pulse0):
+            logger.info("%s: Already optimized", runfolder)
+            return
+        else:
+            os.unlink(pulse1)
     temp_runfolder = get_temp_runfolder(runfolder)
     QDYN.shutil.mkdir(temp_runfolder)
     files_to_copy = ['config', ]
@@ -212,7 +222,7 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
         get_U.func(res.x, pulse) # memoization disabled
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'config'), runfolder)
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
-        pulse.write(os.path.join(runfolder, opt_pulse), pretty=True)
+        pulse.write(pulse1, pretty=True)
     finally:
         get_U.dump(cachefile)
         QDYN.shutil.rmtree(temp_runfolder)
