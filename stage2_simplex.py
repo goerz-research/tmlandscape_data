@@ -79,13 +79,14 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
 
 
 def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
-        extra_files_to_copy=None, options=None):
+        extra_files_to_copy=None, options=None, guess_pulse='pulse.json',
+        opt_pulse='pulse_opt.json'):
     """Run a simplex over all the pulse parameters, optimizing towards the
     given target ('PE', 'SQ', or an instance of Gate2Q, implying an F_avg
     functional)
 
     The guess pulse will be read as an analytical pulse from the file
-    pulse.json. The optimized pulse will be written out as as pulse_opt.json
+    `guess_pulse`. The optimized pulse will be written out as as `opt_pulse`
 
     Besides the guess pulse, the runfolder must contain a config file set up to
     propagate a (numerical) pulse stored in a file with the name by
@@ -115,9 +116,9 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     # in a reasonable range. They don't change over the course of the simplex,
     # so we can get get them once in the beginning.
     system_params = read_params(config, 'GHz')
-    pulse0 = os.path.join(runfolder, 'pulse.json')
+    pulse0 = os.path.join(runfolder, guess_pulse)
     assert os.path.isfile(config), "Runfolder must contain config"
-    assert os.path.isfile(pulse0), "Runfolder must contain pulse.json"
+    assert os.path.isfile(pulse0), "Runfolder must contain "+guess_pulse
     temp_runfolder = get_temp_runfolder(runfolder)
     QDYN.shutil.mkdir(temp_runfolder)
     files_to_copy = ['config', ]
@@ -211,7 +212,7 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
         get_U.func(res.x, pulse) # memoization disabled
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'config'), runfolder)
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
-        pulse.write(os.path.join(runfolder, 'pulse_opt.json'), pretty=True)
+        pulse.write(os.path.join(runfolder, opt_pulse), pretty=True)
     finally:
         get_U.dump(cachefile)
         QDYN.shutil.rmtree(temp_runfolder)
