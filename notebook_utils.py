@@ -415,7 +415,7 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
                     line = re.sub(r't_start\s*=\s*[\d.]+(_\w+)?',
                                  't_start = 0.0', line)
                     line = re.sub(r't_stop\s*=\s*[\d.]+(_\w+)?',
-                                  't_stop = %.1f_%s' % (T, unit), line)
+                                  't_stop = %f_%s' % (T, unit), line)
                     line = re.sub(r'nt\s*=\s*\d+', 'nt = %d' % nt, line)
                     if 'rwa' in analytical_pulse.formula_name:
                         if 'w_d' in line:
