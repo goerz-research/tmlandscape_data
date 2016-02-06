@@ -39,14 +39,14 @@ def write_config(config_file, T, nt, wc, w2, wd, gate="target_gate.dat",
     """
     config = dedent(r'''
     tgrid: n = 1
-    1 : t_start = 0.0, t_stop = {T:.4f}_ns, nt = {nt:d}
+    1 : t_start = 0.0, t_stop = {T:f}_ns, nt = {nt:d}
 
     pulse: n = 1
     1: type = file, filename = pulse.guess, id = 1,  time_unit = ns, &
     ampl_unit = MHz, is_complex = T, oct_increase_factor = 5.0, &
     oct_outfile = pulse.dat, oct_lambda_a = 1.0e-1, oct_lambda_intens = 0.0, &
-    oct_shape = flattop, shape_t_start = 0.0, t_rise = {t_rise_fall:.4f}_ns, &
-    shape_t_stop = {T:.4f}_ns, t_fall = {t_rise_fall}_ns, check_tgrid = F
+    oct_shape = flattop, shape_t_start = 0.0, t_rise = {t_rise_fall:f}_ns, &
+    shape_t_stop = {T:f}_ns, t_fall = {t_rise_fall:f}_ns, check_tgrid = F
 
     oct: iter_stop = 10000, max_megs = 9000, type = krotovpk, &
         A = 0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
@@ -82,7 +82,7 @@ def write_config(config_file, T, nt, wc, w2, wd, gate="target_gate.dat",
         out_fh.write(config.format(
             T=T, nt=nt, w_c=(float(wc)*1000.0),
             w_2=(float(w2)*1000.0), w_d=(float(wd)*1000.0),
-            t_rise_fall=min(2, 0.1*float(wd)*1000.0), gate=gate, J_T=J_T,
+            t_rise_fall=min(2, 0.1*T), gate=gate, J_T=J_T,
             prop_guess=prop_guess))
 
 def generate_folder(w2, wc, wd, T, runs, strategy, target, w_max=1.0,
