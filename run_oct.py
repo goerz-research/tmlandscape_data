@@ -75,71 +75,132 @@ def reset_pulse(pulse, iter):
     logger.debug("no accepted snapshot")
 
 
-def run_pre_krotov_simplex(runfolder, formula, rwa=False, randomize=False):
-    """Read a numerical guess pulse from pulse.guess and map it as closely as
-    possible to an analytical pulse, which is stored in pulse.json. Then, a
-    simplex optimization is performed to optimize towards a target gate that
-    must be defined in target_gate.dat. The result of this simplex optimization
-    is stored in pulse_opt.json. the original file pulse.guess is copied to
-    pulse.guess.pre_simplex, and the pulse described in pulse_opt.json is
-    written out as a numerical pulse to pulse.guess.
-
-    If pulse_opt.json already exists, no simplex optimization is performed.
+def write_oct_config(template, config, target, iter_stop=None, max_megs=None,
+        max_hours=None, J_T_conv=None):
+    """Write a new config file based on template, but with an updated OCT and
+    user_strings section. The `target` parameter must be 'PE' (implies PE
+    functional), 'SQ' (implies LI functional), or the name of a file inside the
+    runfolder (usually target_gate.dat) that contains an explicit target gate
+    (implies SM functional). The remaining parameters set the corresponding
+    options in the OCT section.
     """
-    for file in ['config', 'pulse.guess', 'target_gate.dat']:
-        file = os.path.join(runfolder, file)
-        if not os.path.isfile(file):
-            raise IOError("%s does not exist" % file)
-    logger = logging.getLogger(__name__)
-    pulse_opt_json = os.path.join(runfolder, 'pulse_opt.json')
-    pulse_guess_pre_simplex = os.path.join(runfolder, 'pulse.guess.pre_simplex')
-    pulse_guess = os.path.join(runfolder, 'pulse.guess')
-    p_guess = Pulse(filename=pulse_guess)
-    if os.path.isfile(pulse_opt_json):
-        p_analytic = AnalyticalPulse.read(pulse_opt_json)
-        # Check that pulse.guess matches pulse_opt.json
-        p_guess_matches_p_analytic = False
-        for line in p_guess.preamble:
-            if p_analytic.header in line:
-                p_guess_matches_p_analytic = True
-        if not p_guess_matches_p_analytic:
-            if os.path.isfile(pulse_guess_pre_simplex):
-                os.unlink(pulse_guess)
-                # below, we'll copy pulse.guess.pre_simplex to pulse.guess
-            else:
-                raise IOError("Something is seriously wrong with the "
-                                "guess pulse")
-        if p_analytic.formula_name == formula:
-            logger.debug("Skipping simplex because pulse_opt.json "
-                         "already exists")
-            return # skip simplex
+    with open(template, 'r') as in_fh, open(config, 'w') as out_fh:
+        if target == 'PE':
+            method = 'krotov2'
+            gate = 'CPHASE'
+            J_T = 'PE'
+        elif target == 'SQ':
+            method = 'krotov2'
+            gate = 'unity'
+            J_T = 'LI'
         else:
-            logger.debug("pulse_opt.json exists, but is using the "
-                         "wrong formula")
-            os.unlink(pulse_opt_json)
-            if os.path.isfile(pulse_guess_pre_simplex):
-                os.unlink(pulse_guess)
-                # below, we'll copy pulse.guess.pre_simplex to pulse.guess
+            method = 'krotovpk'
+            gate = target
+            J_T = 'SM'
+        section = ''
+        for line in in_fh:
+            m = re.match(r'^\s*(?P<section>[a-z_]+)\s*:', line)
+            if m:
+                section = m.group('section')
+            if section == 'oct':
+                if iter_stop is not None:
+                    line = re.sub(r'iter_stop\s*=\s*\d+',
+                                  r'iter_stop = %d'%(iter_stop), line)
+                if max_megs is not None:
+                    line = re.sub(r'max_megs\s*=\s*\d+',
+                                  r'max_megs = %d'%(max_megs), line)
+                if max_hours is not None:
+                    line = re.sub(r'max_hours\s*=\s*\d+',
+                                  r'max_hours = %d'%(max_hours), line)
+                if J_T_conv is not None:
+                    line = re.sub(r'J_T_conv\s*=\s*[\deE+-]+',
+                                  r'J_T_conv = %e'%(J_T_conv), line)
+                line = re.sub(r'type\s*=\s*\w+', r'type = %s'%(method), line)
+                if "iter_dat" in line and 'params_file' not in line:
+                    line = re.sub(r'(iter_dat\s*=\s*[\w.]+,)',
+                                  r'\1 params_file = oct_params.dat,', line)
+            elif section == 'user_strings':
+                line = re.sub(r'gate\s*=\s*[\w.]+', r'gate = '+gate, line)
+                line = re.sub(r'J_T\s*=\s*\w+', r'J_T = '+J_T, line)
+            out_fh.write(line)
+
+
+def write_prop_config(template, config, pulse_file, rho=False,
+        rho_pop_plot=False, n_qubit=None, n_cavity=None):
+    """Write a new config file based on template, updated to propagate the
+    numerical pulse stored in `pulse_file`.
+    """
+    with open(template, 'r') as in_fh, open(config, 'w') as out_fh:
+        section = ''
+        for line in in_fh:
+            m = re.match(r'^\s*(?P<section>[a-z_]+)\s*:', line)
+            if m:
+                section = m.group('section')
+            if section == 'pulse':
+                line = re.sub(r'type\s*=\s*\w+', r'type = file', line)
+                line = re.sub(r'filename\s*=\s*[\w.]+',
+                              r'filename = %s'%(pulse_file), line)
+            elif section == 'user_logicals':
+                line = re.sub(r'prop_guess\s*=\s*(T|F)',
+                              r'prop_guess = T', line)
+            if rho_pop_plot:
+                line = re.sub(
+                    r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
+                    r'rho_prop_mode = pop_dynamics', line)
             else:
-                raise IOError("Something is seriously wrong with the "
-                                "guess pulse")
-    # if pulse.guess.pre_simplex is around, we revert to that
-    if os.path.isfile(pulse_guess_pre_simplex):
-            logger.debug("Reverting to original pulse.guess")
-            QDYN.shutil.copy(pulse_guess_pre_simplex, pulse_guess)
-            os.unlink(pulse_guess_pre_simplex)
+                line = re.sub(
+                    r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
+                    r'rho_prop_mode = full', line)
+            if n_qubit is not None:
+                line = re.sub(r'n_qubit\s*=\s*\d+',
+                            r'n_qubit = %d' % n_qubit, line)
+            if n_cavity is not None:
+                line = re.sub(r'n_cavity\s*=\s*\d+',
+                            r'n_cavity = %d' % n_cavity, line)
+            out_fh.write(line)
+    config_content = read_file(config)
+    if rho:
+        assert "rho_prop_mode" in config_content
+        assert "gamma_phi_1" in config_content
+        assert "gamma_phi_2" in config_content
 
-    # if we're going to do a new pre-simplex optimization, we have to delete
-    # any files that will be generated by Krotov, as they are now invalid
-    # (starting from the wrong guess pulse)
-    for file in ['oct.log', 'pulse.dat', 'oct_iters.dat', 'config.oct',
-            'U.dat', 'prop.log', 'simplex.log']:
-        file = os.path.join(runfolder, file)
-        if os.path.isfile(file):
-            os.unlink(file)
 
-    # determine analytical guess pulse (pulse.guess -> pulse.json)
+def num_pulse_to_analytic(runfolder, formula, rwa=True, randomize=False,
+        num_pulse='pulse.guess', analytical_pulse='pulse.json'):
+    """Read a numerical guess pulse from `num_pulse` and map it as closely as
+    possible to an analytical pulse, to be stored in `analytical_pulse`. The
+    analytic pulse will have the given formula.
+
+    If `randomize` is True, instead of trying to achieve a close fit between
+    `num_pulse` and `analytical_pulse`, make a "trivial" guess for the
+    `analytical_pulse` to make it roughtly equivalent to the `num_pulse` (e.g.,
+    match the amplitude), and then apply a 10% random variation on all the
+    analytic pulse parameters. This may be useful to try to get out of a local
+    optimization minimum.
+
+    If `num_pulse` does not exist, `analytical_pulse` is removed. If both
+    `num_pulse` and `analytical_pulse` exist, and `analytical_pulse` is newer
+    than `num_pulse`, all files are left untouched; if it is older, it is
+    replaced by a new fit.
+    """
+    logger = logging.getLogger(__name__)
+    pulse_guess = os.path.join(runfolder, num_pulse)
+    pulse_json = os.path.join(runfolder, analytical_pulse)
     config = os.path.join(runfolder, 'config')
+    # handle existing files
+    try:
+        p_guess = Pulse(filename=pulse_guess)
+    except (IOError, ValueError) as exc_info:
+        # p_guess does not exist or is unreadable
+        if os.path.isfile(pulse_json):
+            os.unlink(pulse_json)
+        logger.error(str(exc_info.value))
+        return
+    if os.path.isfile(pulse_json):
+        if (os.path.getctime(pulse_json) > os.path.getctime(pulse_guess)):
+            # already matched
+            return
+    # perform the fit
     if formula == '1freq_rwa':
         assert(rwa)
         w_d = get_w_d_from_config(config)
@@ -187,35 +248,99 @@ def run_pre_krotov_simplex(runfolder, formula, rwa=False, randomize=False):
             guess_analytical = AnalyticalPulse.create_from_fit(p_guess,
                                 formula=formula, parameters=parameters,
                                 vary=vary, bounds=bounds, method='L-BFGS-B')
-    guess_analytical.write(os.path.join(runfolder, 'pulse.json'))
-    logger.debug("Mapped pulse.guess to analytic pulse.json: %s"
-                % guess_analytical.header)
+    guess_analytical.write(pulse_json)
+    logger.debug("Mapped %s to analytic %s: %s"
+                % (num_pulse, analytical_pulse, guess_analytical.header))
 
+
+def switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
+        analytical_guess='pulse_opt.json', backup='pulse.guess.pre_simplex'):
+    """Replace `num_guess` with `analytical_guess` (converted to a numeric
+    pulse), while backing up the original `num_guess` to `backup`.
+
+    If `num_guess` does not exist (but `analytical_guess` does), simply convert
+    `analytical_guess` to `num_guess` without creating a backup)
+    """
+    pulse_guess             = os.path.join(runfolder, num_guess)
+    pulse_opt_json          = os.path.join(runfolder, analytical_guess)
+    pulse_guess_pre_simplex = os.path.join(runfolder, backup)
+    if not os.path.isfile(pulse_guess):
+        if os.path.isfile(pulse_guess_pre_simplex):
+            QDYN.shutil.copy(pulse_guess_pre_simplex, pulse_guess)
+    if not os.path.isfile(pulse_opt_json):
+        if os.path.isfile(pulse_guess_pre_simplex):
+            QDYN.shutil.copy(pulse_guess_pre_simplex, pulse_guess)
+    if os.path.isfile(pulse_guess):
+        QDYN.shutil.copy(pulse_guess, pulse_guess_pre_simplex)
+    if os.path.isfile(pulse_opt_json):
+        p_guess = AnalyticalPulse.read(pulse_opt_json).pulse()
+        p_guess.write(pulse_guess)
+
+
+def run_pre_krotov_simplex(runfolder, formula_or_json_file,
+        target='target_gate.dat', rwa=False, randomize=False):
+    """Run a simplex pre-optimization, resulting in file 'pulse_opt.json' in
+    the runfolder. If `formula_or_json_file` is a formula, the starting point
+    of the optimization is an analytic approximation to a numeric pulse in
+    'pulse.guess', which will be written to 'pulse.json'. If
+    `formula_or_json_file` is the name of a json file inside the runfolder, the
+    analytic pulse described in that json file is the starting point for the
+    optimization.
+
+    If 'pulse.json' already exists and is newer than the guess pulse file,
+    nothing is done.
+    """
+    logger = logging.getLogger(__name__)
+    guess = formula_or_json_file
+    pulse_json = os.path.join(runfolder, guess)
+    pulse_opt_json = os.path.join(runfolder, 'pulse_opt.json')
+    config = os.path.join(runfolder, 'config')
+    if not os.path.isfile(pulse_json):
+        # We assume that a formula name was given
+        formula = formula_or_json_file
+        num_pulse_to_analytic(runfolder, formula, rwa,
+                randomize, num_pulse='pulse.guess',
+                analytical_pulse='pulse.json')
+        guess = 'pulse.json'
+    pulse_json = os.path.join(runfolder, guess)
+    if os.path.isfile(pulse_opt_json):
+        if (os.path.getctime(pulse_opt_json) > os.path.getctime(pulse_json)):
+            logger.debug("%s already up to date" % pulse_opt_json)
+            return
+    # if we're going to do a new pre-simplex optimization, we have to
+    # delete any files that will be generated by Krotov, as they are
+    # now invalid (starting from the wrong guess pulse)
+    for file in ['oct.log', 'pulse.dat', 'oct_iters.dat', 'config.oct',
+            'U.dat', 'prop.log', 'simplex.log']:
+        file = os.path.join(runfolder, file)
+        if os.path.isfile(file):
+            os.unlink(file)
     # run simplex optimization (pulse.json -> pulse_opt.json)
-    target_gate_dat = os.path.join(runfolder, 'target_gate.dat')
-    target_gate = read_target_gate(target_gate_dat)
+    if target in ['PE', 'SQ']:
+        target_gate = target
+        extra_files_to_copy=[]
+    else:
+        target_gate_dat = os.path.join(runfolder, target)
+        target_gate = read_target_gate(target_gate_dat)
+        extra_files_to_copy=[target]
     assert re.search('prop_guess\s*=\s*F', read_file(config))
     assert re.search('oct_outfile\s*=\s*pulse.dat', read_file(config))
-    logger.debug("Running simplex to optimize for target gate")
+    logger.debug("Running simplex to optimize for target %s" % target)
     run_simplex(runfolder, target=target_gate, rwa=rwa,
                 prop_pulse_dat='pulse.dat',
-                extra_files_to_copy=['target_gate.dat', ],
-                options=scipy_options)
-
-    # switch pulse.guess from original to simplex-optimized version
-    p_guess.write(pulse_guess_pre_simplex)
-    p_guess = AnalyticalPulse.read(pulse_opt_json).pulse()
-    logger.debug("Storing simplex result in pulse.guess (keep original in "
-                 "pulse.guess.pre_simplex")
-    p_guess.write(os.path.join(runfolder, "pulse.guess"))
+                extra_files_to_copy=extra_files_to_copy,
+                guess_pulse=guess, opt_pulse='pulse_opt.json')
 
 
-def run_oct(runfolder, rwa=False, continue_oct=False):
+def run_oct(runfolder, target='target_gate.dat', rwa=False,
+        continue_oct=False, g_a_int_min_initial=1.0e-5, g_a_int_max=1.0e-1,
+        g_a_int_converged=1.0e-7, iter_stop=None):
     """Run optimal control on the given runfolder. Adjust lambda_a if
-    necessary.
+    necessary. Target may either be 'PE', 'SQ', or the name of file defining a
+    gate, inside the runfolder.
 
-    Assumes that the runfolder contains the files config and pulse.guess, and
-    optionally target_gate.dat, pulse.dat, and oct_iters.dat.
+    Assumes that the runfolder contains the files config and pulse.guess, the
+    file defined by `target`, and optionally, pulse.dat, and oct_iters.dat.
 
     Creates (overwrites) the files pulse.dat and oct_iters.dat.
 
@@ -225,7 +350,14 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
     logger = logging.getLogger(__name__)
     temp_runfolder = get_temp_runfolder(runfolder)
     QDYN.shutil.mkdir(temp_runfolder)
-    files_to_copy = ['config', 'pulse.guess', 'target_gate.dat']
+    config = os.path.join(runfolder, 'config')
+    temp_config = os.path.join(temp_runfolder, 'config')
+    temp_pulse_dat = os.path.join(temp_runfolder, 'pulse.dat')
+    write_oct_config(config, temp_config, target, iter_stop=iter_stop)
+    required_files = ['pulse.guess']
+    if target not in ['PE', 'SQ']:
+        required_files.append(target)
+    files_to_copy = list(required_files)
     if continue_oct:
         files_to_copy.extend(['pulse.dat', 'oct_iters.dat'])
     for file in files_to_copy:
@@ -233,14 +365,12 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
             QDYN.shutil.copy(os.path.join(runfolder, file), temp_runfolder)
             logger.debug("%s to temp_runfolder %s", file, temp_runfolder)
         else:
-            if file in ['config', 'pulse.guess']:
+            if file in required_files:
                 raise IOError("%s does not exist in %s" % (file, runfolder))
-    temp_config = os.path.join(temp_runfolder, 'config')
-    temp_pulse_dat = os.path.join(temp_runfolder, 'pulse.dat')
     logger.info("Starting optimization of %s (in %s)", runfolder,
                 temp_runfolder)
     with open(os.path.join(runfolder, 'oct.log'), 'w', 0) as stdout:
-        ensure_ham_files(temp_runfolder)
+        ensure_ham_files(temp_runfolder, stdout=stdout)
         # we assume that the value for lambda_a is badly chosen and iterate
         # over optimizations until we find a good value
         bad_lambda = True
@@ -253,6 +383,8 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
                 bad_lambda = False
                 given_up = True
                 break # give up
+            env = os.environ.copy()
+            env['OMP_NUM_THREADS'] = '1'
             oct_proc = sp.Popen(['tm_en_oct', '.'], cwd=temp_runfolder,
                                 env=env, stdout=sp.PIPE)
             iter = 0
@@ -279,8 +411,11 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
                     # if the pulse changes in first iteration are too small, we
                     # lower lambda_a, unless lambda_a was previously adjusted
                     # to avoid exploding pulse values
-                    if iter == 1 and g_a_int < 1.0e-5 and not pulse_explosion:
-                        logger.debug("pulse update too small")
+                    if ( (iter == 1)
+                    and (g_a_int < g_a_int_min_initial)
+                    and (not pulse_explosion) ):
+                        logger.debug("pulse update too small: %g < %g"
+                                     % (g_a_int, g_a_int_min_initial))
                         logger.debug("Kill %d" % oct_proc.pid)
                         oct_proc.kill()
                         scale_lambda_a(temp_config, 0.5)
@@ -290,11 +425,14 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
                     # prevent it from decreasing again)
                     if ( ('amplitude exceeds maximum value' in line)
                     or   ('Loss of monotonic convergence' in line)
-                    or   (g_a_int > 1.0e-1)):
+                    or   (g_a_int > g_a_int_max) ):
                         pulse_explosion = True
                         if "Loss of monotonic convergence" in line:
                             logger.debug("loss of monotonic conversion")
                         else:
+                            if (g_a_int > g_a_int_max):
+                                logger.debug("g_a_int = %g > %g",
+                                              g_a_int, g_a_int_max)
                             logger.debug("pulse explosion")
                         logger.debug("Kill %d" % oct_proc.pid)
                         oct_proc.kill()
@@ -303,8 +441,10 @@ def run_oct(runfolder, rwa=False, continue_oct=False):
                         break # next bad_lambda loop
                     # if there are no significant pulse changes anymore, we
                     # stop the optimization prematurely
-                    if iter > 10 and g_a_int < 1.0e-7:
-                        logger.debug("pulse update insignificant (converged)")
+                    if iter > 10 and g_a_int < g_a_int_converged:
+                        logger.debug(("pulse update insignificant "
+                            "(converged): g_a_int = %g < %g")
+                            % (g_a_int, g_a_int_converged))
                         logger.debug("Kill %d" % oct_proc.pid)
                         oct_proc.kill()
                         bad_lambda = False
@@ -359,12 +499,14 @@ def scale_lambda_a(config, factor):
             raise ValueError("no lambda_a in %s" % config)
 
 
-def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
-        n_cavity=None, keep=False, check_files=None, prop_guess='F',
-        force=False):
-    """
-    Map runfolder -> 2QGate, by propagating or reading from an existing U.dat
-    (if force is False)
+def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
+        n_qubit=None, n_cavity=None, keep=False, force=False,
+        target='target_gate.dat'):
+    """Map runfolder -> 2QGate, by propagating the given pulse file, or reading
+    from an existing U.dat (if force is False)
+
+    The file indicated by `pulse_file` may contain either a numerical pulse,
+    or, if it has a 'json' extension, and analytic pulse.
 
     If `rho` is True, propagate in Liouville. Note that in this case, the
     returned 2QGate is a unitary approximation of the dynamics. The exact value
@@ -381,22 +523,9 @@ def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
     runfolder. Otherwise, only prop.log and U.dat will be kept. Note that
     the original config file is never overwritten, but the config file from the
     temporary propagation folder (which was possibly modified due to the
-    `rho_pop_plot`, `n_qubit`, or `n_cavity` options) is copied in as
-    ``config.prop``.
-
-    This routine assumes the runfolder contains a file pulse.dat or pulse.guess
-    with the pulse to be propagated (pulse.guess is only used if no pulse.dat
-    exists).  The folder must also contain a matching config file. By giving a
-    list of files for `check_files`, that list is checked for existence before
-    propagation (in lieu of the default list of files).
-    """
+    `pulse_file`, `rho_pop_plot`, `n_qubit`, or `n_cavity` options) is copied
+    in as ``config.prop``. """
     logger = logging.getLogger(__name__)
-    if check_files is None:
-        check_files = ['config', 'pulse.guess', 'pulse.dat', 'target_gate.dat']
-    for file in check_files:
-        file = os.path.join(runfolder, file)
-        if not os.path.isfile(file):
-            raise IOError("%s does not exist" % file)
     if n_qubit is not None:
         n_qubit = int(n_qubit)
         assert n_qubit > 2
@@ -405,51 +534,29 @@ def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
         assert n_cavity > 1
     gatefile = os.path.join(runfolder, 'U.dat')
     config = os.path.join(runfolder, 'config')
-    config_content = read_file(config)
-    if not re.search('prop_guess\s*=\s*'+prop_guess, config_content):
-        raise ValueError("prop_guess must be set to %s in %s"
-                         % (prop_guess, config))
-    if rho:
-        assert "rho_prop_mode" in config_content
-        assert "gamma_phi_1" in config_content
-        assert "gamma_phi_2" in config_content
-    pulse_dat = os.path.join(runfolder, 'pulse.dat')
-    pulse_guess = os.path.join(runfolder, 'pulse.guess')
-    target_gate_dat = os.path.join(runfolder, 'target_gate.dat')
+    target_gate_dat = os.path.join(runfolder, target)
     if os.path.isfile(gatefile) and force:
         os.unlink(gatefile)
     if not os.path.isfile(gatefile):
+        temp_config = None
         try:
             temp_runfolder = get_temp_runfolder(runfolder)
+            temp_config = os.path.join(temp_runfolder, 'config')
             logger.debug("Prepararing temp_runfolder %s", temp_runfolder)
             QDYN.shutil.mkdir(temp_runfolder)
-            QDYN.shutil.copy(pulse_guess, temp_runfolder)
             if os.path.isfile(target_gate_dat):
                 QDYN.shutil.copy(target_gate_dat, temp_runfolder)
-            if os.path.isfile(pulse_dat):
-                QDYN.shutil.copy(pulse_dat, temp_runfolder)
+            # copy over the pulse
+            if pulse_file.endswith(".json"):
+                pulse = AnalyticalPulse.read(
+                            os.path.join(runfolder, pulse_file)).pulse()
             else:
-                QDYN.shutil.copy(pulse_guess,
-                                 os.path.join(temp_runfolder, 'pulse.dat'))
+                pulse = Pulse(os.path.join(runfolder, pulse_file))
+            pulse.write(os.path.join(temp_runfolder, 'pulse_prop.dat'))
             # copy over the config file, with modifications
-            temp_config = os.path.join(temp_runfolder, 'config')
-            with open(config, 'r') as in_fh, open(temp_config, 'w') as out_fh:
-                for line in in_fh:
-                    if rho_pop_plot:
-                         line = re.sub(
-                                r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
-                                r'rho_prop_mode = pop_dynamics', line)
-                    else:
-                         line = re.sub(
-                                r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
-                                r'rho_prop_mode = full', line)
-                    if n_qubit is not None:
-                         line = re.sub(r'n_qubit\s*=\s*\d+',
-                                       r'n_qubit = %d' % n_qubit, line)
-                    if n_cavity is not None:
-                         line = re.sub(r'n_cavity\s*=\s*\d+',
-                                       r'n_cavity = %d' % n_cavity, line)
-                    out_fh.write(line)
+            write_prop_config(config, temp_config, 'pulse_prop.dat',
+                              rho=rho, rho_pop_plot=rho_pop_plot,
+                              n_qubit=n_qubit, n_cavity=n_cavity)
             logger.info("Propagating %s", runfolder)
             env = os.environ.copy()
             env['OMP_NUM_THREADS'] = '1'
@@ -473,7 +580,8 @@ def propagate(runfolder, rwa, rho=False, rho_pop_plot=False, n_qubit=None,
             logger.error(e)
         finally:
             if keep:
-                os.rename(temp_config, temp_config + ".prop")
+                if temp_config is not None and os.path.isfile(temp_config):
+                    os.rename(temp_config, temp_config + ".prop")
                 sp.call(['rsync', '-a', '%s/'%temp_runfolder, runfolder])
             QDYN.shutil.rmtree(temp_runfolder)
     else:
@@ -508,6 +616,10 @@ def main(argv=None):
     usage = "%prog [options] <runfolder>",
     description = __doc__)
     arg_parser.add_option(
+        '--target', action='store', dest='target',
+        default='target_gate.dat', help="Optimization target. Can be 'PE', "
+        "'SQ', or the name of a gate file inside the runfolder.")
+    arg_parser.add_option(
         '--rwa', action='store_true', dest='rwa',
         default=False, help="Perform all calculations in the RWA.")
     arg_parser.add_option(
@@ -540,13 +652,35 @@ def main(argv=None):
         '--keep', action='store_true', dest='keep',
         default=False, help="Keep all files from the propagation")
     arg_parser.add_option(
-        '--pre-simplex', action='store', dest='formula',
-        help="Run simplex pre-optimization before Krotov")
+        '--pre-simplex', action='store', dest='formula_or_json_file',
+        help="Run simplex pre-optimization before Krotov. Parameter may "
+        "either be the name of a pulse formula, or the name of a json file. "
+        "If it is a formula name, an analytic approximation to the existing "
+        "file 'pulse.guess' will be the guess pulse for the simplex "
+        "optimization. If it is a json file, then the analytic pulse "
+        "described in that file will be the guess pulse.")
     arg_parser.add_option(
         '--randomize', action='store_true', dest='randomize',
         default=False, help="In combination with --pre-simplex, start from "
         "a randomized analytic guess pulse, instead of one matching the "
         "original numerical pulse.guess as closely as possible.")
+    arg_parser.add_option(
+        '--g_a_int_min_initial', action='store', dest='g_a_int_min_initial',
+        default=1.0e-5, type="float", help="The smallest acceptable value "
+        "for g_a_int in the first OCT iteration. For any smaller value,"
+        "lambda_a is deemed too big, and will be adjusted.")
+    arg_parser.add_option(
+        '--g_a_int_max', action='store', dest='g_a_int_max',
+        default=1.0e-1, type="float", help="The largest acceptable value for "
+        "g_a_int. Any larger value is taken as a 'pulse explosion', "
+        "requiring lambda_a to be increased.")
+    arg_parser.add_option(
+        '--g_a_int_converged', action='store', dest='g_a_int_converged',
+        default=1.0e-7, type='float', help="The smallest value for g_a_int "
+        "before the optimization is assumed to be converged.")
+    arg_parser.add_option(
+        '--iter_stop', action='store', dest='iter_stop',
+        type='int', help="The iteration number after which to stop OCT")
     options, args = arg_parser.parse_args(argv)
     try:
         runfolder = args[1]
@@ -556,7 +690,10 @@ def main(argv=None):
         arg_parser.error("runfolder be given")
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
-    iter_stop = get_iter_stop(os.path.join(runfolder, 'config'))
+    if options.iter_stop is None:
+        iter_stop = get_iter_stop(os.path.join(runfolder, 'config'))
+    else:
+        iter_stop = options.iter_stop
     pulse_file = (os.path.join(runfolder, 'pulse.dat'))
     logger = logging.getLogger()
     if options.debug:
@@ -580,21 +717,29 @@ def main(argv=None):
                     if "converged" in line:
                         perform_optimization = False
     if perform_optimization:
-        if options.formula is not None:
-            run_pre_krotov_simplex(runfolder, formula=options.formula,
-                                   rwa=options.rwa,
-                                   randomize=options.randomize)
+        if options.formula_or_json_file is not None:
+            run_pre_krotov_simplex(runfolder, options.formula_or_json_file,
+                    target=options.target, rwa=options.rwa,
+                    randomize=options.randomize) # -> pulse_opt.json
+            switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
+                analytical_guess='pulse_opt.json',
+                backup='pulse.guess.pre_simplex')
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             # if we're doing a new oct, we should delete U.dat
             os.unlink(os.path.join(runfolder, 'U.dat'))
-            if os.path.isfile(os.path.join(runfolder, 'U_closest_PE.dat')):
-                os.unlink(os.path.join(runfolder, 'U_closest_PE.dat'))
-        run_oct(runfolder, rwa=options.rwa, continue_oct=options.cont)
+        if os.path.isfile(os.path.join(runfolder, 'U_closest_PE.dat')):
+            os.unlink(os.path.join(runfolder, 'U_closest_PE.dat'))
+        run_oct(runfolder, target=options.target, rwa=options.rwa,
+                continue_oct=options.cont,
+                g_a_int_min_initial=options.g_a_int_min_initial,
+                g_a_int_max=options.g_a_int_max,
+                g_a_int_converged=options.g_a_int_converged,
+                iter_stop=iter_stop)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
-        propagate(runfolder, rwa=options.rwa, rho=options.prop_rho,
-                  rho_pop_plot=options.rho_pop_plot,
+        propagate(runfolder, 'pulse.dat', rwa=options.rwa,
+                  rho=options.prop_rho, rho_pop_plot=options.rho_pop_plot,
                   n_qubit=options.n_qubit, n_cavity=options.n_cavity,
-                  keep=options.keep)
+                  keep=options.keep, target=options.target)
 
 
 if __name__ == "__main__":
