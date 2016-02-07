@@ -336,6 +336,12 @@ class AnalyticalPulse(object):
         self.freq_unit = freq_unit
         self.mode = mode
 
+    def copy(self):
+        """Return a copy of the analytical pulse"""
+        return AnalyticalPulse(self._formula, self.T, self.nt, self.parameters,
+                self.t0, self.time_unit, self.ampl_unit, self.freq_unit,
+                self.mode)
+
     def array_to_parameters(self, array, keys=None):
         """
         Unpack the given array (numpy array or regular list) into the pulse
