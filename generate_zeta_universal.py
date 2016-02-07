@@ -17,6 +17,7 @@ from mgplottools.io import writetotxt
 import numpy as np
 import QDYN
 from QDYN.pulse import Pulse, pulse_tgrid
+from analytical_pulses import AnalyticalPulse
 import logging
 
 # we can handle optimization towards the following targets:
@@ -125,13 +126,14 @@ def generate_folder(w2, wc, wd, T, runs, strategy, target, w_max=1.0,
         logger.info("Writing %s", config_file)
     else:
         write_config(config_file, T, nt_rwa, wc, w2, wd)
-    pulse_guess = os.path.join(runfolder, 'pulse.guess')
     if dry_run:
         logger.info("Writing %s", pulse_guess)
     else:
-        p = Pulse(tgrid=pulse_tgrid(T, nt_rwa), time_unit='ns',
-                ampl_unit='MHz')
-        p.write(pulse_guess)
+        pulse = AnalyticalPulse('1freq_rwa', T, nt_rwa,
+            parameters={'E0': 0.0, 'T': T, 'w_L': wd, 'w_d': wd},
+            t0=0.0, time_unit='ns', ampl_unit='MHz', freq_unit='MHz',
+            mode="complex")
+        pulse.write(os.path.join(runfolder, 'pulse_guess.json'))
     if target in SQ_TARGETS:
         target_gate_dat = os.path.join(runfolder, 'target_gate.dat')
         if dry_run:
