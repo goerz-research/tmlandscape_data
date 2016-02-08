@@ -38,7 +38,7 @@ from stage2_simplex import get_temp_runfolder, run_simplex
 from QDYN.pulse import Pulse
 from analytical_pulses import AnalyticalPulse
 from notebook_utils import (get_w_d_from_config, read_target_gate,
-        ensure_ham_files)
+        pulse_config_compat, ensure_ham_files)
 from clusterjob.utils import read_file
 
 MAX_TRIALS = 200
@@ -524,7 +524,10 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
     the original config file is never overwritten, but the config file from the
     temporary propagation folder (which was possibly modified due to the
     `pulse_file`, `rho_pop_plot`, `n_qubit`, or `n_cavity` options) is copied
-    in as ``config.prop``. """
+    in as ``config.prop``, if `keep` is True.
+
+    If `keep` is None, no files in the runfolder will be modified.
+    """
     logger = logging.getLogger(__name__)
     if n_qubit is not None:
         n_qubit = int(n_qubit)
@@ -536,20 +539,27 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
     config = os.path.join(runfolder, 'config')
     target_gate_dat = os.path.join(runfolder, target)
     if os.path.isfile(gatefile) and force:
-        os.unlink(gatefile)
-    if not os.path.isfile(gatefile):
+        try:
+            os.unlink(gatefile)
+        except OSError:
+            pass
+    U = None
+    if (not os.path.isfile(gatefile)) or force:
         temp_config = None
         try:
             temp_runfolder = get_temp_runfolder(runfolder)
             temp_config = os.path.join(temp_runfolder, 'config')
+            temp_U_dat = os.path.join(temp_runfolder, 'U.dat')
             logger.debug("Prepararing temp_runfolder %s", temp_runfolder)
             QDYN.shutil.mkdir(temp_runfolder)
             if os.path.isfile(target_gate_dat):
                 QDYN.shutil.copy(target_gate_dat, temp_runfolder)
             # copy over the pulse
+            analytical_pulse = None
             if pulse_file.endswith(".json"):
-                pulse = AnalyticalPulse.read(
-                            os.path.join(runfolder, pulse_file)).pulse()
+                analytical_pulse = AnalyticalPulse.read(
+                                   os.path.join(runfolder, pulse_file))
+                pulse = analytical_pulse.pulse()
             else:
                 pulse = Pulse(os.path.join(runfolder, pulse_file))
             pulse.write(os.path.join(temp_runfolder, 'pulse_prop.dat'))
@@ -557,11 +567,17 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
             write_prop_config(config, temp_config, 'pulse_prop.dat',
                               rho=rho, rho_pop_plot=rho_pop_plot,
                               n_qubit=n_qubit, n_cavity=n_cavity)
+            if analytical_pulse is not None:
+                pulse_config_compat(analytical_pulse, temp_config,
+                                    adapt_config=True)
             logger.info("Propagating %s", runfolder)
             env = os.environ.copy()
             env['OMP_NUM_THREADS'] = '1'
             start = time.time()
-            with open(os.path.join(runfolder, 'prop.log'), 'w', 0) as stdout:
+            prop_log = os.path.join(runfolder, 'prop.log')
+            if keep is None:
+                prop_log = os.path.join(temp_runfolder, 'prop.log')
+            with open(prop_log, 'w', 0) as stdout:
                 ensure_ham_files(temp_runfolder, rwa, stdout, rho)
                 cmds = []
                 if rho:
@@ -572,13 +588,17 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
                     stdout.write("**** " + " ".join(cmd) +"\n")
                     sp.call(cmd , cwd=temp_runfolder, env=env,
                             stderr=sp.STDOUT, stdout=stdout)
-            QDYN.shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
+            U = QDYN.gate2q.Gate2Q(file=temp_U_dat)
+            if keep is not None:
+                QDYN.shutil.copy(temp_U_dat, runfolder)
             end = time.time()
             logger.info("Finished propagating %s (%d seconds)",
                          runfolder, end-start)
         except Exception as e:
             logger.error(e)
         finally:
+            if keep is None:
+                keep = False
             if keep:
                 if temp_config is not None and os.path.isfile(temp_config):
                     os.rename(temp_config, temp_config + ".prop")
@@ -587,13 +607,16 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
     else:
         logger.info("Propagating of %s skipped (gatefile already exists)",
                      runfolder)
-    U = None
-    try:
-        U = QDYN.gate2q.Gate2Q(file=gatefile)
-        if np.isnan(U).any():
-            logger.error("gate %s contains NaN", gatefile)
-    except IOError as e:
-        logger.error(e)
+    # If we performed a propagation, U should already have been set above based
+    # on "U.dat" in the temporary folder. If we're loading from an existing
+    # U.dat intead, we do that here.
+    if U is None:
+        try:
+            U = QDYN.gate2q.Gate2Q(file=gatefile)
+        except (IOError, OSError) as e:
+            logger.error(e)
+    if np.isnan(U).any():
+        logger.error("gate %s contains NaN", gatefile)
     return U
 
 
