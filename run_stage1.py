@@ -5,14 +5,9 @@ import os
 import sys
 import hashlib
 from textwrap import dedent
-from clusterjob import Job
+from clusterjob import JobScript
 import numpy as np
 from notebook_utils import PlotGrid
-if __name__ == "__main__":
-    Job.default_backend = 'slurm'
-    Job.cache_folder='./.clusterjob_cache/stage1/'
-    Job.default_sleep_interval = 180
-
 
 def generate_parameters(outfile):
     """Write a file of w_2, w_c parameters (to be called manually)"""
@@ -75,17 +70,9 @@ def read_w2_wc(filename):
 
 def jobscript(commands, parallel):
     jobscript = dedent(r'''
-    source /usr/share/Modules/init/bash
-    module load intel/14.0.3
-    export PREFIX={PREFIX}
-    export PATH=$PREFIX/bin:$PATH
-    export LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
-
+    {initialization}
     xargs -L1 -P{parallel} python -u  <<EOF
-    '''.format(
-        PREFIX=os.path.join(Job.default_rootdir, 'venv'),
-        parallel=parallel
-    ))
+    '''.format(parallel=parallel))
     for command in commands:
         jobscript += command + "\n"
     jobscript += "EOF\n"
@@ -129,9 +116,8 @@ def main(argv=None):
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
     arg_parser.add_option(
-        '--local', action='store_true', dest='local',
-        default=False, help="Submit all jobs to a SLURM cluster running "
-        "directly on the local workstation")
+        '--cluster-ini', action='store', dest='cluster_ini',
+                    help="INI file from which to load clusterjob defaults")
     arg_parser.add_option(
         '--params-file', action='store', dest='params_file',
         help="File from which to read w2, wc tuples.")
@@ -169,14 +155,12 @@ def main(argv=None):
     field_free_only = ''
     if options.field_free_only:
         field_free_only = '--field-free-only'
+    if options.cluster_ini is not None:
+        JobScript.read_defaults(options.cluster_ini)
     submitted = []
     jobs = []
     job_ids = {}
     w1 = 6.0
-    if not options.local:
-        Job.default_remote = 'kcluster'
-        Job.default_opts['queue'] = 'AG-KOCH'
-        Job.default_rootdir = '~/jobs/ConstrainedTransmon'
 
     with open("stage1.log", "a") as log:
         if options.params_file is None:
@@ -200,11 +184,10 @@ def main(argv=None):
                 epilogue_commands = None
             else:
                 epilogue_commands = epilogue(runs)
-            job = Job(jobscript=jobscript(commands, options.parallel),
-                    jobname=jobname, workdir='.', time='200:00:00',
-                    nodes=1, threads=options.parallel,
-                    mem=200*options.parallel, stdout='%s-%%j.out'%jobname,
-                    epilogue=epilogue_commands)
+            job = JobScript(body=jobscript(commands, options.parallel),
+                            jobname=jobname, nodes=1, ppn=options.parallel,
+                            stdout='%s-%%j.out'%jobname,
+                            epilogue=epilogue_commands)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:

@@ -21,7 +21,7 @@ import hashlib
 import os
 PROP_ONLY = False
 STAGE = 'stage3'
-from clusterjob import Job
+from clusterjob import JobScript
 OUTFILES = ['oct_iters.dat', 'pulse.dat', 'U.dat']
 
 from run_stage1 import jobscript, epilogue, split_seq
@@ -67,9 +67,8 @@ def main(argv=None):
         '--jobs', action='store', dest='jobs', type=int,
         default=10, help="Number of jobs [10]")
     arg_parser.add_option(
-        '--local', action='store_true', dest='local',
-        default=False, help="Submit all jobs to a SLURM cluster running "
-        "directly on the local workstation")
+        '--cluster-ini', action='store', dest='cluster_ini',
+                    help="INI file from which to load clusterjob defaults")
     arg_parser.add_option(
         '--stage-folder', action='store', dest='stage_folder',
         default=STAGE, help="Name of stage folder. Alternative stage "
@@ -97,17 +96,11 @@ def main(argv=None):
     pre_simplex = ''
     if options.formula is not None:
         pre_simplex = '--pre-simplex=%s' % options.formula
+    if options.cluster_ini is not None:
+        JobScript.read_defaults(options.cluster_ini)
     submitted = []
     jobs = []
     job_ids = {}
-
-    Job.default_backend = 'slurm'
-    Job.cache_folder='./.clusterjob_cache/'+options.stage_folder+'/'
-    Job.default_sleep_interval = 180
-    if not options.local:
-        Job.default_remote = 'kcluster'
-        Job.default_opts['queue'] = 'AG-KOCH'
-        Job.default_rootdir = '~/jobs/ConstrainedTransmon'
 
     with open(os.path.join(runs, options.stage_folder+".log"), "a") as log:
         log.write("%s\n" % time.asctime())
@@ -156,11 +149,11 @@ def main(argv=None):
             else:
                 prologue_commands = prologue(runs)
                 epilogue_commands = epilogue(runs)
-            job = Job(jobscript=jobscript(commands, options.parallel),
-                    jobname=jobname, workdir='.', time='24:00:00',
-                    nodes=1, threads=options.parallel,
-                    mem=1000*options.parallel, stdout='%s-%%j.out'%jobname,
-                    prologue=prologue_commands, epilogue=epilogue_commands)
+            job = JobScript(body=jobscript(commands, options.parallel),
+                            jobname=jobname, nodes=1, threads=options.parallel,
+                            stdout='%s-%%j.out'%jobname,
+                            prologue=prologue_commands,
+                            epilogue=epilogue_commands)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:

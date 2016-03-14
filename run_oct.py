@@ -39,7 +39,6 @@ from QDYN.pulse import Pulse
 from analytical_pulses import AnalyticalPulse
 from notebook_utils import (get_w_d_from_config, read_target_gate,
         pulse_config_compat, ensure_ham_files)
-from clusterjob.utils import read_file
 
 MAX_TRIALS = 200
 
