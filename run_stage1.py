@@ -79,19 +79,6 @@ def jobscript(commands, parallel):
     return jobscript
 
 
-def epilogue(runs):
-    assert runs.startswith("./"), "runs must be to current directory"
-    runs = runs[2:]         # strip leading ./
-    if runs.endswith(r'/'): # strip trailing slash
-        runs = runs[:-1]
-    epilogue = dedent(r'''
-    #!/bin/bash
-    mkdir -p ./{runs}
-    rsync -av {{remote}}:{{rootdir}}/{runs}/ ./{runs}
-    '''.format(runs=runs))
-    return epilogue
-
-
 def main(argv=None):
     """Run stage 1"""
     from optparse import OptionParser
@@ -180,14 +167,9 @@ def main(argv=None):
                 continue
             jobname = '%s_stage1_%02d' % (
                       runs.replace('.','').replace('/',''), i_job+1)
-            if options.local:
-                epilogue_commands = None
-            else:
-                epilogue_commands = epilogue(runs)
             job = JobScript(body=jobscript(commands, options.parallel),
                             jobname=jobname, nodes=1, ppn=options.parallel,
-                            stdout='%s-%%j.out'%jobname,
-                            epilogue=epilogue_commands)
+                            stdout='%s-%%j.out'%jobname)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:

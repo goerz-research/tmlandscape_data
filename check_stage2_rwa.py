@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.ERROR)
 from clusterjob import JobScript
 
 from run_stage1 import split_seq, jobscript
-from run_stage2 import prologue, epilogue
 from notebook_utils import get_stage2_table
 
 
@@ -72,17 +71,9 @@ def main(argv=None):
             if len(commands) == 0:
                 continue
             jobname = 'check_stage2_rwa_%02d' % (i_job+1)
-            if options.local:
-                prologue_commands = None
-                epilogue_commands = None
-            else:
-                prologue_commands = prologue(runs)
-                epilogue_commands = epilogue(runs)
             job = JobScript(body=jobscript(commands, options.parallel),
                             jobname=jobname, nodes=1, ppn=options.parallel,
-                            stdout='%s-%%j.out'%jobname,
-                            prologue=prologue_commands,
-                            epilogue=epilogue_commands)
+                            stdout='%s-%%j.out'%jobname)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:

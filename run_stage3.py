@@ -24,8 +24,7 @@ STAGE = 'stage3'
 from clusterjob import JobScript
 OUTFILES = ['oct_iters.dat', 'pulse.dat', 'U.dat']
 
-from run_stage1 import jobscript, epilogue, split_seq
-from run_stage2 import prologue
+from run_stage1 import jobscript, split_seq
 
 
 def main(argv=None):
@@ -143,17 +142,9 @@ def main(argv=None):
             jobname = ('%s_%s_%02d') % (
                       runs.replace('.','').replace('/',''),
                       options.stage_folder, i_job+1)
-            if options.local:
-                prologue_commands = None
-                epilogue_commands = None
-            else:
-                prologue_commands = prologue(runs)
-                epilogue_commands = epilogue(runs)
             job = JobScript(body=jobscript(commands, options.parallel),
                             jobname=jobname, nodes=1, threads=options.parallel,
-                            stdout='%s-%%j.out'%jobname,
-                            prologue=prologue_commands,
-                            epilogue=epilogue_commands)
+                            stdout='%s-%%j.out'%jobname)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:

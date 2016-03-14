@@ -7,20 +7,7 @@ import hashlib
 import os
 from textwrap import dedent
 from clusterjob import JobScript
-from run_stage1 import jobscript, epilogue, split_seq
-
-def prologue(runs):
-    assert runs.startswith("./"), "runs must be to current directory"
-    runs = runs[2:]         # strip leading ./
-    if runs.endswith(r'/'): # strip trailing slash
-        runs = runs[:-1]
-    prologue = dedent(r'''
-    #!/bin/bash
-    ssh {{remote}} mkdir -p {{rootdir}}/{runs}
-    rsync -av ./{runs}/ {{remote}}:{{rootdir}}/{runs}
-    '''.format(runs=runs))
-    return prologue
-
+from run_stage1 import jobscript, split_seq
 
 def main(argv=None):
     """Run stage 2"""
@@ -88,17 +75,9 @@ def main(argv=None):
                 continue
             jobname = '%s_stage2_%02d' % (
                       runs.replace('.','').replace('/',''), i_job+1)
-            if options.local:
-                prologue_commands = None
-                epilogue_commands = None
-            else:
-                prologue_commands = prologue(runs)
-                epilogue_commands = epilogue(runs)
             job = JobScript(body=jobscript(commands, options.parallel),
                             jobname=jobname, nodes=1, ppn=options.parallel,
-                            stdout='%s-%%j.out'%jobname,
-                            prologue=prologue_commands,
-                            epilogue=epilogue_commands)
+                            stdout='%s-%%j.out'%jobname)
             cache_id = '%s_%s' % (
                         jobname, hashlib.sha256(str(argv)).hexdigest())
             if options.dry_run:
