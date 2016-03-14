@@ -122,9 +122,7 @@ def generate_folder(w2, wc, wd, T, runs, strategy, target, w_max=1.0,
         QDYN.shutil.mkdir(runfolder)
     config_file = os.path.join(runfolder, 'config')
     logger.info("Writing %s", config_file)
-    if dry_run:
-        logger.info("Writing %s", config_file)
-    else:
+    if not dry_run:
         write_config(config_file, T, nt_rwa, wc, w2, wd)
     if dry_run:
         logger.info("Writing %s", pulse_guess)
@@ -149,12 +147,13 @@ def process_parameters_file(parameters_file, runs, strategy, dry_run=False):
     """For every line in the given `parameters_file`, call the
     `generate_folder` routine
     """
-    w2_s, wc_s, wd_s, T_s, targets = np.genfromtxt(parameters_file,
-                                                   unpack=True)
+    w2_s, wc_s, wd_s, T_s = np.genfromtxt(parameters_file, unpack=True,
+                                          usecols=(0,1,2,3))
+    targets = np.genfromtxt(parameters_file, unpack=True, usecols=(4, ),
+                            dtype=None)
     for (w2, wc, wd, T, target) in zip(w2_s, wc_s, wd_s, T_s, targets):
-        for target in SQ_TARGETS:
-            generate_folder(w2, wc, wd, T, runs, strategy, target,
-                    dry_run=dry_run)
+        generate_folder(w2, wc, wd, T, runs, strategy, str(target),
+                        dry_run=dry_run)
 
 
 def main(argv=None):
