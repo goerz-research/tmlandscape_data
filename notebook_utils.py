@@ -2073,8 +2073,8 @@ def get_stage4_table(runs, stage_folder):
                 ('w2 [GHz]',  w2_s/1000.0),
                 ('wc [GHz]',  wc_s/1000.0),
                 ('err(H_L)',  err_H_L_s),
-                ('err(S_L)',  err_H_R_s),
-                ('err(H_R)',  err_S_L_s),
+                ('err(S_L)',  err_S_L_s),
+                ('err(H_R)',  err_H_R_s),
                 ('err(S_R)',  err_S_R_s),
                 ('err(PE)',   err_PE_s),
                 ('err(tot)',  err_tot)
