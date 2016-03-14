@@ -1,5 +1,5 @@
 #!/bin/bash
-conda create -p ./venv python=2.7 ipython=4.0.0 ipython-notebook numpy=1.9.3 scipy=0.16.0 matplotlib=1.4.3 bokeh=0.10.0 sympy=0.7.6.1 pandas=0.16.2 paramiko click=4.1 psutil pexpect sh
+conda create -p ./venv python=2.7 ipython=4.0.0 ipython-notebook numpy=1.9.3 scipy=0.16.0 matplotlib=1.4.3 bokeh=0.10.0 sympy=0.7.6.1 pandas=0.16.2 paramiko click=4.1 ipywidgets psutil pexpect sh
 
 wget https://raw.githubusercontent.com/goerz/mplstyles/master/interactive.mplstyle -O ./venv/lib/python2.7/site-packages/matplotlib/mpl-data/matplotlibrc
 
@@ -10,6 +10,7 @@ mkdir -p ./venv/src
 (cd $PREFIX/src/ && git clone git@jerusalem.physik.uni-kassel.de:qdynpylib)
 (cd $PREFIX/src/ && git clone git@jerusalem.physik.uni-kassel.de:goerz/transmon_oct)
 (cd $PREFIX/src/ && git clone git@jerusalem.physik.uni-kassel.de:goerz/QDYNTransmonLib)
+(cd $PREFIX/src/ && git clone git://github.com/goerz/clusterjob.git)
 
 (cd $PREFIX/bin/ && ln -s ../../rewrite_dissipation.py)
 
@@ -17,7 +18,7 @@ mkdir -p ./venv/src
 (cd $PREFIX/src/qdynpylib && git checkout dd8894d9ef972ef760627c5232cbbd10eebb6d18 && pip install -e .)
 (cd $PREFIX/src/transmon_oct && git checkout 82fdc15290415c04483353de0dd1ec8c7ba10767 && ./configure --prefix=$PREFIX && make install)
 (cd $PREFIX/src/QDYNTransmonLib && git checkout master && pip install -e .)
+(cd $PREFIX/src/clusterjob && git checkout faaa416d23462014705dc94f40ef55d1a951e422 && pip install -e .)
 
 pip install 'mgplottools==1.0.0'
 pip install 'fortranfile==0.2.1'
-pip install 'clusterjob==1.1.3'
