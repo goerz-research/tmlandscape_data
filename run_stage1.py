@@ -70,7 +70,7 @@ def read_w2_wc(filename):
 
 def jobscript(commands, parallel):
     jobscript = dedent(r'''
-    {initialization}
+    {{initialization}}
     xargs -L1 -P{parallel} python -u  <<EOF
     '''.format(parallel=parallel))
     for command in commands:
