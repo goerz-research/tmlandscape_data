@@ -1,5 +1,5 @@
 #!/bin/bash
-conda create -p ./venv python=2.7 ipython=4.0.0 ipython-notebook numpy=1.9.3 scipy=0.16.0 matplotlib=1.4.3 bokeh=0.10.0 sympy=0.7.6.1 pandas=0.16.2 paramiko click=4.1 ipywidgets psutil pexpect sh
+conda create -p ./venv python=2.7 ipython=4.0.0 ipython-notebook numpy=1.9.3 scipy=0.16.0 matplotlib=1.4.3 bokeh=0.10.0 sympy=0.7.6.1 pandas=0.16.2 paramiko click=4.1 ipywidgets psutil pexpect sh cython
 
 wget https://raw.githubusercontent.com/goerz/mplstyles/master/interactive.mplstyle -O ./venv/lib/python2.7/site-packages/matplotlib/mpl-data/matplotlibrc
 
@@ -22,3 +22,4 @@ mkdir -p ./venv/src
 
 pip install 'mgplottools==1.0.0'
 pip install 'fortranfile==0.2.1'
+pip install --no-use-wheel qutip
