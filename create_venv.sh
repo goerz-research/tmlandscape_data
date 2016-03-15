@@ -18,7 +18,7 @@ mkdir -p ./venv/src
 (cd $PREFIX/src/qdynpylib && git checkout dd8894d9ef972ef760627c5232cbbd10eebb6d18 && pip install -e .)
 (cd $PREFIX/src/transmon_oct && git checkout 82fdc15290415c04483353de0dd1ec8c7ba10767 && ./configure --prefix=$PREFIX && make install)
 (cd $PREFIX/src/QDYNTransmonLib && git checkout master && pip install -e .)
-(cd $PREFIX/src/clusterjob && git checkout faaa416d23462014705dc94f40ef55d1a951e422 && pip install -e .)
+(cd $PREFIX/src/clusterjob && git checkout cd01f3ce9b798b418fb0cfe3c45fc319ff4e90cf && pip install -e .)
 
 pip install 'mgplottools==1.0.0'
 pip install 'fortranfile==0.2.1'
