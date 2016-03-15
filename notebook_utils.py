@@ -2246,7 +2246,8 @@ def avg_freq(analytical_pulse):
         return 6.0 # arbitrary (left qubit frequency)
     elif analytical_pulse.formula_name in ['1freq', '1freq_rwa']:
         return p['w_L']
-    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa']:
+    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa',
+            '2freq_rwa_box']:
         s = abs(p['a_1']) + abs(p['a_2'])
         return (p['freq_1'] * abs(p['a_1']) + p['freq_2'] * abs(p['a_2']))/s
     elif analytical_pulse.formula_name in ['5freq', '5freq_rwa']:
@@ -2268,7 +2269,8 @@ def max_freq_delta(analytical_pulse, w_L):
         return 0.0
     elif analytical_pulse.formula_name in ['1freq', '1freq_rwa']:
         return abs(w_L - p['w_L'])
-    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa']:
+    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa',
+            '2freq_rwa_box']:
         return max(abs(w_L - p['freq_1']),  abs(w_L - p['freq_2']))
     elif analytical_pulse.formula_name in ['5freq', '5freq_rwa']:
         return np.max(np.abs(w_L - p['freq_high']))

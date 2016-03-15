@@ -585,6 +585,13 @@ def ampl_2freq_rwa(tgrid, E0, T, freq_1, freq_2, a_1, a_2, phi, w_d):
                      phases=(0.0, phi), complex=True)
 
 
+def ampl_2freq_rwa_box(tgrid, E0, T, freq_1, freq_2, a_1, a_2, phi, w_d):
+  # note: amplitude reduction by 1/2 is included in construction of ham
+  return E0 * carrier(tgrid, 'ns', freq=(freq_1-w_d, freq_2-w_d),
+                   freq_unit='GHz', weights=(a_1, a_2),
+                   phases=(0.0, phi), complex=True)
+
+
 def ampl_5freq(tgrid, E0, T, freq_low, a_low, b_low, freq_high, a_high,
     b_high):
     norm_carrier = CRAB_carrier(tgrid, 'ns', freq_high, 'GHz', a_high, b_high,
@@ -635,6 +642,7 @@ AnalyticalPulse.register_formula('2freq',      ampl_2freq)
 AnalyticalPulse.register_formula('5freq',      ampl_5freq)
 AnalyticalPulse.register_formula('1freq_rwa',  ampl_1freq_rwa)
 AnalyticalPulse.register_formula('2freq_rwa',  ampl_2freq_rwa)
+AnalyticalPulse.register_formula('2freq_rwa_box',  ampl_2freq_rwa_box)
 AnalyticalPulse.register_formula('5freq_rwa',  ampl_5freq_rwa)
 AnalyticalPulse.register_formula('CRAB_rwa',  ampl_CRAB_rwa)
 

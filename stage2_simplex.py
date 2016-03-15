@@ -55,7 +55,8 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
             return True
         if w_c-1.2*delta <= p['w_L'] <= w_c+1.2*delta:
             return True
-    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa']:
+    elif analytical_pulse.formula_name in ['2freq', '2freq_rwa',
+            '2freq_rwa_box']:
         for param in ['freq_1', 'freq_2']:
             if w_1-1.2*abs(alpha_1) <= p[param] <= w_2+0.2*abs(alpha_2):
                 return True
@@ -138,6 +139,9 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     pulse = AnalyticalPulse.read(pulse0)
     parameters = [p for p in sorted(pulse.parameters.keys())
                   if p not in ['T', 'w_d']]
+    if pulse.formula_name == '2freq_rwa_box':
+        parameters = [p for p in sorted(pulse.parameters.keys())
+                    if p not in ['T', 'w_d', 'freq_1', 'freq_2']]
     env = os.environ.copy()
     env['OMP_NUM_THREADS'] = '1'
 
