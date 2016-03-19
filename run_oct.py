@@ -125,7 +125,7 @@ def write_oct_config(template, config, target, iter_stop=None, max_megs=None,
 
 
 def write_prop_config(template, config, pulse_file, rho=False,
-        rho_pop_plot=False, n_qubit=None, n_cavity=None):
+        rho_pop_plot=False, n_qubit=None, n_cavity=None, dissipation=None):
     """Write a new config file based on template, updated to propagate the
     numerical pulse stored in `pulse_file`.
     """
@@ -156,6 +156,15 @@ def write_prop_config(template, config, pulse_file, rho=False,
             if n_cavity is not None:
                 line = re.sub(r'n_cavity\s*=\s*\d+',
                             r'n_cavity = %d' % n_cavity, line)
+            if dissipation is not None:
+                if dissipation:
+                    val = 'T'
+                    line = re.sub(r'prop\s*=\s*cheby', r'prop = newton', line)
+                else:
+                    val = 'F'
+                    line = re.sub(r'prop\s*=\s*newton', r'prop = cheby', line)
+                line = re.sub(r'dissipation\s*=\s*[TF]',
+                              r'dissipation = %s' % val, line)
             out_fh.write(line)
     config_content = read_file(config)
     if rho:
@@ -499,7 +508,7 @@ def scale_lambda_a(config, factor):
 
 
 def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
-        n_qubit=None, n_cavity=None, keep=False, force=False,
+        n_qubit=None, n_cavity=None, dissipation=True, keep=False, force=False,
         target='target_gate.dat'):
     """Map runfolder -> 2QGate, by propagating the given pulse file, or reading
     from an existing U.dat (if force is False)
@@ -507,7 +516,7 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
     The file indicated by `pulse_file` may contain either a numerical pulse,
     or, if it has a 'json' extension, and analytic pulse.
 
-    If `rho` is True, propagate in Liouville. Note that in this case, the
+    If `rho` is True, propagate in Liouville space. Note that in this case, the
     returned 2QGate is a unitary approximation of the dynamics. The exact value
     of F_avg should be extracted from the 'prop.log' file resulting from the
     propagation. The `rho_pop_plot` option may be used (in combination with
@@ -517,6 +526,9 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
 
     By giving the n_qubit and/or n_cavity options, the number of qubit and
     cavity levels can be changed from the value given in the config file.
+
+    If `dissipation` is given as False, the corresponding `dissipation` value
+    is set to False in the config, file, resulting in unitary dynamics.
 
     If `keep` is True, keep all files resulting from the propagation in the
     runfolder. Otherwise, only prop.log and U.dat will be kept. Note that
@@ -565,7 +577,8 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
             # copy over the config file, with modifications
             write_prop_config(config, temp_config, 'pulse_prop.dat',
                               rho=rho, rho_pop_plot=rho_pop_plot,
-                              n_qubit=n_qubit, n_cavity=n_cavity)
+                              n_qubit=n_qubit, n_cavity=n_cavity,
+                              dissipation=dissipation)
             if analytical_pulse is not None:
                 pulse_config_compat(analytical_pulse, temp_config,
                                     adapt_config=True)
@@ -577,7 +590,7 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
             if keep is None:
                 prop_log = os.path.join(temp_runfolder, 'prop.log')
             with open(prop_log, 'w', 0) as stdout:
-                ensure_ham_files(temp_runfolder, rwa, stdout, rho)
+                ensure_ham_files(temp_runfolder, rwa, stdout, rho, dissipation)
                 cmds = []
                 if rho:
                     cmds.append(['tm_en_rho_prop', '.'])
