@@ -740,12 +740,15 @@ def main(argv=None):
                         perform_optimization = False
     if perform_optimization:
         if options.formula_or_json_file is not None:
-            run_pre_krotov_simplex(runfolder, options.formula_or_json_file,
-                    target=options.target, rwa=options.rwa,
-                    randomize=options.randomize) # -> pulse_opt.json
-            switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
-                analytical_guess='pulse_opt.json',
-                backup='pulse.guess.pre_simplex')
+            if os.path.isfile(pulse_file) and options.cont:
+                logger.debug("Skip simplex, continuing existing pulse")
+            else:
+                run_pre_krotov_simplex(runfolder, options.formula_or_json_file,
+                        target=options.target, rwa=options.rwa,
+                        randomize=options.randomize) # -> pulse_opt.json
+                switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
+                    analytical_guess='pulse_opt.json',
+                    backup='pulse.guess.pre_simplex')
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             # if we're doing a new oct, we should delete U.dat
             os.unlink(os.path.join(runfolder, 'U.dat'))
