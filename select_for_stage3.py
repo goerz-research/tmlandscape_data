@@ -109,7 +109,7 @@ pulse: n = 1
 oct: iter_stop = 100, max_megs = 9000, type = krotov2, &
      A = 0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
      keep_pulses = prev, max_hours = 10,  continue = T, dynamic_sigma = T, &
-     sigma_form = local, J_T_conv = 0
+     sigma_form = local, J_T_conv = 0, lbfgs_memory = 10
 """.format(T=T, t_rise=min(0.1*T, 10), is_complex=is_complex,
            time_unit=time_unit))
             elif line.strip().startswith('user_strings'):

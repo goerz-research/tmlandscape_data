@@ -52,7 +52,7 @@ def write_config(config_file, T, nt, wc, w2, wd, gate="target_gate.dat",
     oct: iter_stop = 10000, max_megs = 9000, type = krotovpk, &
         A = 0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
         keep_pulses = prev, max_hours = 23,  continue = T, dynamic_sigma = T, &
-        sigma_form = local, J_T_conv = 1.0e-3
+        sigma_form = local, J_T_conv = 1.0e-3, lbfgs_memory = 10
 
     misc: prop = newton, mass = 1.0
 

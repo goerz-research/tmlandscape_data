@@ -2188,7 +2188,7 @@ def cutoff_worker(x):
 
     oct: iter_stop = 10000, max_megs = 2000, type = krotovpk, A = 0.0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
         keep_pulses = all, max_hours = 11, delta_J_conv = 1.0e-8, J_T_conv = 1.0d-4, strict_convergence = T, &
-        continue = T, params_file = oct_params.dat
+        continue = T, params_file = oct_params.dat, lbfgs_memory = 10
 
     misc: prop = newton, mass = 1.0
 

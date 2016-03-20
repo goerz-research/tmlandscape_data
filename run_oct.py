@@ -75,7 +75,7 @@ def reset_pulse(pulse, iter):
 
 
 def write_oct_config(template, config, target, iter_stop=None, max_megs=None,
-        max_hours=None, J_T_conv=None):
+        max_hours=None, J_T_conv=None, J_T_re=False, lbfgs=False):
     """Write a new config file based on template, but with an updated OCT and
     user_strings section. The `target` parameter must be 'PE' (implies PE
     functional), 'SQ' (implies LI functional), or the name of a file inside the
@@ -93,9 +93,14 @@ def write_oct_config(template, config, target, iter_stop=None, max_megs=None,
             gate = 'unity'
             J_T = 'LI'
         else:
-            method = 'krotovpk'
+            if lbfgs:
+                method = 'lbfgs'
+            else:
+                method = 'krotovpk'
             gate = target
             J_T = 'SM'
+            if J_T_re or lbfgs:
+                J_T = 'RE'
         section = ''
         for line in in_fh:
             m = re.match(r'^\s*(?P<section>[a-z_]+)\s*:', line)
@@ -342,7 +347,7 @@ def run_pre_krotov_simplex(runfolder, formula_or_json_file,
 
 def run_oct(runfolder, target='target_gate.dat', rwa=False,
         continue_oct=False, g_a_int_min_initial=1.0e-5, g_a_int_max=1.0e-1,
-        g_a_int_converged=1.0e-7, iter_stop=None):
+        g_a_int_converged=1.0e-7, iter_stop=None, J_T_re=False, lbfgs=False):
     """Run optimal control on the given runfolder. Adjust lambda_a if
     necessary. Target may either be 'PE', 'SQ', or the name of file defining a
     gate, inside the runfolder.
@@ -361,7 +366,8 @@ def run_oct(runfolder, target='target_gate.dat', rwa=False,
     config = os.path.join(runfolder, 'config')
     temp_config = os.path.join(temp_runfolder, 'config')
     temp_pulse_dat = os.path.join(temp_runfolder, 'pulse.dat')
-    write_oct_config(config, temp_config, target, iter_stop=iter_stop)
+    write_oct_config(config, temp_config, target, iter_stop=iter_stop,
+                     J_T_re=J_T_re, lbfgs=lbfgs)
     required_files = ['pulse.guess']
     if target not in ['PE', 'SQ']:
         required_files.append(target)
@@ -655,6 +661,14 @@ def main(argv=None):
         default='target_gate.dat', help="Optimization target. Can be 'PE', "
         "'SQ', or the name of a gate file inside the runfolder.")
     arg_parser.add_option(
+        '--J_T_re', action='store_true', dest='J_T_re', default=False,
+        help='If TARGET is a gate file, use a phase sensitive functional '
+        'instead of the default square-modulus functional')
+    arg_parser.add_option(
+        '--lbfgs', action='store_true', dest='lbfgs', default=False,
+        help='If TARGET is a gate file, use the lbfgs optimization method. '
+        'Implies --J_T_re')
+    arg_parser.add_option(
         '--rwa', action='store_true', dest='rwa',
         default=False, help="Perform all calculations in the RWA.")
     arg_parser.add_option(
@@ -772,7 +786,8 @@ def main(argv=None):
                 g_a_int_min_initial=options.g_a_int_min_initial,
                 g_a_int_max=options.g_a_int_max,
                 g_a_int_converged=options.g_a_int_converged,
-                iter_stop=iter_stop)
+                iter_stop=iter_stop, J_T_re=options.J_T_re,
+                lbfgs=options.lbfgs)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
         propagate(runfolder, 'pulse.dat', rwa=options.rwa,
                   rho=options.prop_rho, rho_pop_plot=options.rho_pop_plot,
