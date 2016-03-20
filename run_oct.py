@@ -278,6 +278,7 @@ def switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
     pulse_guess             = os.path.join(runfolder, num_guess)
     pulse_opt_json          = os.path.join(runfolder, analytical_guess)
     pulse_guess_pre_simplex = os.path.join(runfolder, backup)
+    config                  = os.path.join(runfolder, 'config')
     if not os.path.isfile(pulse_guess):
         if os.path.isfile(pulse_guess_pre_simplex):
             QDYN.shutil.copy(pulse_guess_pre_simplex, pulse_guess)
@@ -290,7 +291,10 @@ def switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
         p_guess = AnalyticalPulse.read(pulse_opt_json)
         if p_guess.nt < nt_min:
             p_guess.nt = nt_min
+        if p_guess.formula_name == '1freq_rwa':
+            assert p_guess.parameters['w_L'] == p_guess.parameters['w_d']
         p_guess.pulse().write(pulse_guess)
+    pulse_config_compat(p_guess, config, adapt_config=True)
 
 
 def run_pre_krotov_simplex(runfolder, formula_or_json_file,
@@ -345,7 +349,8 @@ def run_pre_krotov_simplex(runfolder, formula_or_json_file,
     run_simplex(runfolder, target=target_gate, rwa=rwa,
                 prop_pulse_dat='pulse.dat',
                 extra_files_to_copy=extra_files_to_copy,
-                guess_pulse=guess, opt_pulse='pulse_opt.json')
+                guess_pulse=guess, opt_pulse='pulse_opt.json',
+                fixed_parameters=['T', 'w_d', 'freq_1', 'freq_2'])
 
 
 def run_oct(runfolder, target='target_gate.dat', rwa=False,

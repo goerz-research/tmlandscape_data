@@ -1048,7 +1048,7 @@ def get_transition_table(zeta_table):
 
 
 def ensure_ham_files(runfolder, rwa=True, stdout=None, rho=False,
-        force=False):
+        dissipation=True, force=False):
     """Make sure that the "Hamiltonian" files ('ham_ctrl.dat', 'ham_drift.dat',
     'eigenvalues.dat', 'logical_states.dat' exist in the given runfolder.
     """

@@ -81,7 +81,7 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
 
 def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
         extra_files_to_copy=None, options=None, guess_pulse='pulse.json',
-        opt_pulse='pulse_opt.json'):
+        opt_pulse='pulse_opt.json', fixed_parameters='default'):
     """Run a simplex over all the pulse parameters, optimizing towards the
     given target ('PE', 'SQ', or an instance of Gate2Q, implying an F_avg
     functional)
@@ -94,6 +94,9 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     `prop_pulse_dat`. In `extra_files_to_copy`, any files that the config file
     depends on and which thus must be copied from the runfolder to the
     temporary propagation folder may be listed.
+
+    The parameters `fixed` should be either be the string 'default' or the list
+    of parameter names not to be varied in the simplex optimization.
 
     The options dictionary may be passed to overwrite any options to the
     scipy.minimize routine
@@ -137,11 +140,12 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     for file in files_to_copy:
         QDYN.shutil.copy(os.path.join(runfolder, file), temp_runfolder)
     pulse = AnalyticalPulse.read(pulse0)
+    if fixed_parameters == 'default':
+        fixed_parameters = ['T', 'w_d']
+        if pulse.formula_name == '2freq_rwa_box':
+            fixed_parameters.extend(['freq_1', 'freq_2'])
     parameters = [p for p in sorted(pulse.parameters.keys())
-                  if p not in ['T', 'w_d']]
-    if pulse.formula_name == '2freq_rwa_box':
-        parameters = [p for p in sorted(pulse.parameters.keys())
-                    if p not in ['T', 'w_d', 'freq_1', 'freq_2']]
+                  if p not in fixed_parameters]
     env = os.environ.copy()
     env['OMP_NUM_THREADS'] = '1'
 
@@ -223,6 +227,11 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
             res = scipy.optimize.minimize(f, x0, method='Nelder-Mead',
                   options=scipy_options, args=(log_fh, ), callback=dump_cache)
         pulse.array_to_parameters(res.x, parameters)
+        if rwa:
+            w_d = avg_freq(pulse) # GHz
+            w_max = max_freq_delta(pulse, w_d) # GHZ
+            pulse.parameters['w_d'] = w_d
+            pulse.nt = int(max(2000, 100 * w_max * pulse.T))
         get_U.func(res.x, pulse) # memoization disabled
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'config'), runfolder)
         QDYN.shutil.copy(os.path.join(temp_runfolder, 'U.dat'), runfolder)
