@@ -15,8 +15,8 @@ mkdir -p ./venv/src
 (cd $PREFIX/bin/ && ln -s ../../rewrite_dissipation.py)
 
 (cd $PREFIX/src/qdyn && git checkout 50b2d685df2070f8ff93d299e6b374b322a10cb7 && ./configure --prefix=$PREFIX --no-parallel-oct --no-hooks && make install)
-(cd $PREFIX/src/qdynpylib && git checkout 4c150be91fff5642753abeafd5d655791b6baa23 && pip install -e .)
-(cd $PREFIX/src/transmon_oct && git checkout 82fdc15290415c04483353de0dd1ec8c7ba10767 && ./configure --prefix=$PREFIX && make install)
+(cd $PREFIX/src/qdynpylib && git checkout 64c756847ab9043b0463d2bf9450e277dd8943a9 && pip install -e .)
+(cd $PREFIX/src/transmon_oct && git checkout 03508eb57aa9da474d018ba0a80756003104b893 && ./configure --prefix=$PREFIX && make install)
 (cd $PREFIX/src/QDYNTransmonLib && git checkout master && pip install -e .)
 (cd $PREFIX/src/clusterjob && git checkout cd01f3ce9b798b418fb0cfe3c45fc319ff4e90cf && pip install -e .)
 
