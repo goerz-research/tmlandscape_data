@@ -267,7 +267,8 @@ def num_pulse_to_analytic(runfolder, formula, rwa=True, randomize=False,
 
 
 def switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
-        analytical_guess='pulse_opt.json', backup='pulse.guess.pre_simplex'):
+        analytical_guess='pulse_opt.json', backup='pulse.guess.pre_simplex',
+        nt_min=2000):
     """Replace `num_guess` with `analytical_guess` (converted to a numeric
     pulse), while backing up the original `num_guess` to `backup`.
 
@@ -286,8 +287,10 @@ def switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
     if os.path.isfile(pulse_guess):
         QDYN.shutil.copy(pulse_guess, pulse_guess_pre_simplex)
     if os.path.isfile(pulse_opt_json):
-        p_guess = AnalyticalPulse.read(pulse_opt_json).pulse()
-        p_guess.write(pulse_guess)
+        p_guess = AnalyticalPulse.read(pulse_opt_json)
+        if p_guess.nt < nt_min:
+            p_guess.nt = nt_min
+        p_guess.pulse().write(pulse_guess)
 
 
 def run_pre_krotov_simplex(runfolder, formula_or_json_file,
@@ -730,6 +733,10 @@ def main(argv=None):
     arg_parser.add_option(
         '--iter_stop', action='store', dest='iter_stop',
         type='int', help="The iteration number after which to stop OCT")
+    arg_parser.add_option(
+        '--nt-min', action='store', dest='nt_min', default=2000,
+        type='int', help="The minimum nt to be used when converting an "
+        "analytical pulse to a numerical one.")
     options, args = arg_parser.parse_args(argv)
     try:
         runfolder = args[1]
@@ -775,7 +782,7 @@ def main(argv=None):
                         randomize=options.randomize) # -> pulse_opt.json
                 switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
                     analytical_guess='pulse_opt.json',
-                    backup='pulse.guess.pre_simplex')
+                    backup='pulse.guess.pre_simplex', nt_min=options.nt_min)
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             # if we're doing a new oct, we should delete U.dat
             os.unlink(os.path.join(runfolder, 'U.dat'))
