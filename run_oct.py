@@ -355,7 +355,8 @@ def run_pre_krotov_simplex(runfolder, formula_or_json_file,
 
 def run_oct(runfolder, target='target_gate.dat', rwa=False,
         continue_oct=False, g_a_int_min_initial=1.0e-5, g_a_int_max=1.0e-1,
-        g_a_int_converged=1.0e-7, iter_stop=None, J_T_re=False, lbfgs=False):
+        g_a_int_converged=1.0e-7, iter_stop=None, J_T_re=False, lbfgs=False,
+        use_threads=False):
     """Run optimal control on the given runfolder. Adjust lambda_a if
     necessary. Target may either be 'PE', 'SQ', or the name of file defining a
     gate, inside the runfolder.
@@ -407,6 +408,8 @@ def run_oct(runfolder, target='target_gate.dat', rwa=False,
                 break # give up
             env = os.environ.copy()
             env['OMP_NUM_THREADS'] = '1'
+            if use_threads:
+                env['OMP_NUM_THREADS'] = '4'
             oct_proc = sp.Popen(['tm_en_oct', '.'], cwd=temp_runfolder,
                                 env=env, stdout=sp.PIPE)
             iter = 0
@@ -523,7 +526,7 @@ def scale_lambda_a(config, factor):
 
 def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
         n_qubit=None, n_cavity=None, dissipation=True, keep=False, force=False,
-        target='target_gate.dat'):
+        target='target_gate.dat', use_threads=False):
     """Map runfolder -> 2QGate, by propagating the given pulse file, or reading
     from an existing U.dat (if force is False)
 
@@ -552,6 +555,8 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
     in as ``config.prop``, if `keep` is True.
 
     If `keep` is None, no files in the runfolder will be modified.
+
+    If use_threads is True, use 4 OpenMP threads
     """
     logger = logging.getLogger(__name__)
     if n_qubit is not None:
@@ -599,6 +604,8 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
             logger.info("Propagating %s", runfolder)
             env = os.environ.copy()
             env['OMP_NUM_THREADS'] = '1'
+            if use_threads:
+                env['OMP_NUM_THREADS'] = '4'
             start = time.time()
             prop_log = os.path.join(runfolder, 'prop.log')
             if keep is None:
@@ -685,6 +692,9 @@ def main(argv=None):
     arg_parser.add_option(
         '--debug', action='store_true', dest='debug',
         default=False, help="Enable debugging output")
+    arg_parser.add_option(
+        '--threads', action='store_true', dest='use_threads',
+        default=False, help="Use 4 OpenMP threads")
     arg_parser.add_option(
         '--prop-only', action='store_true', dest='prop_only',
         default=False, help="Only propagate, instead of doing OCT")
@@ -799,12 +809,13 @@ def main(argv=None):
                 g_a_int_max=options.g_a_int_max,
                 g_a_int_converged=options.g_a_int_converged,
                 iter_stop=iter_stop, J_T_re=options.J_T_re,
-                lbfgs=options.lbfgs)
+                lbfgs=options.lbfgs, use_threads=options.use_threads)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
         propagate(runfolder, 'pulse.dat', rwa=options.rwa,
                   rho=options.prop_rho, rho_pop_plot=options.rho_pop_plot,
                   n_qubit=options.n_qubit, n_cavity=options.n_cavity,
-                  keep=options.keep, target=options.target)
+                  keep=options.keep, target=options.target,
+                  use_threads=options.use_threads)
 
 
 if __name__ == "__main__":
