@@ -30,6 +30,7 @@ import subprocess as sp
 import QDYN
 import logging
 import numpy as np
+import click
 from numpy.random import random
 from glob import glob
 from clusterjob.utils import read_file
@@ -726,8 +727,8 @@ def get_iter_stop(config):
 @click.option('--nt-min',  default=2000, type=int,
     help="The minimum nt to be used when converting an "
     "analytical pulse to a numerical one.")
-@click.argument('runfolder', type=click.Path(exists=True, dir_ok=True,
-    file_ok=False))
+@click.argument('runfolder', type=click.Path(exists=True, dir_okay=True,
+    file_okay=False))
 def main(target, J_T_re, lbfgs, rwa, cont, debug, threads, prop_only,
         prop_rho, prop_n_qubit, prop_n_cavity, rho_pop_plot, keep,
         formula_or_json_file, randomize, g_a_int_min_initial, g_a_int_max,
