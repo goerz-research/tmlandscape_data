@@ -668,7 +668,7 @@ def get_iter_stop(config):
 @click.option('--target',  default='target_gate.dat', show_default=True,
     help="Optimization target. Can be 'PE', 'SQ', or the name of a gate "
     "file inside the runfolder.")
-@click.option('--J_T_re', is_flag=True, default=False,
+@click.option('--J_T_re', 'J_T_re', is_flag=True, default=False,
     help='If TARGET is a gate file, use a phase sensitive functional '
     'instead of the default square-modulus functional')
 @click.option('--lbfgs', is_flag=True, default=False,
@@ -729,10 +729,10 @@ def get_iter_stop(config):
     "analytical pulse to a numerical one.")
 @click.argument('runfolder', type=click.Path(exists=True, dir_okay=True,
     file_okay=False))
-def main(target, J_T_re, lbfgs, rwa, cont, debug, threads, prop_only,
+def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
         prop_rho, prop_n_qubit, prop_n_cavity, rho_pop_plot, keep,
         formula_or_json_file, randomize, g_a_int_min_initial, g_a_int_max,
-        g_a_int_converged, iter_stop, nt_min):
+        g_a_int_converged, iter_stop, nt_min, runfolder):
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
     if iter_stop is None:
@@ -783,8 +783,8 @@ def main(target, J_T_re, lbfgs, rwa, cont, debug, threads, prop_only,
                 lbfgs=lbfgs, use_threads=use_threads)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
         propagate(runfolder, 'pulse.dat', rwa=rwa, rho=prop_rho,
-                  rho_pop_plot=rho_pop_plot, n_qubit=n_qubit,
-                  n_cavity=n_cavity, keep=keep, target=target,
+                  rho_pop_plot=rho_pop_plot, n_qubit=prop_n_qubit,
+                  n_cavity=prop_n_cavity, keep=keep, target=target,
                   use_threads=use_threads)
 
 if __name__ == "__main__":
