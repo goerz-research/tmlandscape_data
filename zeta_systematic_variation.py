@@ -6,7 +6,7 @@ import os
 from os.path import join
 from closest_targets import get_cpus, make_threadpool_map
 from functools import partial
-from run_oct import propagate
+from oct_propagate import propagate
 from notebook_utils import pulse_config_compat, avg_freq, max_freq_delta
 
 
