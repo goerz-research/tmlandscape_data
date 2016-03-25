@@ -81,7 +81,8 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
 
 def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
         extra_files_to_copy=None, options=None, guess_pulse='pulse.json',
-        opt_pulse='pulse_opt.json', fixed_parameters='default'):
+        opt_pulse='pulse_opt.json', fixed_parameters='default',
+        vary='default'):
     """Run a simplex over all the pulse parameters, optimizing towards the
     given target ('PE', 'SQ', or an instance of Gate2Q, implying an F_avg
     functional)
@@ -95,8 +96,10 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     depends on and which thus must be copied from the runfolder to the
     temporary propagation folder may be listed.
 
-    The parameters `fixed` should be either be the string 'default' or the list
-    of parameter names not to be varied in the simplex optimization.
+    The parameters `fixed_parameters` should be either be the string 'default'
+    or the list of parameter names not to be varied in the simplex
+    optimization. Conversely, if `vary` is not 'default', it should be a list
+    of parameters that are considered for optimization.
 
     The options dictionary may be passed to overwrite any options to the
     scipy.minimize routine
@@ -144,8 +147,9 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
         fixed_parameters = ['T', 'w_d']
         if pulse.formula_name == '2freq_rwa_box':
             fixed_parameters.extend(['freq_1', 'freq_2'])
-    parameters = [p for p in sorted(pulse.parameters.keys())
-                  if p not in fixed_parameters]
+    if vary == 'default':
+        vary = sorted(pulse.parameters.keys())
+    parameters = [p for p in vary if p not in fixed_parameters]
     env = os.environ.copy()
     env['OMP_NUM_THREADS'] = '1'
 
