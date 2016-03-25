@@ -82,7 +82,7 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
 def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
         extra_files_to_copy=None, options=None, guess_pulse='pulse.json',
         opt_pulse='pulse_opt.json', fixed_parameters='default',
-        vary='default'):
+        vary='default', E0_min=0.0):
     """Run a simplex over all the pulse parameters, optimizing towards the
     given target ('PE', 'SQ', or an instance of Gate2Q, implying an F_avg
     functional)
@@ -100,6 +100,8 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
     or the list of parameter names not to be varied in the simplex
     optimization. Conversely, if `vary` is not 'default', it should be a list
     of parameters that are considered for optimization.
+
+    If the final pulse amplitude is below E0_min, it will be set to E0_min.
 
     The options dictionary may be passed to overwrite any options to the
     scipy.minimize routine
@@ -231,6 +233,12 @@ def run_simplex(runfolder, target, rwa=False, prop_pulse_dat='pulse.guess',
             res = scipy.optimize.minimize(f, x0, method='Nelder-Mead',
                   options=scipy_options, args=(log_fh, ), callback=dump_cache)
         pulse.array_to_parameters(res.x, parameters)
+        if 'E0' in pulse.parameters:
+            if abs(pulse.parameters['E0']) < E0_min:
+                    logger.debug("Forcing pulse amplitude from %g to %g",
+                        pulse.parameters['E0'], E0_min)
+                    pulse.parameters['E0'] = E0_min
+
         if rwa:
             w_d = avg_freq(pulse) # GHz
             w_max = max_freq_delta(pulse, w_d) # GHZ

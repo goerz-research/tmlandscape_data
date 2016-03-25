@@ -40,7 +40,8 @@ from stage2_simplex import get_temp_runfolder, run_simplex
 from QDYN.pulse import Pulse
 from analytical_pulses import AnalyticalPulse
 from notebook_utils import (get_w_d_from_config, read_target_gate,
-        pulse_config_compat, ensure_ham_files, J_target)
+        pulse_config_compat, ensure_ham_files, J_target, avg_freq,
+        max_freq_delta)
 
 MAX_TRIALS = 200
 
@@ -309,15 +310,20 @@ def systematic_scan(runfolder, template_pulse, scan_params_json,
     Propagate for each possible value combination and write the pulse that
     yields the best figure of merit to `outfile`
     """
+    logger = logging.getLogger(__name__)
     if not rwa:
         raise NotImplementedError("LAB frame not supported")
     pulse0 = AnalyticalPulse.read(os.path.join(runfolder, template_pulse))
     with open(os.path.join(runfolder, scan_params_json)) as in_fh:
         vary = json.load(in_fh)
+    for key in vary:
+        if key not in pulse0.parameters:
+            raise ValueError(("Key %s is not a parameter for the "
+                "analytic pulse formula") % (key, pulse1.formula_name))
     def worker(args):
         rf, pulse_json = args
         U = propagate(rf, pulse_json, target=target, rwa=True, force=True,
-                      keep=None)
+                      keep=None, use_threads=use_threads)
         return U
     if target in ['PE', 'SQ']:
         U_tgt = None
@@ -327,20 +333,31 @@ def systematic_scan(runfolder, template_pulse, scan_params_json,
         if target in ['PE', 'SQ']:
             C = U.closest_unitary().concurrence()
             max_loss = np.max(1.0 - U.logical_pops())
-            return J_target(target, C, max_loss)
+            result = J_target(target, C, max_loss)
         else:
-            return 1.0 - U.F_avg(U_tgt)
+            result = 1.0 - U.F_avg(U_tgt)
+        logger.debug("Systematic variation -> %s" % result)
+        return result
     table = zeta_systematic_variation.systematic_variation(runfolder, pulse0,
             vary, fig_of_merit, n_procs=1, _worker=worker)
     pulse1 = pulse0.copy()
     row = table.iloc[0]
     for key in row.keys():
-        pulse1.parameters[key] = row[key]
+        if key in pulse1.parameters:
+            pulse1.parameters[key] = row[key]
+    if rwa:
+        w_d = avg_freq(pulse1) # GHz
+        w_max = max_freq_delta(pulse1, w_d) # GHZ
+        pulse1.parameters['w_d'] = w_d
+        pulse1.nt = int(max(2000, 100 * w_max * pulse1.T))
+    logger.debug("Systematic variation yielded parameters: %s"
+                 % str(pulse1.parameters))
     pulse1.write(os.path.join(runfolder, outfile))
 
 
+
 def run_pre_krotov_simplex(runfolder, formula_or_json_file, vary='default',
-        target='target_gate.dat', rwa=False, randomize=False):
+        target='target_gate.dat', rwa=False, randomize=False, E0_min=0.0):
     """Run a simplex pre-optimization, resulting in file 'pulse_opt.json' in
     the runfolder. If `formula_or_json_file` is a formula, the starting point
     of the optimization is an analytic approximation to a numeric pulse in
@@ -353,6 +370,8 @@ def run_pre_krotov_simplex(runfolder, formula_or_json_file, vary='default',
 
     If 'pulse_opt.json' already exists and is newer than the guess pulse file,
     nothing is done.
+
+    Pulse amplitudes < E0_min will be set to E0_min
     """
     logger = logging.getLogger(__name__)
     guess = formula_or_json_file
@@ -394,7 +413,8 @@ def run_pre_krotov_simplex(runfolder, formula_or_json_file, vary='default',
                 prop_pulse_dat='pulse.dat',
                 extra_files_to_copy=extra_files_to_copy,
                 guess_pulse=guess, opt_pulse='pulse_opt.json', vary=vary,
-                fixed_parameters=['T', 'w_d', 'freq_1', 'freq_2'])
+                fixed_parameters=['T', 'w_d', 'freq_1', 'freq_2'],
+                E0_min=E0_min)
 
 
 def run_oct(runfolder, target='target_gate.dat', rwa=False,
@@ -758,7 +778,6 @@ def get_iter_stop(config):
     'search. Can be given multiple times to vary more than one parameter. '
     'If not given, the parameters to be varied are chosen automatically')
 @click.option('--scan', metavar='SCAN_PARAMS_JSON',
-    type=click.Path(exists=True, dir_okay=False),
     help="If given in conjunction with --pre-simplex, perform a systematic "
     "scan of parameters before doing the simplex-pre-optimization. The file "
     "SCAN_PARAMS_JSON must be a json dump of a dictionary that maps parameter "
@@ -785,12 +804,15 @@ def get_iter_stop(config):
 @click.option('--nt-min',  default=2000, type=int,
     help="The minimum nt to be used when converting an "
     "analytical pulse to a numerical one.")
+@click.option('--E0-min', 'E0_min',  default=0.0, type=float,
+    help="In combination with --pre-simplex, the minimum pulse amplitude "
+    "that will be considered for a guess pulse to Krotov")
 @click.argument('runfolder', type=click.Path(exists=True, dir_okay=True,
     file_okay=False))
 def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
         prop_rho, prop_n_qubit, prop_n_cavity, rho_pop_plot, keep,
         formula_or_json_file, vary, scan, randomize, g_a_int_min_initial,
-        g_a_int_max, g_a_int_converged, iter_stop, nt_min, runfolder):
+        g_a_int_max, g_a_int_converged, iter_stop, nt_min, E0_min, runfolder):
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
     if iter_stop is None:
@@ -825,14 +847,16 @@ def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
                 if len(vary) == 0:
                     vary = 'default'
                 if scan is None:
+                    logger.debug("Starting simplex")
                     # {formula_or_json_file} -> pulse_opt.json
                     run_pre_krotov_simplex(runfolder, formula_or_json_file,
                             vary=vary, target=target, rwa=rwa,
-                            randomize=randomize)
+                            randomize=randomize, E0_min=E0_min)
                 else:
                     # {formula_or_json_file} -> pulse_systematic_scan.json
                     if os.path.isfile(
                             os.path.join(runfolder, formula_or_json_file)):
+                        logger.debug("Starting systematic variation")
                         systematic_scan(runfolder, formula_or_json_file, scan,
                                 outfile='pulse_systematic_scan.json',
                                 target=target, rwa=rwa,
@@ -842,10 +866,11 @@ def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
                                 "for starting from an analytic pulse file, "
                                 "not from a formula")
                     # pulse_systematic_scan.json -> pulse_opt.json
+                    logger.debug("Starting simplex")
                     run_pre_krotov_simplex(runfolder,
                             'pulse_systematic_scan.json',
                             vary=vary, target=target, rwa=rwa,
-                            randomize=randomize)
+                            randomize=randomize, E0_min=E0_min)
                 switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
                     analytical_guess='pulse_opt.json',
                     backup='pulse.guess.pre_simplex', nt_min=nt_min)
