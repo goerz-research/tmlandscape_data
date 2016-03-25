@@ -16,12 +16,15 @@ def worker(args):
     return U
 
 
-def systematic_variation(rf, pulse0, vary, fig_of_merit, n_procs=None):
+def systematic_variation(rf, pulse0, vary, fig_of_merit, n_procs=None,
+        _worker=None):
     """Make a table of the fig_of_merit(U) when the parameters
     in the analytical pulse `pulse0` are varied as specified in
     the dict `vary`. Use `n_procs` parallel processes"""
     if n_procs is None:
         n_procs = get_cpus()
+    if _worker is None:
+        _worker = worker
     vals = OrderedDict([])
     keys = list(vary.keys())
     grid = np.meshgrid(*[vary[k] for k in keys])
@@ -42,7 +45,7 @@ def systematic_variation(rf, pulse0, vary, fig_of_merit, n_procs=None):
         pulse_json = "pulse_variation_%d.json" % (i+1)
         pulse.write(join(rf, pulse_json))
         pulse_files.append((rf, pulse_json))
-    Us = threadpool_map(worker, pulse_files)
+    Us = threadpool_map(_worker, pulse_files)
     for runfolder, pulse_file in pulse_files:
         os.unlink(join(runfolder, pulse_file))
     vals['fig_of_merit'] = [fig_of_merit(U) for U in Us]
