@@ -297,7 +297,7 @@ def switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
     pulse_config_compat(p_guess, config, adapt_config=True)
 
 
-def run_pre_krotov_simplex(runfolder, formula_or_json_file,
+def run_pre_krotov_simplex(runfolder, formula_or_json_file, vary='default',
         target='target_gate.dat', rwa=False, randomize=False):
     """Run a simplex pre-optimization, resulting in file 'pulse_opt.json' in
     the runfolder. If `formula_or_json_file` is a formula, the starting point
@@ -343,13 +343,13 @@ def run_pre_krotov_simplex(runfolder, formula_or_json_file,
         target_gate_dat = os.path.join(runfolder, target)
         target_gate = read_target_gate(target_gate_dat)
         extra_files_to_copy=[target]
-    assert re.search('prop_guess\s*=\s*F', read_file(config))
-    assert re.search('oct_outfile\s*=\s*pulse.dat', read_file(config))
+    assert re.search(r'prop_guess\s*=\s*F', read_file(config))
+    assert re.search(r'oct_outfile\s*=\s*pulse.dat', read_file(config))
     logger.debug("Running simplex to optimize for target %s" % target)
     run_simplex(runfolder, target=target_gate, rwa=rwa,
                 prop_pulse_dat='pulse.dat',
                 extra_files_to_copy=extra_files_to_copy,
-                guess_pulse=guess, opt_pulse='pulse_opt.json',
+                guess_pulse=guess, opt_pulse='pulse_opt.json', vary=vary,
                 fixed_parameters=['T', 'w_d', 'freq_1', 'freq_2'])
 
 
@@ -707,6 +707,11 @@ def get_iter_stop(config):
     "file 'pulse.guess' will be the guess pulse for the simplex "
     "optimization. If it is a json file, then the analytic pulse "
     "described in that file will be the guess pulse.")
+@click.option('--vary', multiple=True,
+    help='If given in conjunction with '
+    '--pre-simplex, the parameter that will be varied in the simplex '
+    'search. Can be given multiple times to vary more than one parameter. '
+    'If not given, the parameters to be varied are chosen automatically')
 @click.option('--randomize', is_flag=True, default=False,
     help="In combination with --pre-simplex, start from "
     "a randomized analytic guess pulse, instead of one matching the "
@@ -731,8 +736,8 @@ def get_iter_stop(config):
     file_okay=False))
 def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
         prop_rho, prop_n_qubit, prop_n_cavity, rho_pop_plot, keep,
-        formula_or_json_file, randomize, g_a_int_min_initial, g_a_int_max,
-        g_a_int_converged, iter_stop, nt_min, runfolder):
+        formula_or_json_file, vary, randomize, g_a_int_min_initial,
+        g_a_int_max, g_a_int_converged, iter_stop, nt_min, runfolder):
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
     if iter_stop is None:
@@ -764,8 +769,10 @@ def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
             if os.path.isfile(pulse_file) and cont:
                 logger.debug("Skip simplex, continuing existing pulse")
             else:
+                if len(vary) == 0:
+                    vary = 'default'
                 run_pre_krotov_simplex(runfolder, formula_or_json_file,
-                        target=target, rwa=rwa,
+                        vary=vary, target=target, rwa=rwa,
                         randomize=randomize) # -> pulse_opt.json
                 switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
                     analytical_guess='pulse_opt.json',
