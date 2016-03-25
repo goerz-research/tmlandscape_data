@@ -24,7 +24,6 @@ pulse.guess), pulse_opt.json (analytic simplex-optimized pulse), simplex.log
 """
 
 import time
-import sys
 import os
 import re
 import subprocess as sp
@@ -663,115 +662,87 @@ def get_iter_stop(config):
     return None
 
 
-def main(argv=None):
-    """Main routine"""
-    from optparse import OptionParser
-    if argv is None:
-        argv = sys.argv
-    arg_parser = OptionParser(
-    usage = "%prog [options] <runfolder>",
-    description = __doc__)
-    arg_parser.add_option(
-        '--target', action='store', dest='target',
-        default='target_gate.dat', help="Optimization target. Can be 'PE', "
-        "'SQ', or the name of a gate file inside the runfolder.")
-    arg_parser.add_option(
-        '--J_T_re', action='store_true', dest='J_T_re', default=False,
-        help='If TARGET is a gate file, use a phase sensitive functional '
-        'instead of the default square-modulus functional')
-    arg_parser.add_option(
-        '--lbfgs', action='store_true', dest='lbfgs', default=False,
-        help='If TARGET is a gate file, use the lbfgs optimization method. '
-        'Implies --J_T_re')
-    arg_parser.add_option(
-        '--rwa', action='store_true', dest='rwa',
-        default=False, help="Perform all calculations in the RWA.")
-    arg_parser.add_option(
-        '--continue', action='store_true', dest='cont',
-        default=False, help="Continue from an existing pulse.dat")
-    arg_parser.add_option(
-        '--debug', action='store_true', dest='debug',
-        default=False, help="Enable debugging output")
-    arg_parser.add_option(
-        '--threads', action='store_true', dest='use_threads',
-        default=False, help="Use 4 OpenMP threads")
-    arg_parser.add_option(
-        '--prop-only', action='store_true', dest='prop_only',
-        default=False, help="Only propagate, instead of doing OCT")
-    arg_parser.add_option(
-        '--prop-rho', action='store_true', dest='prop_rho',
-        default=False, help="Do the propagation in Liouville space.")
-    arg_parser.add_option(
-        '--prop-n_qubit', action='store', dest='n_qubit', type="int",
-        default=None, help="In the (post-oct) propagation, use the given "
-        "number of qubit levels, instead of the number specified in the "
-        "config file. Does not affect OCT.")
-    arg_parser.add_option(
-        '--prop-n_cavity', action='store', dest='n_cavity', type="int",
-        default=None, help="In the (post-OCT) propagation, use the given "
-        "number of cavity levels, instead of the number specified in the "
-        "config file. Does not affect OCT.")
-    arg_parser.add_option(
-        '--rho-pop-plot', action='store_true', dest='rho_pop_plot',
-        default=False, help="In combination with --prop-rho and --keep, "
-        "produce a population plot")
-    arg_parser.add_option(
-        '--keep', action='store_true', dest='keep',
-        default=False, help="Keep all files from the propagation")
-    arg_parser.add_option(
-        '--pre-simplex', action='store', dest='formula_or_json_file',
-        help="Run simplex pre-optimization before Krotov. Parameter may "
-        "either be the name of a pulse formula, or the name of a json file. "
-        "If it is a formula name, an analytic approximation to the existing "
-        "file 'pulse.guess' will be the guess pulse for the simplex "
-        "optimization. If it is a json file, then the analytic pulse "
-        "described in that file will be the guess pulse.")
-    arg_parser.add_option(
-        '--randomize', action='store_true', dest='randomize',
-        default=False, help="In combination with --pre-simplex, start from "
-        "a randomized analytic guess pulse, instead of one matching the "
-        "original numerical pulse.guess as closely as possible.")
-    arg_parser.add_option(
-        '--g_a_int_min_initial', action='store', dest='g_a_int_min_initial',
-        default=1.0e-5, type="float", help="The smallest acceptable value "
-        "for g_a_int in the first OCT iteration. For any smaller value,"
-        "lambda_a is deemed too big, and will be adjusted.")
-    arg_parser.add_option(
-        '--g_a_int_max', action='store', dest='g_a_int_max',
-        default=1.0e-1, type="float", help="The largest acceptable value for "
-        "g_a_int. Any larger value is taken as a 'pulse explosion', "
-        "requiring lambda_a to be increased.")
-    arg_parser.add_option(
-        '--g_a_int_converged', action='store', dest='g_a_int_converged',
-        default=1.0e-7, type='float', help="The smallest value for g_a_int "
-        "before the optimization is assumed to be converged.")
-    arg_parser.add_option(
-        '--iter_stop', action='store', dest='iter_stop',
-        type='int', help="The iteration number after which to stop OCT")
-    arg_parser.add_option(
-        '--nt-min', action='store', dest='nt_min', default=2000,
-        type='int', help="The minimum nt to be used when converting an "
-        "analytical pulse to a numerical one.")
-    options, args = arg_parser.parse_args(argv)
-    try:
-        runfolder = args[1]
-        if not os.path.isdir(runfolder):
-            arg_parser.error("runfolder %s does not exist"%runfolder)
-    except IndexError:
-        arg_parser.error("runfolder be given")
+@click.command(help=__doc__)
+@click.help_option('--help', '-h')
+@click.option('--target',  default='target_gate.dat', show_default=True,
+    help="Optimization target. Can be 'PE', 'SQ', or the name of a gate "
+    "file inside the runfolder.")
+@click.option('--J_T_re', is_flag=True, default=False,
+    help='If TARGET is a gate file, use a phase sensitive functional '
+    'instead of the default square-modulus functional')
+@click.option('--lbfgs', is_flag=True, default=False,
+    help='If TARGET is a gate file, use the lbfgs optimization method. '
+    'Implies --J_T_re')
+@click.option('--rwa', is_flag=True, default=False,
+    help="Perform all calculations in the RWA.")
+@click.option('--continue', 'cont', is_flag=True, default=False,
+    help="Continue from an existing pulse.dat")
+@click.option( '--debug', is_flag=True, default=False,
+    help="Enable debugging output")
+@click.option('--threads', 'use_threads', is_flag=True, default=False,
+    help="Use 4 OpenMP threads")
+@click.option('--prop-only', is_flag=True, default=False,
+    help="Only propagate, instead of doing OCT")
+@click.option(
+    '--prop-rho', is_flag=True, default=False,
+    help="Do the propagation in Liouville space.")
+@click.option('--prop-n_qubit',  type=int,
+    help="In the (post-oct) propagation, use the given "
+    "number of qubit levels, instead of the number specified in the "
+    "config file. Does not affect OCT.")
+@click.option('--prop-n_cavity', type=int,
+    help="In the (post-OCT) propagation, use the given "
+    "number of cavity levels, instead of the number specified in the "
+    "config file. Does not affect OCT.")
+@click.option('--rho-pop-plot', is_flag=True, default=False,
+    help="In combination with --prop-rho and --keep, "
+    "produce a population plot")
+@click.option('--keep', is_flag=True, default=False,
+    help="Keep all files from the propagation")
+@click.option('--pre-simplex', 'formula_or_json_file',
+    help="Run simplex pre-optimization before Krotov. Parameter may "
+    "either be the name of a pulse formula, or the name of a json file. "
+    "If it is a formula name, an analytic approximation to the existing "
+    "file 'pulse.guess' will be the guess pulse for the simplex "
+    "optimization. If it is a json file, then the analytic pulse "
+    "described in that file will be the guess pulse.")
+@click.option('--randomize', is_flag=True, default=False,
+    help="In combination with --pre-simplex, start from "
+    "a randomized analytic guess pulse, instead of one matching the "
+    "original numerical pulse.guess as closely as possible.")
+@click.option('--g_a_int_min_initial',  default=1.0e-5, type=float,
+    help="The smallest acceptable value "
+    "for g_a_int in the first OCT iteration. For any smaller value,"
+    "lambda_a is deemed too big, and will be adjusted.")
+@click.option('--g_a_int_max',  default=1.0e-1, type=float,
+    help="The largest acceptable value for "
+    "g_a_int. Any larger value is taken as a 'pulse explosion', "
+    "requiring lambda_a to be increased.")
+@click.option('--g_a_int_converged',  default=1.0e-7, type=float,
+    help="The smallest value for g_a_int "
+    "before the optimization is assumed to be converged.")
+@click.option('--iter_stop',  type=int,
+    help="The iteration number after which to stop OCT")
+@click.option('--nt-min',  default=2000, type=int,
+    help="The minimum nt to be used when converting an "
+    "analytical pulse to a numerical one.")
+@click.argument('runfolder', type=click.Path(exists=True, dir_ok=True,
+    file_ok=False))
+def main(target, J_T_re, lbfgs, rwa, cont, debug, threads, prop_only,
+        prop_rho, prop_n_qubit, prop_n_cavity, rho_pop_plot, keep,
+        formula_or_json_file, randomize, g_a_int_min_initial, g_a_int_max,
+        g_a_int_converged, iter_stop, nt_min):
     assert 'SCRATCH_ROOT' in os.environ, \
     "SCRATCH_ROOT environment variable must be defined"
-    if options.iter_stop is None:
+    if iter_stop is None:
         iter_stop = get_iter_stop(os.path.join(runfolder, 'config'))
-    else:
-        iter_stop = options.iter_stop
     pulse_file = (os.path.join(runfolder, 'pulse.dat'))
     logger = logging.getLogger()
-    if options.debug:
+    if debug:
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    if options.prop_only:
+    if prop_only:
         perform_optimization = False
     else:
         perform_optimization = True
@@ -788,36 +759,33 @@ def main(argv=None):
                     if "converged" in line:
                         perform_optimization = False
     if perform_optimization:
-        if options.formula_or_json_file is not None:
-            if os.path.isfile(pulse_file) and options.cont:
+        if formula_or_json_file is not None:
+            if os.path.isfile(pulse_file) and cont:
                 logger.debug("Skip simplex, continuing existing pulse")
             else:
-                run_pre_krotov_simplex(runfolder, options.formula_or_json_file,
-                        target=options.target, rwa=options.rwa,
-                        randomize=options.randomize) # -> pulse_opt.json
+                run_pre_krotov_simplex(runfolder, formula_or_json_file,
+                        target=target, rwa=rwa,
+                        randomize=randomize) # -> pulse_opt.json
                 switch_to_analytical_guess(runfolder, num_guess='pulse.guess',
                     analytical_guess='pulse_opt.json',
-                    backup='pulse.guess.pre_simplex', nt_min=options.nt_min)
+                    backup='pulse.guess.pre_simplex', nt_min=nt_min)
         if os.path.isfile(os.path.join(runfolder, 'U.dat')):
             # if we're doing a new oct, we should delete U.dat
             os.unlink(os.path.join(runfolder, 'U.dat'))
         if os.path.isfile(os.path.join(runfolder, 'U_closest_PE.dat')):
             os.unlink(os.path.join(runfolder, 'U_closest_PE.dat'))
-        run_oct(runfolder, target=options.target, rwa=options.rwa,
-                continue_oct=options.cont,
-                g_a_int_min_initial=options.g_a_int_min_initial,
-                g_a_int_max=options.g_a_int_max,
-                g_a_int_converged=options.g_a_int_converged,
-                iter_stop=iter_stop, J_T_re=options.J_T_re,
-                lbfgs=options.lbfgs, use_threads=options.use_threads)
+        run_oct(runfolder, target=target, rwa=rwa, continue_oct=cont,
+                g_a_int_min_initial=g_a_int_min_initial,
+                g_a_int_max=g_a_int_max,
+                g_a_int_converged=g_a_int_converged,
+                iter_stop=iter_stop, J_T_re=J_T_re,
+                lbfgs=lbfgs, use_threads=use_threads)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
-        propagate(runfolder, 'pulse.dat', rwa=options.rwa,
-                  rho=options.prop_rho, rho_pop_plot=options.rho_pop_plot,
-                  n_qubit=options.n_qubit, n_cavity=options.n_cavity,
-                  keep=options.keep, target=options.target,
-                  use_threads=options.use_threads)
-
+        propagate(runfolder, 'pulse.dat', rwa=rwa, rho=prop_rho,
+                  rho_pop_plot=rho_pop_plot, n_qubit=n_qubit,
+                  n_cavity=n_cavity, keep=keep, target=target,
+                  use_threads=use_threads)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    sys.exit(main())
+    main()
