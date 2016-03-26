@@ -43,9 +43,12 @@ def pulse_frequencies_ok(analytical_pulse, system_params):
     reasonable interval around the system frequencies, False otherwise"""
     w_1 = system_params['w_1'] # GHZ
     w_2 = system_params['w_2'] # GHZ
-    w_c = system_params['w_c'] # GHZ
     alpha_1 = system_params['alpha_1'] # GHZ
     alpha_2 = system_params['alpha_2'] # GHZ
+    if w_2 < w_1:
+        w_1, w_2 = w_2, w_1
+        alpha_1, alpha_2 = alpha_2, alpha_1
+    w_c = system_params['w_c'] # GHZ
     delta = abs(w_2 - w_1) # GHz
     p = analytical_pulse.parameters
     if analytical_pulse.formula_name == 'field_free':
