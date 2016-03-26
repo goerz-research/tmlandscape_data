@@ -4,10 +4,12 @@ import subprocess as sp
 import QDYN
 import logging
 import numpy as np
+import re
 from stage2_simplex import get_temp_runfolder
 from QDYN.pulse import Pulse
 from analytical_pulses import AnalyticalPulse
 from notebook_utils import pulse_config_compat, ensure_ham_files
+from clusterjob.utils import read_file
 
 
 def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
@@ -138,3 +140,51 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
         logger.error("gate %s contains NaN", gatefile)
     return U
 
+
+def write_prop_config(template, config, pulse_file, rho=False,
+        rho_pop_plot=False, n_qubit=None, n_cavity=None, dissipation=None):
+    """Write a new config file based on template, updated to propagate the
+    numerical pulse stored in `pulse_file`.
+    """
+    with open(template, 'r') as in_fh, open(config, 'w') as out_fh:
+        section = ''
+        for line in in_fh:
+            m = re.match(r'^\s*(?P<section>[a-z_]+)\s*:', line)
+            if m:
+                section = m.group('section')
+            if section == 'pulse':
+                line = re.sub(r'type\s*=\s*\w+', r'type = file', line)
+                line = re.sub(r'filename\s*=\s*[\w.]+',
+                              r'filename = %s'%(pulse_file), line)
+            elif section == 'user_logicals':
+                line = re.sub(r'prop_guess\s*=\s*(T|F)',
+                              r'prop_guess = T', line)
+            if rho_pop_plot:
+                line = re.sub(
+                    r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
+                    r'rho_prop_mode = pop_dynamics', line)
+            else:
+                line = re.sub(
+                    r'rho_prop_mode\s*=\s*(full|pop_dynamics)',
+                    r'rho_prop_mode = full', line)
+            if n_qubit is not None:
+                line = re.sub(r'n_qubit\s*=\s*\d+',
+                            r'n_qubit = %d' % n_qubit, line)
+            if n_cavity is not None:
+                line = re.sub(r'n_cavity\s*=\s*\d+',
+                            r'n_cavity = %d' % n_cavity, line)
+            if dissipation is not None:
+                if dissipation:
+                    val = 'T'
+                    line = re.sub(r'prop\s*=\s*cheby', r'prop = newton', line)
+                else:
+                    val = 'F'
+                    line = re.sub(r'prop\s*=\s*newton', r'prop = cheby', line)
+                line = re.sub(r'dissipation\s*=\s*[TF]',
+                              r'dissipation = %s' % val, line)
+            out_fh.write(line)
+    config_content = read_file(config)
+    if rho:
+        assert "rho_prop_mode" in config_content
+        assert "gamma_phi_1" in config_content
+        assert "gamma_phi_2" in config_content
