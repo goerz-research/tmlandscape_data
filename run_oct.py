@@ -78,7 +78,7 @@ def reset_pulse(pulse, iter):
 
 
 def write_oct_config(template, config, target, iter_stop=None, max_megs=None,
-        max_hours=None, J_T_conv=None, J_T_re=False, lbfgs=False):
+        max_hours=None, J_T_conv=None, J_T=None, lbfgs=False):
     """Write a new config file based on template, but with an updated OCT and
     user_strings section. The `target` parameter must be 'PE' (implies PE
     functional), 'SQ' (implies LI functional), or the name of a file inside the
@@ -98,12 +98,15 @@ def write_oct_config(template, config, target, iter_stop=None, max_megs=None,
         else:
             if lbfgs:
                 method = 'lbfgs'
+            elif J_T == 'LI':
+                method = 'krotov2'
             else:
                 method = 'krotovpk'
             gate = target
-            J_T = 'SM'
-            if J_T_re or lbfgs:
-                J_T = 'RE'
+            if J_T is None:
+                J_T = 'SM'
+                if lbfgs:
+                    J_T = 'RE'
         section = ''
         for line in in_fh:
             m = re.match(r'^\s*(?P<section>[a-z_]+)\s*:', line)
@@ -370,7 +373,7 @@ def run_pre_krotov_simplex(runfolder, formula_or_json_file, vary='default',
 
 def run_oct(runfolder, target='target_gate.dat', rwa=False,
         continue_oct=False, g_a_int_min_initial=1.0e-5, g_a_int_max=1.0e-1,
-        g_a_int_converged=1.0e-7, iter_stop=None, J_T_re=False, lbfgs=False,
+        g_a_int_converged=1.0e-7, iter_stop=None, J_T=None, lbfgs=False,
         use_threads=False):
     """Run optimal control on the given runfolder. Adjust lambda_a if
     necessary. Target may either be 'PE', 'SQ', or the name of file defining a
@@ -391,7 +394,7 @@ def run_oct(runfolder, target='target_gate.dat', rwa=False,
     temp_config = os.path.join(temp_runfolder, 'config')
     temp_pulse_dat = os.path.join(temp_runfolder, 'pulse.dat')
     write_oct_config(config, temp_config, target, iter_stop=iter_stop,
-                     J_T_re=J_T_re, lbfgs=lbfgs)
+                     J_T=J_T, lbfgs=lbfgs)
     required_files = ['pulse.guess']
     if target not in ['PE', 'SQ']:
         required_files.append(target)
@@ -558,6 +561,9 @@ def get_iter_stop(config):
 @click.option('--J_T_re', 'J_T_re', is_flag=True, default=False,
     help='If TARGET is a gate file, use a phase sensitive functional '
     'instead of the default square-modulus functional')
+@click.option('--J_T_LI', 'J_T_LI', is_flag=True, default=False,
+    help='If TARGET is a gate file, use the local-invariants-functional '
+    'instead of the default square-modulus functional')
 @click.option('--lbfgs', is_flag=True, default=False,
     help='If TARGET is a gate file, use the lbfgs optimization method. '
     'Implies --J_T_re')
@@ -631,8 +637,8 @@ def get_iter_stop(config):
     "that will be considered for a guess pulse to Krotov")
 @click.argument('runfolder', type=click.Path(exists=True, dir_okay=True,
     file_okay=False))
-def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
-        prop_rho, prop_n_qubit, prop_n_cavity, rho_pop_plot, keep,
+def main(target, J_T_re, J_T_LI, lbfgs, rwa, cont, debug, use_threads,
+        prop_only, prop_rho, prop_n_qubit, prop_n_cavity, rho_pop_plot, keep,
         formula_or_json_file, vary, scan, randomize, g_a_int_min_initial,
         g_a_int_max, g_a_int_converged, iter_stop, nt_min, E0_min, runfolder):
     assert 'SCRATCH_ROOT' in os.environ, \
@@ -701,11 +707,16 @@ def main(target, J_T_re, lbfgs, rwa, cont, debug, use_threads, prop_only,
             os.unlink(os.path.join(runfolder, 'U.dat'))
         if os.path.isfile(os.path.join(runfolder, 'U_closest_PE.dat')):
             os.unlink(os.path.join(runfolder, 'U_closest_PE.dat'))
+        J_T = None
+        if J_T_re:
+            J_T = 'RE'
+        if J_T_LI:
+            J_T = 'LI'
         run_oct(runfolder, target=target, rwa=rwa, continue_oct=cont,
                 g_a_int_min_initial=g_a_int_min_initial,
                 g_a_int_max=g_a_int_max,
                 g_a_int_converged=g_a_int_converged,
-                iter_stop=iter_stop, J_T_re=J_T_re,
+                iter_stop=iter_stop, J_T=J_T,
                 lbfgs=lbfgs, use_threads=use_threads)
     if not os.path.isfile(os.path.join(runfolder, 'U.dat')):
         propagate(runfolder, 'pulse.dat', rwa=rwa, rho=prop_rho,
