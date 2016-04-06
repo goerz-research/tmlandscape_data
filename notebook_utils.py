@@ -111,6 +111,8 @@ class PlotGrid(object):
         Maximum qubit frequency [GHz].
     draw_cell_box: boolean
         Draw a box around each cell (for debugging, defaults to False)
+    labels: list
+        List of tuples (Label, x_y_data, x_y_label, color)
     """
     def __init__(self, layout='inline'):
         if layout == 'poster':
@@ -180,6 +182,7 @@ class PlotGrid(object):
         # after rendering, self._axes[i] is a list of axes in the i'th cell
         self._cbars = []
         # after rendering, self._cbars[i] is the colorbar in the i'th cell
+        self.labels = []
 
     def add_cell(self, w2, wc, val, val_alpha=None, logscale=False, vmin=None,
             vmax=None, contour_levels=0, title=None, cmap=None, bg='white',
@@ -312,17 +315,22 @@ class PlotGrid(object):
                               x_labels=cell_dict['x_labels'],
                               y_labels=cell_dict['y_labels'])
 
+            for (label, x_y_data, x_y_label, color) in self.labels:
+                ax_contour.scatter((x_y_data[0],), (x_y_data[1], ),
+                                   color=color, marker='x')
+                ax_contour.annotate(label, x_y_label, color=color)
+
             # show the resonance line (cavity on resonace with qubit 2)
-            ax_contour.plot(np.linspace(self.wc_min, self.wc_max, 10),
-                            np.linspace(self.wc_min, self.wc_max, 10),
-                            color='white')
-            ax_contour.plot(np.linspace(self.w2_min, self.w2_max, 10),
-                            6.0*np.ones(10), color='white')
-            ax_contour.axvline(6.29, color='white', ls='--')
-            ax_contour.axvline(6.31, color='white', ls='--')
-            ax_contour.axvline(5.71, color='white', ls='--')
-            ax_contour.axvline(6.0,  color='white', ls='-')
-            ax_contour.axvline(5.69, color='white', ls='--')
+            #ax_contour.plot(np.linspace(self.wc_min, self.wc_max, 10),
+                            #np.linspace(self.wc_min, self.wc_max, 10),
+                            #color='white')
+            #ax_contour.plot(np.linspace(self.w2_min, self.w2_max, 10),
+                            #6.0*np.ones(10), color='white')
+            #ax_contour.axvline(6.29, color='white', ls='--')
+            #ax_contour.axvline(6.31, color='white', ls='--')
+            #ax_contour.axvline(5.71, color='white', ls='--')
+            #ax_contour.axvline(6.0,  color='white', ls='-')
+            #ax_contour.axvline(5.69, color='white', ls='--')
             #ax_contour.axvline(6.58, color='white', ls='--')
             #ax_contour.axvline(6.62, color='white', ls='--')
             # ticks and axis labels

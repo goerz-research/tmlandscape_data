@@ -14,6 +14,7 @@ from notebook_utils import (get_stage1_table, get_stage2_table,
         get_stage3_table, get_zeta_table)
 from mgplottools.mpl import new_figure, set_axis
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
+import pandas as pd
 
 STYLE = 'paper.mplstyle'
 
@@ -23,7 +24,7 @@ get_zeta_table = QDYN.memoize.memoize(get_zeta_table)
 get_zeta_table.load('zeta_table.cache')
 
 OUTFOLDER = './paper_images'
-OUTFOLDER = '/Users/goerz/Documents/Papers/TransmonLandscape'
+#OUTFOLDER = '/Users/goerz/Documents/Papers/TransmonLandscape'
 
 
 def generate_field_free_plot(zeta_table, T, outfile):
@@ -32,16 +33,16 @@ def generate_field_free_plot(zeta_table, T, outfile):
     """
     plots = PlotGrid(layout='paper')
     # parameters matching those in generate_map_plot
-    plots.cell_width      =  6.375
+    plots.cell_width      =  5.986667
     plots.cell_height     =  4.6 # top + bottom + h from generate_map_plot
     #plots.left_margin     =  1.2 # set dynamically below
     plots.bottom_margin   =  0.8
     plots.h               =  3.6
-    plots.w               =  3.875
+    plots.w               =  3.6
     plots.cbar_width      =  0.25
     plots.cbar_gap        =  0.6
     plots.density         =  300
-    plots.n_cols          =  2
+    plots.n_cols          =  3
     plots.contour_labels  = False
     plots.cbar_title      = True
     plots.ylabelpad       = -1.0
@@ -54,23 +55,25 @@ def generate_field_free_plot(zeta_table, T, outfile):
     plots.y_minor         = 5
     plots.draw_cell_box   = False
 
+    plots.labels = [
+    #          w_2   w_c     label pos
+        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    ]
+
     zeta = zeta_table['zeta [MHz]']
     abs_zeta = np.clip(np.abs(zeta), a_min=1e-5, a_max=1e5)
     w2 = zeta_table['w2 [GHz]']
     wc = zeta_table['wc [GHz]']
 
     plots.add_cell(w2, wc, abs_zeta, title=r'$\zeta$~(MHz)', logscale=True,
-                   vmin=1e-3, left_margin=1.2, y_labels=True)
+                   vmin=1e-3, left_margin=1.1, y_labels=True)
 
     T_entangling = 500.0/abs_zeta
     plots.add_cell(w2, wc, T_entangling, logscale=True, vmax=1e3,
                     #vmin=0.0, vmax=100.0,
-                   title='$T(\gamma=\pi)$ (ns)', left_margin=0.7, y_labels=False)
-
-    gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
-    C = np.abs(np.sin(0.5*gamma))
-    plots.add_cell(w2, wc, C, vmin=0.0, vmax=1.0, title='concurrence at $T = 50$~ns',
-                   left_margin=1.2, y_labels=True)
+                   title=r'$T(\gamma=\pi)$ (ns)', left_margin=1.09,
+                   y_labels=False)
 
     gamma_bare = 0.012
     rel_decay = zeta_table['gamma [MHz]'] / gamma_bare
@@ -78,7 +81,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
     print("Max: %s" % np.max(rel_decay))
     plots.add_cell(w2, wc, rel_decay, logscale=False, vmin=1, vmax=2.3,
                    title=r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$',
-                   left_margin=0.7, y_labels=False)
+                   left_margin=0.85, y_labels=False, cmap=plt.cm.cubehelix_r)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -121,8 +124,8 @@ def weyl_z_tick_fmt(z, pos):
         return ''
 
 
-def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
-        outfile):
+def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
+        zeta_table, outfile):
 
     # axes:
     # * 200
@@ -130,6 +133,242 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
     # * 10
 
     # vertical layout parameters
+    top = 0.2     # top of figure to T=200 axes
+    bottom = 0.8  # bottom of figure to T=010 axes
+    gap = 0.4     # vertical gap between axes
+    h = 3.6       # height of all axes
+    cell_height = ((bottom + top + 2*gap) / 3.0) + h # 4.2
+    bottom_margin = { # within each cell
+         10: bottom,
+         50: (bottom + h + gap) - cell_height,
+        200: (bottom + 2*(h+gap)) - 2*cell_height,
+    }
+
+    # set up map plot
+    map_plots = PlotGrid(layout='paper')
+    map_plots.cell_width      =  5.75
+    map_plots.cell_height     =  cell_height
+    #map_plots.left_margin     =  1.2 # set dynamically below
+    #map_plots.bottom_margin   =  1.0 # set dynamically below
+    map_plots.h               =  h
+    map_plots.w               =  3.6
+    map_plots.cbar_width      =  0.25
+    map_plots.cbar_gap        =  0.6
+    map_plots.density         =  300
+    map_plots.n_cols          =  3
+    map_plots.contour_labels  = False
+    map_plots.cbar_title      = True
+    map_plots.ylabelpad       = -1.0
+    map_plots.xlabelpad       =  0.5
+    map_plots.clabelpad       =  4.0
+    map_plots.scatter_size    =  0.0
+    map_plots.x_major_ticks   = 0.5
+    map_plots.x_minor         = 5
+    map_plots.y_major_ticks   = 1.0
+    map_plots.y_minor         = 5
+    map_plots.draw_cell_box   = False
+
+    weyl_label_offset = {
+         10: bottom + h - 0.25,
+         50: cell_height + bottom_margin[50] + h - 0.25,
+        200: 2*cell_height + bottom_margin[200] + h -  0.25,
+    }
+    weyl_fig_height = 3 * cell_height
+
+
+    map_plots.labels = [
+        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    ]
+
+    data = OrderedDict([
+            (200, stage_table_200),
+            (50,  stage_table_050),
+            (10,  stage_table_010), ])
+
+    for T in data.keys():
+
+        stage_table = data[T]
+        min_err = diss_error(gamma=1.2e-5, t=T)
+
+        # filter stage table to single frequencies
+        stage_table = stage_table[stage_table['category'].str.contains('1freq')]
+
+        # get optimized concurrence table
+        (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
+        C_opt_table = t_SQ\
+                .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)\
+                .apply(lambda df: df.sort('J_PE').head(1))\
+                .reset_index(level=0, drop=True)
+
+        zeta = zeta_table['zeta [MHz]']
+        gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
+        C_ff = np.abs(np.sin(0.5*gamma))
+
+        # table of zetas at the same data points as C_opt_table
+        ind = ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]']
+        zeta_table2 = pd.merge(C_opt_table[ind+['C', 'max loss']],
+                              zeta_table[ind+['zeta [MHz]']],
+                              on=ind, how='left').dropna()
+        zeta2 = zeta_table2['zeta [MHz]']
+        gamma2 = -2.0 * np.pi * (zeta2/1000.0) * T # entangling phase
+        C_ff2 = np.abs(np.sin(0.5*gamma2))
+
+        # plot the maps
+        map_x_labels = False
+        if T == 10:
+            map_x_labels = True
+
+        map_plots.add_cell(zeta_table['w2 [GHz]'], zeta_table['wc [GHz]'],
+                    1-C_ff, vmin=0.0, vmax=1.0,
+                    contour_levels=0, logscale=False, title=r'$1-C_0$ (field-free)',
+                    left_margin=1.1, bottom_margin=bottom_margin[T],
+                    x_labels=map_x_labels, y_labels=True)
+        map_plots.add_cell(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
+                    1-C_opt_table['C'], vmin=0.0, vmax=1.0,
+                    val_alpha=(1-C_opt_table['max loss']), bg='black',
+                    contour_levels=0, logscale=False, title=r'$1-C_{\text{SQ}}$ (opt)',
+                    left_margin=0.9, bottom_margin=bottom_margin[T],
+                    x_labels=map_x_labels, y_labels=False)
+        map_plots.add_cell(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
+                    -zeta_table2['C']+C_ff2, vmin=0.0, vmax=1.0,
+                    val_alpha=(1-zeta_table2['max loss']), bg='black',
+                    contour_levels=0, logscale=False, title=r'$C_{0} - C_{\text{SQ}}$',
+                    left_margin=0.7, bottom_margin=bottom_margin[T],
+                    x_labels=map_x_labels, y_labels=False)
+
+    if OUTFOLDER is not None:
+        outfile = os.path.join(OUTFOLDER, outfile)
+
+    fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
+    fig_width = map_plots.n_cols * map_plots.cell_width
+    for T in [10, 50, 200]:
+        fig_maps.text((1.1+0.5*map_plots.w)/fig_width,
+                      weyl_label_offset[T]/weyl_fig_height,
+                      r'$T = %d$~ns' % T, verticalalignment='top',
+                      horizontalalignment='center', size=10)
+    fig_maps.savefig(outfile)
+    print("written %s" % outfile)
+    plt.close(fig_maps)
+
+
+def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
+        zeta_table, outfile):
+
+    # axes:
+    # * 200
+    # * 50
+    # * 10
+
+    # vertical layout parameters
+    top = 0.2     # top of figure to T=200 axes
+    bottom = 0.8  # bottom of figure to T=010 axes
+    gap = 0.4     # vertical gap between axes
+    h = 3.6       # height of all axes
+    cell_height = ((bottom + top + 2*gap) / 3.0) + h # 4.2
+    bottom_margin = { # within each cell
+         10: bottom,
+         50: (bottom + h + gap) - cell_height,
+        200: (bottom + 2*(h+gap)) - 2*cell_height,
+    }
+
+    # set up map plot
+    map_plots = PlotGrid(layout='paper')
+    map_plots.cell_width      =  5.85
+    map_plots.cell_height     =  cell_height
+    #map_plots.left_margin     =  1.2 # set dynamically below
+    #map_plots.bottom_margin   =  1.0 # set dynamically below
+    map_plots.h               =  h
+    map_plots.w               =  3.6
+    map_plots.cbar_width      =  0.25
+    map_plots.cbar_gap        =  0.6
+    map_plots.density         =  300
+    map_plots.n_cols          =  2
+    map_plots.contour_labels  = False
+    map_plots.cbar_title      = True
+    map_plots.ylabelpad       = -1.0
+    map_plots.xlabelpad       =  0.5
+    map_plots.clabelpad       =  4.0
+    map_plots.scatter_size    =  0.0
+    map_plots.x_major_ticks   = 0.5
+    map_plots.x_minor         = 5
+    map_plots.y_major_ticks   = 1.0
+    map_plots.y_minor         = 5
+    map_plots.draw_cell_box   = False
+
+    map_plots.labels = [
+        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    ]
+
+    data = OrderedDict([
+            (200, stage_table_200),
+            (50,  stage_table_050),
+            (10,  stage_table_010), ])
+
+    for T in data.keys():
+
+        stage_table = data[T]
+        min_err = diss_error(gamma=1.2e-5, t=T)
+
+        # filter stage table to single frequencies
+        stage_table = stage_table[stage_table['category'].str.contains('1freq')]
+
+        # get optimized concurrence table
+        (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
+        C_opt_table = t_PE\
+                .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)\
+                .apply(lambda df: df.sort('J_PE').head(1))\
+                .reset_index(level=0, drop=True)
+
+        # table of zetas at the same data points as C_opt_table
+        ind = ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]']
+        zeta_table2 = pd.merge(C_opt_table[ind+['C', 'max loss']],
+                              zeta_table[ind+['zeta [MHz]']],
+                              on=ind, how='left').dropna()
+        zeta = zeta_table2['zeta [MHz]']
+        gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
+        C_ff = np.abs(np.sin(0.5*gamma))
+
+        # plot the maps
+        map_x_labels = False
+        if T == 10:
+            map_x_labels = True
+
+        map_plots.add_cell(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
+                    C_opt_table['C'], vmin=0.0, vmax=1.0,
+                    val_alpha=(1-C_opt_table['max loss']), bg='black',
+                    contour_levels=0, logscale=False, title=r'$C_{\text{PE}}$ (opt)',
+                    left_margin=1.1, bottom_margin=bottom_margin[T],
+                    x_labels=map_x_labels, y_labels=True)
+        map_plots.add_cell(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
+                    zeta_table2['C']-C_ff, vmin=0.0, vmax=1.0,
+                    val_alpha=(1-zeta_table2['max loss']), bg='black',
+                    contour_levels=0, logscale=False, title=r'$C_{\text{PE}} - C_0$',
+                    left_margin=0.8, bottom_margin=bottom_margin[T],
+                    x_labels=map_x_labels, y_labels=False)
+
+    if OUTFOLDER is not None:
+        outfile = os.path.join(OUTFOLDER, outfile)
+
+    out_path, out_filename = os.path.split(outfile)
+
+    fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
+    fig_maps.savefig(outfile)
+    print("written %s" % outfile)
+    plt.close(fig_maps)
+
+
+
+def generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
+        outfile):
+
+    # axes:
+    # * 200
+    # * 50
+    # * 10
+
+    # vertical layout parameters (see PE plot)
     top = 0.2     # top of figure to T=200 axes
     bottom = 0.8  # bottom of figure to T=010 axes
     gap = 0.4     # vertical gap between axes
@@ -153,30 +392,6 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
         200: 2*cell_height + bottom_margin[200] + h -  0.25,
     }
 
-    # set up map plot
-    map_plots = PlotGrid(layout='paper')
-    map_plots.cell_width      =  6.375
-    map_plots.cell_height     =  cell_height
-    #map_plots.left_margin     =  1.2 # set dynamically below
-    #map_plots.bottom_margin   =  1.0 # set dynamically below
-    map_plots.h               =  h
-    map_plots.w               =  3.875
-    map_plots.cbar_width      =  0.25
-    map_plots.cbar_gap        =  0.6
-    map_plots.density         =  100
-    map_plots.n_cols          =  2
-    map_plots.contour_labels  = False
-    map_plots.cbar_title      = True
-    map_plots.ylabelpad       = -1.0
-    map_plots.xlabelpad       =  0.5
-    map_plots.clabelpad       =  4.0
-    map_plots.scatter_size    =  0.0
-    map_plots.x_major_ticks   = 0.5
-    map_plots.x_minor         = 5
-    map_plots.y_major_ticks   = 1.0
-    map_plots.y_minor         = 5
-    map_plots.draw_cell_box   = False
-
     # set up Weyl plot
     weyl_fig_width = 4.35
     weyl_fig_height = 3 * cell_height
@@ -199,38 +414,7 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
         # filter stage table to single frequencies
         stage_table = stage_table[stage_table['category'].str.contains('1freq')]
 
-        # get quality table (best of any entry for a given parameter point)
         (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
-        Q_table = get_Q_table(t_PE, t_SQ)
-        Q_table = Q_table\
-                .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)\
-                .apply(lambda df: df.sort('Q').tail(1))\
-                .reset_index(level=0, drop=True)
-
-        # get concurrence table (best of any antry for a given parameter point)
-        C_table = t_PE\
-                .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)\
-                .apply(lambda df: df.sort('J_PE').head(1))\
-                .reset_index(level=0, drop=True)
-
-        # plot the maps
-        map_x_labels = False
-        if T == 10:
-            map_x_labels = True
-
-        map_plots.add_cell(C_table['w2 [GHz]'], C_table['wc [GHz]'],
-                    C_table['C'], vmin=0.0, vmax=1.0,
-                    val_alpha=(1-t_PE['max loss']), bg='black',
-                    contour_levels=0, logscale=False, title='concurrence',
-                    left_margin=1.2, bottom_margin=bottom_margin[T],
-                    x_labels=map_x_labels, y_labels=True)
-        map_plots.add_cell(Q_table['w2 [GHz]'], Q_table['wc [GHz]'],
-                       1.0-Q_table['Q'], vmin=min_err, vmax=1.0, logscale=True,
-                        val_alpha=(1-t_PE['max loss']), bg='black',
-                        cmap=plt.cm.gnuplot2_r,
-                        contour_levels=0, title='$1-Q$',
-                        left_margin=0.7, bottom_margin=bottom_margin[T],
-                        x_labels=map_x_labels, y_labels=False)
 
         # plot the weyl_chamber
         pos_weyl = [weyl_left_margin/weyl_fig_width,
@@ -258,18 +442,8 @@ def generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
 
-    out_path, out_filename = os.path.split(outfile)
-    out_base, out_ext = os.path.splitext(out_filename)
-    outfile_maps = os.path.join(out_path, "%s_map%s" % (out_base, out_ext))
-    outfile_weyl = os.path.join(out_path, "%s_weyl%s" % (out_base, out_ext))
-
-    fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
-    fig_maps.savefig(outfile_maps)
-    print("written %s" % outfile_maps)
-    plt.close(fig_maps)
-
-    fig_weyl.savefig(outfile_weyl)
-    print("written %s" % outfile_weyl)
+    fig_weyl.savefig(outfile)
+    print("written %s" % outfile)
     plt.close(fig_weyl)
 
 
@@ -317,23 +491,22 @@ def generate_error_plot(outfile):
     h = fig_height - (bottom_margin + top_margin)
     w = fig_width  - (left_margin + right_margin)
     data = r'''
-    #                   minimum error  achieved PE error  achieved quality error
+    #                   minimum error  achieved PE error
     # gate duration [ns]
-    5                        3.77e-04           1.54e-03                9.83e-04
-    10                       7.54e-04           8.84e-04                8.22e-04
-    20                       1.51e-03           1.56e-03                1.54e-03
-    50                       3.76e-03           3.87e-03                3.82e-03
-    100                      7.51e-03           7.59e-03                7.56e-03
-    200                      1.49e-02           1.50e-02                1.50e-02
+    5                        3.77e-04           1.54e-03
+    10                       7.54e-04           8.84e-04
+    20                       1.51e-03           1.56e-03
+    50                       3.76e-03           3.87e-03
+    100                      7.51e-03           7.59e-03
+    200                      1.49e-02           1.50e-02
     '''
-    T, eps_0, eps_PE, eps_Q = np.genfromtxt(StringIO(data), unpack=True)
+    T, eps_0, eps_PE = np.genfromtxt(StringIO(data), unpack=True)
     fig = new_figure(fig_width, fig_height, style=STYLE)
     pos = [left_margin/fig_width, bottom_margin/fig_height,
            w/fig_width, h/fig_height]
     ax = fig.add_axes(pos)
     ax.plot(T, eps_0, label=r'$\varepsilon_{\text{avg}}^0$', marker='o', ls='dotted')
     ax.plot(T, eps_PE, label=r'$\varepsilon_{\text{avg}}^{\text{PE}}$', marker='o', ls='dashed')
-    ax.plot(T, eps_Q, label=r'$\varepsilon_{\text{avg}}^{\text{Q}}$', marker='o', ls='solid')
     ax.legend(loc='lower right')
     ax.annotate('QSL', xy=(10, 1e-3),  xycoords='data',
                 xytext=(10, 1e-2), textcoords='data',
@@ -364,11 +537,16 @@ def main(argv=None):
 
     # Fig 1
     generate_field_free_plot(zeta_table, T=50, outfile='fig1.pdf')
+
     # Fig 2
-    #generate_map_plot(stage_table_200, stage_table_050, stage_table_010,
-                      #outfile='fig2.pdf')
+    generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
+                      zeta_table, outfile='fig2_top.pdf')
+    generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
+                      zeta_table, outfile='fig2_bottom_right.pdf')
+    generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
+                      outfile='fig2_bottom_left.pdf')
     # Fig 3
-    #generate_error_plot(outfile='fig3.pdf')
+    generate_error_plot(outfile='fig3.pdf')
     # Fig 5
     #generate_popdyn_plot(outfile='popdyn.png')
 
