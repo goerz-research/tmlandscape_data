@@ -447,27 +447,6 @@ def generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
     plt.close(fig_weyl)
 
 
-def generate_weyl_plot(stage_table, outfile):
-    from QDYN.weyl import WeylChamber
-    w = QDYN.weyl.WeylChamber()
-    w.fig_width = 5.5
-    w.fig_height = 4.1
-    w.left_margin = 0.3
-    w.right_margin = 0.0
-    w.dpi = 600
-    w.ticklabelsize = 7.5
-    (__, t_PE), (__, __) = stage_table\
-         [stage_table['category'].str.contains('1freq')]\
-         .groupby('target', sort=True)
-    t_PE = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
-    w.scatter(t_PE['c1'], t_PE['c2'], t_PE['c3'], s=5, linewidth=0)
-    if OUTFOLDER is not None:
-        outfile = os.path.join(OUTFOLDER, outfile)
-    fig = new_figure(w.fig_width, w.fig_height, style=STYLE)
-    w.plot(fig=fig, outfile=outfile)
-    print("written %s" % outfile)
-
-
 def generate_popdyn_plot(outfile):
     dyn = QDYNTransmonLib.popdyn.PopPlot(
           "./propagate/010_RWA_w2_6000MHz_wc_6300MHz_stage3/PE_1freq/",
@@ -638,6 +617,107 @@ def generate_universal_pulse_plot(universal_rf, outfile):
     print("written %s" % outfile)
 
 
+def generate_universal_popdyn_plot(universal_rf, outfile):
+    fig_width           = 18.0
+    legend_offset       = 10.5
+    state_label_offset  = 10.0
+    target_label_offset = 0.05
+    left_margin         = 1.2
+    right_margin        = 0.25
+    bottom_margin       = 0.75
+    top_margin          = 1.0
+    h = 1.8
+
+    w = float(fig_width - (left_margin + right_margin))/4
+    fig_height = bottom_margin + top_margin + 5*h
+
+    fig = new_figure(fig_width, fig_height, style=STYLE)
+
+    for i_tgt, tgt in enumerate(['PE', 'S_R', 'S_L', 'H_R', 'H_L']):
+
+        bottom_offset = bottom_margin + i_tgt*h
+
+        dyn = QDYNTransmonLib.popdyn.PopPlot(universal_rf[tgt])
+
+        for i_state, basis_state in enumerate(['00', '01', '10', '11']):
+
+            left_offset = left_margin + i_state*w
+            pos = [left_offset/fig_width, bottom_offset/fig_height,
+                   w/fig_width, h/fig_height]
+            ax_pop = fig.add_axes(pos)
+
+            legend_lines = []
+            p00, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop00,
+                              **dyn.styles['00'])
+            p01, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop01,
+                              **dyn.styles['01'])
+            p10, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop10,
+                              **dyn.styles['10'])
+            p11, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop11,
+                              **dyn.styles['11'])
+            pop_sum =   dyn.pop[basis_state].pop00 \
+                      + dyn.pop[basis_state].pop10 \
+                      + dyn.pop[basis_state].pop01 \
+                      + dyn.pop[basis_state].pop11
+            tot, = ax_pop.plot(dyn.tgrid, pop_sum, **dyn.styles['tot'])
+            for line in (p00, p01, p10, p11, tot):
+                legend_lines.append(line)
+
+            if i_tgt == 0:
+                if i_state < 3:
+                    set_axis(ax_pop, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                            labelpad=1, drop_ticklabels=[-1, ])
+                else:
+                    set_axis(ax_pop, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                            labelpad=1)
+            else:
+                set_axis(ax_pop, 'x', 0, 50, step=10, minor=2,
+                        label='', ticklabels=False)
+            if i_state == 0:
+                if i_tgt < 4:
+                    set_axis(ax_pop, 'y', 0, 1, step=0.5, minor=5, label='population',
+                            labelpad=1, drop_ticklabels=[-1, ])
+                else:
+                    set_axis(ax_pop, 'y', 0, 1, step=0.5, minor=5, label='population',
+                            labelpad=1)
+            else:
+                set_axis(ax_pop, 'y', 0, 1, step=0.5, minor=5,
+                        label='', ticklabels=False)
+
+    fig.legend(legend_lines,
+        ('00', '01', '10', '11', 'total logical subspace'),
+        bbox_to_anchor=[(left_margin+2*w)/fig_width, legend_offset/fig_height],
+        loc='center', ncol=5)
+
+    state_labels = {
+            '00': r'$\ket{\Psi(t=0)}=\ket{00}$',
+            '01': r'$\ket{\Psi(t=0)}=\ket{01}$',
+            '10': r'$\ket{\Psi(t=0)}=\ket{10}$',
+            '11': r'$\ket{\Psi(t=0)}=\ket{11}$'
+    }
+    for i_state, basis_state in enumerate(['00', '01', '10', '11']):
+        fig.text((left_margin + (i_state+0.5)*w)/fig_width,
+                  state_label_offset/fig_height, state_labels[basis_state],
+                  va='center', ha='center')
+
+    target_labels = {
+            'PE': r'BGATE',
+            'S_R': r'Phasegate(2)',
+            'S_L': r'Phasegate(1)',
+            'H_R': r'Hadamard(2)',
+            'H_L': r'Hadamard(1)'
+    }
+    for i_tgt, tgt in enumerate(['PE', 'S_R', 'S_L', 'H_R', 'H_L']):
+        fig.text(target_label_offset/fig_width,
+                 (bottom_margin + (i_tgt+0.5)*h)/fig_height,
+                 target_labels[tgt],
+                 rotation='vertical', va='center', ha='left')
+
+    if OUTFOLDER is not None:
+        outfile = os.path.join(OUTFOLDER, outfile)
+    fig.savefig(outfile, format=os.path.splitext(outfile)[1][1:])
+    print("written %s" % outfile)
+
 def main(argv=None):
 
     if argv is None:
@@ -675,7 +755,7 @@ def main(argv=None):
     # Fig 4
     generate_universal_pulse_plot(universal_rf, outfile='fig4.pdf')
     # Fig 5
-    #generate_popdyn_plot(outfile='popdyn.png')
+    generate_universal_popdyn_plot(universal_rf, outfile='fig5.pdf')
 
 
 if __name__ == "__main__":
