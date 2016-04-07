@@ -11,7 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pylab as plt
 from notebook_utils import get_Q_table, diss_error, PlotGrid
 from notebook_utils import (get_stage1_table, get_stage2_table,
-        get_stage3_table, get_zeta_table)
+        get_stage3_table, get_zeta_table, read_target_gate)
 from mgplottools.mpl import new_figure, set_axis, get_color, ls
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
 import pandas as pd
@@ -504,14 +504,15 @@ def generate_error_plot(outfile):
 
 def generate_universal_pulse_plot(universal_rf, outfile):
     fig_width    = 18.0
-    fig_height   = 8.0
+    fig_height   = 8.5
     spec_offset  =  0.7
     phase_offset =  2.95 # PHASE
     phase_deriv_offset =  4.45 # PHASE
     pulse_offset = 5.95
     phase_h       =  1.5 # PHASE
     phase_deriv_h =  1.5 # PHASE
-    label_offset = 7.9
+    label_offset = 8.3
+    error_offset = 7.9
     spec_h       =  1.5
     pulse_h      =  1.5
     left_margin  =  1.4
@@ -537,6 +538,8 @@ def generate_universal_pulse_plot(universal_rf, outfile):
 
         p = QDYN.pulse.Pulse(os.path.join(universal_rf[tgt], 'pulse.dat'),
                              freq_unit='MHz')
+        U = QDYN.gate2q.Gate2Q(os.path.join(universal_rf[tgt], 'U.dat'))
+        O = read_target_gate(os.path.join(universal_rf[tgt], 'target_gate.dat'))
         freq, spectrum = p.spectrum(mode='abs', sort=True)
         spectrum *= 1.0 / len(spectrum)
 
@@ -544,6 +547,10 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         fig.text((left_offset + 0.5*w)/fig_width, label_offset/fig_height,
                   labels[tgt], verticalalignment='top',
                   horizontalalignment='center')
+
+        fig.text((left_offset + 0.5*w)/fig_width, error_offset/fig_height,
+                  r'$\varepsilon_{\text{avg}} = %s$' % latex_exp(1-U.F_avg(O)),
+                  verticalalignment='top', horizontalalignment='center')
 
         # spectrum
         pos = [left_offset/fig_width, spec_offset/fig_height,
@@ -779,6 +786,12 @@ def main(argv=None):
     # Fig 5
     generate_universal_popdyn_plot(universal_rf, outfile='fig5.pdf')
 
+
+def latex_exp(f):
+    """Convert float to scientific notation in LaTeX"""
+    str = "%.2e" % f
+    mantissa, exponent = str.split("e")
+    return r'%.2f \times 10^{%d}' % (float(mantissa), int(exponent))
 
 if __name__ == "__main__":
     sys.exit(main())
