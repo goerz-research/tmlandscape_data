@@ -523,10 +523,10 @@ def generate_universal_pulse_plot(universal_rf, outfile):
     w = float(fig_width - (left_margin + right_margin + 4 * gap)) / 5
 
     labels = {
-            'H_L': r'Hadamard(1)',
-            'H_R': r'Hadamard(2)',
-            'S_L': r'Phasegate(1)',
-            'S_R': r'Phasegate(2)',
+            'H_L': r'Hadamard (1)',
+            'H_R': r'Hadamard (2)',
+            'S_L': r'Phasegate (1)',
+            'S_R': r'Phasegate (2)',
             'PE': r'BGATE',
     }
 
@@ -620,29 +620,30 @@ def generate_universal_pulse_plot(universal_rf, outfile):
 
 def generate_universal_popdyn_plot(universal_rf, outfile):
     fig_width           = 18.0
-    legend_offset       = 10.5
-    state_label_offset  = 10.0
-    target_label_offset = 0.05
+    legend_offset       = 8.70
+    target_label_offset = 8.25
+    state_label_offset  = 0.05
     left_margin         = 1.2
     right_margin        = 0.25
     bottom_margin       = 0.75
     top_margin          = 1.0
     h = 1.8
 
-    w = float(fig_width - (left_margin + right_margin))/4
-    fig_height = bottom_margin + top_margin + 5*h
+    w = float(fig_width - (left_margin + right_margin))/5
+    fig_height = bottom_margin + top_margin + 4*h
 
     fig = new_figure(fig_width, fig_height, style=STYLE)
 
-    for i_tgt, tgt in enumerate(['PE', 'S_R', 'S_L', 'H_R', 'H_L']):
+    for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
 
-        bottom_offset = bottom_margin + i_tgt*h
+        left_offset = left_margin + i_tgt*w
 
         dyn = QDYNTransmonLib.popdyn.PopPlot(universal_rf[tgt])
 
-        for i_state, basis_state in enumerate(['00', '01', '10', '11']):
+        for i_state, basis_state in enumerate(['11', '10', '01', '00']):
 
-            left_offset = left_margin + i_state*w
+            bottom_offset = bottom_margin + i_state*h
+
             pos = [left_offset/fig_width, bottom_offset/fig_height,
                    w/fig_width, h/fig_height]
             ax_pop = fig.add_axes(pos)
@@ -664,8 +665,8 @@ def generate_universal_popdyn_plot(universal_rf, outfile):
             for line in (p00, p01, p10, p11, tot):
                 legend_lines.append(line)
 
-            if i_tgt == 0:
-                if i_state < 3:
+            if i_state == 0:
+                if i_tgt < 4:
                     set_axis(ax_pop, 'x', 0, 50, step=10, minor=2, label='time (ns)',
                             labelpad=1, drop_ticklabels=[-1, ])
                 else:
@@ -674,8 +675,8 @@ def generate_universal_popdyn_plot(universal_rf, outfile):
             else:
                 set_axis(ax_pop, 'x', 0, 50, step=10, minor=2,
                         label='', ticklabels=False)
-            if i_state == 0:
-                if i_tgt < 4:
+            if i_tgt == 0:
+                if i_state < 3:
                     set_axis(ax_pop, 'y', 0, 1, step=0.5, minor=5, label='population',
                             labelpad=1, drop_ticklabels=[-1, ])
                 else:
@@ -687,32 +688,32 @@ def generate_universal_popdyn_plot(universal_rf, outfile):
 
     fig.legend(legend_lines,
         ('00', '01', '10', '11', 'total logical subspace'),
-        bbox_to_anchor=[(left_margin+2*w)/fig_width, legend_offset/fig_height],
+        bbox_to_anchor=[(left_margin+2.5*w)/fig_width, legend_offset/fig_height],
         loc='center', ncol=5)
 
     state_labels = {
-            '00': r'$\ket{\Psi(t=0)}=\ket{00}$',
-            '01': r'$\ket{\Psi(t=0)}=\ket{01}$',
-            '10': r'$\ket{\Psi(t=0)}=\ket{10}$',
-            '11': r'$\ket{\Psi(t=0)}=\ket{11}$'
+            '00': r'$\ket{\Psi(0)}=\ket{00}$',
+            '01': r'$\ket{\Psi(0)}=\ket{01}$',
+            '10': r'$\ket{\Psi(0)}=\ket{10}$',
+            '11': r'$\ket{\Psi(0)}=\ket{11}$'
     }
-    for i_state, basis_state in enumerate(['00', '01', '10', '11']):
-        fig.text((left_margin + (i_state+0.5)*w)/fig_width,
-                  state_label_offset/fig_height, state_labels[basis_state],
-                  va='center', ha='center')
+    for i_state, basis_state in enumerate(['11', '10', '01', '00']):
+        fig.text(state_label_offset/fig_width,
+                 (bottom_margin + (i_state+0.5)*h)/fig_height,
+                 state_labels[basis_state],
+                 rotation='vertical', va='center', ha='left')
 
     target_labels = {
             'PE': r'BGATE',
-            'S_R': r'Phasegate(2)',
-            'S_L': r'Phasegate(1)',
-            'H_R': r'Hadamard(2)',
-            'H_L': r'Hadamard(1)'
+            'S_R': r'Phasegate (2)',
+            'S_L': r'Phasegate (1)',
+            'H_R': r'Hadamard (2)',
+            'H_L': r'Hadamard (1)'
     }
-    for i_tgt, tgt in enumerate(['PE', 'S_R', 'S_L', 'H_R', 'H_L']):
-        fig.text(target_label_offset/fig_width,
-                 (bottom_margin + (i_tgt+0.5)*h)/fig_height,
-                 target_labels[tgt],
-                 rotation='vertical', va='center', ha='left')
+    for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
+        fig.text((left_margin + (i_tgt+0.5)*w)/fig_width,
+                  target_label_offset/fig_height, target_labels[tgt],
+                  va='center', ha='center')
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
