@@ -12,7 +12,7 @@ import matplotlib.pylab as plt
 from notebook_utils import get_Q_table, diss_error, PlotGrid
 from notebook_utils import (get_stage1_table, get_stage2_table,
         get_stage3_table, get_zeta_table)
-from mgplottools.mpl import new_figure, set_axis
+from mgplottools.mpl import new_figure, set_axis, get_color, ls
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
 import pandas as pd
 
@@ -523,6 +523,121 @@ def generate_error_plot(outfile):
     print("written %s" % outfile)
 
 
+def generate_universal_pulse_plot(universal_rf, outfile):
+    fig_width    = 18.0
+    fig_height   = 11.0
+    spec_offset  =  1.0
+    phase_offset =  3.5 # PHASE
+    phase_deriv_offset =  6.0 # PHASE
+    pulse_offset = 8.5
+    phase_h       =  1.5 # PHASE
+    phase_deriv_h =  1.5 # PHASE
+    label_offset = 10.75
+    spec_h       =  1.5
+    pulse_h      =  1.5
+    left_margin  =  1.2
+    right_margin =  0.25
+    gap          =  0.5 # horizontal gap between panels
+
+    fig = new_figure(fig_width, fig_height, style=STYLE)
+
+    w = float(fig_width - (left_margin + right_margin + 4 * gap)) / 5
+
+    labels = {
+            'H_L': r'Hadamard (left)',
+            'H_R': r'Hadamard (right)',
+            'S_L': r'Phasegate (left)',
+            'S_R': r'Phasegate (right)',
+            'PE': r'BGATE',
+    }
+
+    for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
+
+        left_offset = left_margin + i_tgt * (w+gap)
+
+        p = QDYN.pulse.Pulse(os.path.join(universal_rf[tgt], 'pulse.dat'),
+                             freq_unit='MHz')
+        freq, spectrum = p.spectrum(mode='abs', sort=True)
+        spectrum *= 1.0 / len(spectrum)
+
+        # column labels
+        fig.text((left_offset + 0.5*w)/fig_width, label_offset/fig_height,
+                  labels[tgt], verticalalignment='top',
+                  horizontalalignment='center', size=10)
+
+        # spectrum
+        pos = [left_offset/fig_width, spec_offset/fig_height,
+               w/fig_width, spec_h/fig_height]
+        ax_spec = fig.add_axes(pos)
+        ax_spec.plot(freq/100.0, 1.1*spectrum, label='spectrum')
+        set_axis(ax_spec, 'x', -10, 10, range=(-6, 6), step=5, minor=5,
+                 label='frequency (100 MHz)', labelpad=1)
+        w1 = 5.9823 # GHz
+        w2 = 5.8824 # GHz
+        wd = 5.9325 # GHz
+        ax_spec.axvline(x=10*(w2-wd), ls='--', color=get_color('green'))
+        ax_spec.axvline(x=10*(w1-wd), ls='--', color=get_color('orange'))
+        ax_spec.text(x=10*(w2-wd)-0.5, y=90, s=r'$\omega_2^d$',
+                     ha='right', va='top', color=get_color('green'))
+        ax_spec.text(x=10*(w1-wd)+0.5, y=90, s=r'$\omega_1^d$',
+                     ha='left', va='top', color=get_color('orange'))
+        if i_tgt == 0:
+            set_axis(ax_spec, 'y', 0, 100, step=50, minor=5,
+                    label=r'abs(spect) (arb. un.)')
+        else:
+            set_axis(ax_spec, 'y', 0, 100, step=50, minor=5, label='',
+                     ticklabels=False)
+        ##### PHASE ######
+        pos = [left_offset/fig_width, phase_offset/fig_height,
+               w/fig_width, phase_h/fig_height]
+        ax_phase = fig.add_axes(pos)
+        ax_phase.plot(p.tgrid, p.phase(unwrap=True) / np.pi)
+        ax_phase.plot(p.tgrid, p.phase(unwrap=True, s=1000) / np.pi, dashes=ls['dotted'], color='grey')
+        set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                 labelpad=1)
+        if i_tgt == 0:
+            set_axis(ax_phase, 'y', -20, 20, range=(-14.9, 4.9), step=5, minor=5,
+                    label=r'$\phi$ ($\pi$)')
+        else:
+            set_axis(ax_phase, 'y', -20, 20, range=(-14.9, 4.9), step=5, minor=5,
+                     label='', ticklabels=False)
+
+        pos = [left_offset/fig_width, phase_deriv_offset/fig_height,
+               w/fig_width, phase_deriv_h/fig_height]
+        ax_phase_deriv = fig.add_axes(pos)
+        ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000, derivative=True)/100)
+        set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                 labelpad=1)
+        if i_tgt == 0:
+            set_axis(ax_phase_deriv, 'y', -5, 5, range=(-4, 2), step=2, minor=5,
+                    label=r'$d\phi/dt$ (100 MHz)')
+        else:
+            set_axis(ax_phase_deriv, 'y', -5, 5, range=(-4, 2), step=2, minor=5,
+                     label='', ticklabels=False)
+        ax_phase_deriv.axhline(y=10*(w2-wd), ls='--', color=get_color('green'))
+        ax_phase_deriv.axhline(y=10*(w1-wd), ls='--', color=get_color('orange'))
+        ##### PHASE ######
+
+        # pulse
+        pos = [left_offset/fig_width, pulse_offset/fig_height,
+               w/fig_width, pulse_h/fig_height]
+        ax_pulse = fig.add_axes(pos)
+        p.render_pulse(ax_pulse)
+        set_axis(ax_pulse, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                 labelpad=1)
+        if i_tgt == 0:
+            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=5,
+                    label=r'abs(pulse) (MHz)')
+        else:
+            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=5, label='',
+                     ticklabels=False)
+
+    if OUTFOLDER is not None:
+        outfile = os.path.join(OUTFOLDER, outfile)
+    fig.savefig(outfile, format=os.path.splitext(outfile)[1][1:])
+    print("written %s" % outfile)
+
+
 def main(argv=None):
 
     if argv is None:
@@ -534,6 +649,16 @@ def main(argv=None):
     stage_table_050 = get_stage3_table('./runs_020_RWA')
     stage_table_010 = get_stage3_table('./runs_010_RWA')
     zeta_table = get_zeta_table('./runs_050_RWA', T=50)
+
+
+    universal_root = './runs_zeta_detailed/w2_5900MHz_wc_6200MHz'
+    universal_rf = {
+        'H_L': universal_root+'/50ns_w_center_H_left',
+        'H_R': universal_root+'/50ns_w_center_H_right',
+        'S_L': universal_root+'/50ns_w_center_Ph_left',
+        'S_R': universal_root+'/50ns_w_center_Ph_right',
+        'PE':  universal_root+'/PE_LI_BGATE_50ns_cont_SM'
+    }
 
     # Fig 1
     generate_field_free_plot(zeta_table, T=50, outfile='fig1.pdf')
@@ -547,6 +672,8 @@ def main(argv=None):
                       outfile='fig2_bottom_left.pdf')
     # Fig 3
     generate_error_plot(outfile='fig3.pdf')
+    # Fig 4
+    generate_universal_pulse_plot(universal_rf, outfile='fig4.pdf')
     # Fig 5
     #generate_popdyn_plot(outfile='popdyn.png')
 
