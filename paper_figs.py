@@ -504,14 +504,14 @@ def generate_error_plot(outfile):
 
 def generate_universal_pulse_plot(universal_rf, outfile):
     fig_width    = 18.0
-    fig_height   = 11.0
-    spec_offset  =  1.0
-    phase_offset =  3.5 # PHASE
-    phase_deriv_offset =  6.0 # PHASE
-    pulse_offset = 8.5
+    fig_height   = 8.5
+    spec_offset  =  0.7
+    phase_offset =  2.95 # PHASE
+    phase_deriv_offset =  4.70 # PHASE
+    pulse_offset = 6.45
     phase_h       =  1.5 # PHASE
     phase_deriv_h =  1.5 # PHASE
-    label_offset = 10.75
+    label_offset = 8.4
     spec_h       =  1.5
     pulse_h      =  1.5
     left_margin  =  1.2
@@ -523,10 +523,10 @@ def generate_universal_pulse_plot(universal_rf, outfile):
     w = float(fig_width - (left_margin + right_margin + 4 * gap)) / 5
 
     labels = {
-            'H_L': r'Hadamard (left)',
-            'H_R': r'Hadamard (right)',
-            'S_L': r'Phasegate (left)',
-            'S_R': r'Phasegate (right)',
+            'H_L': r'Hadamard(1)',
+            'H_R': r'Hadamard(2)',
+            'S_L': r'Phasegate(1)',
+            'S_R': r'Phasegate(2)',
             'PE': r'BGATE',
     }
 
@@ -542,7 +542,7 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         # column labels
         fig.text((left_offset + 0.5*w)/fig_width, label_offset/fig_height,
                   labels[tgt], verticalalignment='top',
-                  horizontalalignment='center', size=10)
+                  horizontalalignment='center')
 
         # spectrum
         pos = [left_offset/fig_width, spec_offset/fig_height,
@@ -550,7 +550,7 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         ax_spec = fig.add_axes(pos)
         ax_spec.plot(freq/100.0, 1.1*spectrum, label='spectrum')
         set_axis(ax_spec, 'x', -10, 10, range=(-6, 6), step=5, minor=5,
-                 label='frequency (100 MHz)', labelpad=1)
+                 label=r'$\Delta f$ (100 MHz)', labelpad=1)
         w1 = 5.9823 # GHz
         w2 = 5.8824 # GHz
         wd = 5.9325 # GHz
@@ -562,7 +562,7 @@ def generate_universal_pulse_plot(universal_rf, outfile):
                      ha='left', va='top', color=get_color('orange'))
         if i_tgt == 0:
             set_axis(ax_spec, 'y', 0, 100, step=50, minor=5,
-                    label=r'abs(spect) (arb. un.)')
+                    label=r'$\vert F(\epsilon) \vert$ (arb. un.)')
         else:
             set_axis(ax_spec, 'y', 0, 100, step=50, minor=5, label='',
                      ticklabels=False)
@@ -585,11 +585,11 @@ def generate_universal_pulse_plot(universal_rf, outfile):
                w/fig_width, phase_deriv_h/fig_height]
         ax_phase_deriv = fig.add_axes(pos)
         ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000, derivative=True)/100)
-        set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                 labelpad=1)
+        set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='',
+                 ticklabels=False, labelpad=1)
         if i_tgt == 0:
             set_axis(ax_phase_deriv, 'y', -5, 5, range=(-4, 2), step=2, minor=5,
-                    label=r'$d\phi/dt$ (100 MHz)')
+                    label=r'$\frac{d\phi}{dt}$ (100 MHz)')
         else:
             set_axis(ax_phase_deriv, 'y', -5, 5, range=(-4, 2), step=2, minor=5,
                      label='', ticklabels=False)
@@ -602,11 +602,12 @@ def generate_universal_pulse_plot(universal_rf, outfile):
                w/fig_width, pulse_h/fig_height]
         ax_pulse = fig.add_axes(pos)
         p.render_pulse(ax_pulse)
-        set_axis(ax_pulse, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+        set_axis(ax_pulse, 'x', 0, 50, step=10, minor=2, #label='time (ns)',
+                 label='', ticklabels=False,
                  labelpad=1)
         if i_tgt == 0:
             set_axis(ax_pulse, 'y', 0, 300, step=100, minor=5,
-                    label=r'abs(pulse) (MHz)')
+                    label=r'$\vert\epsilon\vert$ (MHz)')
         else:
             set_axis(ax_pulse, 'y', 0, 300, step=100, minor=5, label='',
                      ticklabels=False)
