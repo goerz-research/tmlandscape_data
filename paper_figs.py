@@ -504,19 +504,20 @@ def generate_error_plot(outfile):
 
 def generate_universal_pulse_plot(universal_rf, outfile):
     fig_width    = 18.0
-    fig_height   = 8.5
+    fig_height   = 8.0
     spec_offset  =  0.7
     phase_offset =  2.95 # PHASE
-    phase_deriv_offset =  4.70 # PHASE
-    pulse_offset = 6.45
+    phase_deriv_offset =  4.45 # PHASE
+    pulse_offset = 5.95
     phase_h       =  1.5 # PHASE
     phase_deriv_h =  1.5 # PHASE
-    label_offset = 8.4
+    label_offset = 7.9
     spec_h       =  1.5
     pulse_h      =  1.5
-    left_margin  =  1.2
+    left_margin  =  1.4
     right_margin =  0.25
-    gap          =  0.5 # horizontal gap between panels
+    gap          =  0.0 # horizontal gap between panels
+    y_label_offset  = 0.07
 
     fig = new_figure(fig_width, fig_height, style=STYLE)
 
@@ -548,53 +549,56 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         pos = [left_offset/fig_width, spec_offset/fig_height,
                w/fig_width, spec_h/fig_height]
         ax_spec = fig.add_axes(pos)
-        ax_spec.plot(freq/100.0, 1.1*spectrum, label='spectrum')
-        set_axis(ax_spec, 'x', -10, 10, range=(-6, 6), step=5, minor=5,
+        ax_spec.plot(freq, 1.1*spectrum, label='spectrum')
+        set_axis(ax_spec, 'x', -1000, 1000, range=(-650, 600), step=500, minor=5,
                  label=r'$\Delta f$ (100 MHz)', labelpad=1)
         w1 = 5.9823 # GHz
         w2 = 5.8824 # GHz
         wd = 5.9325 # GHz
-        ax_spec.axvline(x=10*(w2-wd), ls='--', color=get_color('green'))
-        ax_spec.axvline(x=10*(w1-wd), ls='--', color=get_color('orange'))
-        ax_spec.text(x=10*(w2-wd)-0.5, y=90, s=r'$\omega_2^d$',
+        ax_spec.axvline(x=1000*(w2-wd), ls='--', color=get_color('green'))
+        ax_spec.axvline(x=1000*(w1-wd), ls='--', color=get_color('orange'))
+        ax_spec.text(x=1000*(w2-wd)-50, y=90, s=r'$\omega_2^d$',
                      ha='right', va='top', color=get_color('green'))
-        ax_spec.text(x=10*(w1-wd)+0.5, y=90, s=r'$\omega_1^d$',
+        ax_spec.text(x=1000*(w1-wd)+50, y=90, s=r'$\omega_1^d$',
                      ha='left', va='top', color=get_color('orange'))
         if i_tgt == 0:
-            set_axis(ax_spec, 'y', 0, 100, step=50, minor=5,
-                    label=r'$\vert F(\epsilon) \vert$ (arb. un.)')
+            set_axis(ax_spec, 'y', 0, 100, step=50, minor=2, label='')
         else:
-            set_axis(ax_spec, 'y', 0, 100, step=50, minor=5, label='',
+            set_axis(ax_spec, 'y', 0, 100, step=50, minor=2, label='',
                      ticklabels=False)
         ##### PHASE ######
         pos = [left_offset/fig_width, phase_offset/fig_height,
                w/fig_width, phase_h/fig_height]
         ax_phase = fig.add_axes(pos)
         ax_phase.plot(p.tgrid, p.phase(unwrap=True) / np.pi)
-        ax_phase.plot(p.tgrid, p.phase(unwrap=True, s=1000) / np.pi, dashes=ls['dotted'], color='grey')
-        set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                 labelpad=1)
-        if i_tgt == 0:
-            set_axis(ax_phase, 'y', -20, 20, range=(-14.9, 4.9), step=5, minor=5,
-                    label=r'$\phi$ ($\pi$)')
+        #ax_phase.plot(p.tgrid, p.phase(unwrap=True, s=1000) / np.pi, dashes=ls['dotted'], color='grey')
+        if i_tgt < 4:
+            set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                    labelpad=1, drop_ticklabels=[-1, ])
         else:
-            set_axis(ax_phase, 'y', -20, 20, range=(-14.9, 4.9), step=5, minor=5,
+            set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                    labelpad=1)
+        if i_tgt == 0:
+            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4, minor=2,
+                    label='')
+        else:
+            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4, minor=2,
                      label='', ticklabels=False)
 
         pos = [left_offset/fig_width, phase_deriv_offset/fig_height,
                w/fig_width, phase_deriv_h/fig_height]
         ax_phase_deriv = fig.add_axes(pos)
-        ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000, derivative=True)/100)
+        ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000, derivative=True))
         set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='',
                  ticklabels=False, labelpad=1)
         if i_tgt == 0:
-            set_axis(ax_phase_deriv, 'y', -5, 5, range=(-4, 2), step=2, minor=5,
-                    label=r'$\frac{d\phi}{dt}$ (100 MHz)')
+            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250), step=200, minor=2,
+                    label='')
         else:
-            set_axis(ax_phase_deriv, 'y', -5, 5, range=(-4, 2), step=2, minor=5,
+            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250), step=200, minor=2,
                      label='', ticklabels=False)
-        ax_phase_deriv.axhline(y=10*(w2-wd), ls='--', color=get_color('green'))
-        ax_phase_deriv.axhline(y=10*(w1-wd), ls='--', color=get_color('orange'))
+        ax_phase_deriv.axhline(y=1000*(w2-wd), ls='--', color=get_color('green'))
+        ax_phase_deriv.axhline(y=1000*(w1-wd), ls='--', color=get_color('orange'))
         ##### PHASE ######
 
         # pulse
@@ -606,11 +610,27 @@ def generate_universal_pulse_plot(universal_rf, outfile):
                  label='', ticklabels=False,
                  labelpad=1)
         if i_tgt == 0:
-            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=5,
-                    label=r'$\vert\epsilon\vert$ (MHz)')
+            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=2, label='')
         else:
-            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=5, label='',
+            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=2, label='',
                      ticklabels=False)
+
+    fig.text(y_label_offset/fig_width,
+                (spec_offset+0.5*spec_h)/fig_height,
+                r'$\vert F(\epsilon) \vert$ (arb. un.)',
+                rotation='vertical', va='center', ha='left')
+    fig.text(y_label_offset/fig_width,
+                (phase_offset+0.5*phase_h)/fig_height,
+                r'$\phi$ ($\pi$)',
+                rotation='vertical', va='center', ha='left')
+    fig.text(y_label_offset/fig_width,
+                (phase_deriv_offset+0.5*phase_deriv_h)/fig_height,
+                r'$\frac{d\phi}{dt}$ (MHz)',
+                rotation='vertical', va='center', ha='left')
+    fig.text(y_label_offset/fig_width,
+                (pulse_offset+0.5*pulse_h)/fig_height,
+                r'$\vert\epsilon\vert$ (MHz)',
+                rotation='vertical', va='center', ha='left')
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -622,8 +642,8 @@ def generate_universal_popdyn_plot(universal_rf, outfile):
     fig_width           = 18.0
     legend_offset       = 8.70
     target_label_offset = 8.25
-    state_label_offset  = 0.05
-    left_margin         = 1.2
+    state_label_offset  = 0.07
+    left_margin         = 1.4
     right_margin        = 0.25
     bottom_margin       = 0.75
     top_margin          = 1.0
