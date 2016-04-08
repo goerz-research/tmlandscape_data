@@ -506,8 +506,8 @@ def generate_universal_pulse_plot(universal_rf, outfile):
     fig_width    = 18.0
     fig_height   = 8.5
     spec_offset  =  0.7
-    phase_offset =  2.95 # PHASE
-    phase_deriv_offset =  4.45 # PHASE
+    phase_deriv_offset =  2.95 # PHASE
+    phase_offset =  4.45 # PHASE
     pulse_offset = 5.95
     phase_h       =  1.5 # PHASE
     phase_deriv_h =  1.5 # PHASE
@@ -574,30 +574,16 @@ def generate_universal_pulse_plot(universal_rf, outfile):
             set_axis(ax_spec, 'y', 0, 100, step=50, minor=2, label='',
                      ticklabels=False)
         ##### PHASE ######
-        pos = [left_offset/fig_width, phase_offset/fig_height,
-               w/fig_width, phase_h/fig_height]
-        ax_phase = fig.add_axes(pos)
-        ax_phase.plot(p.tgrid, p.phase(unwrap=True) / np.pi)
-        #ax_phase.plot(p.tgrid, p.phase(unwrap=True, s=1000) / np.pi, dashes=ls['dotted'], color='grey')
-        if i_tgt < 4:
-            set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                    labelpad=1, drop_ticklabels=[-1, ])
-        else:
-            set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                    labelpad=1)
-        if i_tgt == 0:
-            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4, minor=2,
-                    label='')
-        else:
-            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4, minor=2,
-                     label='', ticklabels=False)
-
         pos = [left_offset/fig_width, phase_deriv_offset/fig_height,
                w/fig_width, phase_deriv_h/fig_height]
         ax_phase_deriv = fig.add_axes(pos)
         ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000, derivative=True))
-        set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='',
-                 ticklabels=False, labelpad=1)
+        if i_tgt < 4:
+            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                    labelpad=1, drop_ticklabels=[-1, ])
+        else:
+            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                    labelpad=1)
         if i_tgt == 0:
             set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250), step=200, minor=2,
                     label='')
@@ -606,6 +592,20 @@ def generate_universal_pulse_plot(universal_rf, outfile):
                      label='', ticklabels=False)
         ax_phase_deriv.axhline(y=1000*(w2-wd), ls='--', color=get_color('green'))
         ax_phase_deriv.axhline(y=1000*(w1-wd), ls='--', color=get_color('orange'))
+
+        pos = [left_offset/fig_width, phase_offset/fig_height,
+               w/fig_width, phase_h/fig_height]
+        ax_phase = fig.add_axes(pos)
+        ax_phase.plot(p.tgrid, p.phase(unwrap=True) / np.pi)
+        #ax_phase.plot(p.tgrid, p.phase(unwrap=True, s=1000) / np.pi, dashes=ls['dotted'], color='grey')
+        set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='',
+                 ticklabels=False, labelpad=1)
+        if i_tgt == 0:
+            set_axis(ax_phase, 'y', -16, 4, range=(-15, 5), step=4, minor=2,
+                    label='', drop_ticklabels=[-1, ])
+        else:
+            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4, minor=2,
+                     label='', ticklabels=False)
         ##### PHASE ######
 
         # pulse
