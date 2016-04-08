@@ -747,6 +747,14 @@ def generate_universal_popdyn_plot(universal_rf, outfile):
     fig.savefig(outfile, format=os.path.splitext(outfile)[1][1:])
     print("written %s" % outfile)
 
+
+def latex_exp(f):
+    """Convert float to scientific notation in LaTeX"""
+    str = "%.2e" % f
+    mantissa, exponent = str.split("e")
+    return r'%.2f \times 10^{%d}' % (float(mantissa), int(exponent))
+
+
 def main(argv=None):
 
     if argv is None:
@@ -770,28 +778,23 @@ def main(argv=None):
     }
 
     # Fig 1
-    generate_field_free_plot(zeta_table, T=50, outfile='fig1.pdf')
+    generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
 
     # Fig 2
     generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
-                      zeta_table, outfile='fig2_top.pdf')
-    generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
-                      zeta_table, outfile='fig2_bottom_right.pdf')
-    generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
-                      outfile='fig2_bottom_left.pdf')
+                      zeta_table, outfile='fig2_main.pdf')
+
     # Fig 3
-    generate_error_plot(outfile='fig3.pdf')
+    generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
+                      zeta_table, outfile='fig3_right.pdf')
+    generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
+                      outfile='fig3_left.pdf')
     # Fig 4
-    generate_universal_pulse_plot(universal_rf, outfile='fig4.pdf')
+    generate_error_plot(outfile='fig4.pdf')
     # Fig 5
-    generate_universal_popdyn_plot(universal_rf, outfile='fig5.pdf')
-
-
-def latex_exp(f):
-    """Convert float to scientific notation in LaTeX"""
-    str = "%.2e" % f
-    mantissa, exponent = str.split("e")
-    return r'%.2f \times 10^{%d}' % (float(mantissa), int(exponent))
+    generate_universal_pulse_plot(universal_rf, outfile='fig5.pdf')
+    # Fig 6
+    generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
 
 if __name__ == "__main__":
     sys.exit(main())
