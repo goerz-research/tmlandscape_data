@@ -72,7 +72,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
     T_entangling = 500.0/abs_zeta
     plots.add_cell(w2, wc, T_entangling, logscale=True, vmax=1e3,
                     #vmin=0.0, vmax=100.0,
-                   title=r'$T(\gamma=\pi)$ (ns)', left_margin=1.09,
+                   title=r'$T(C_0=1)$ (ns)', left_margin=1.09,
                    y_labels=False)
 
     gamma_bare = 0.012
@@ -558,7 +558,7 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         ax_spec = fig.add_axes(pos)
         ax_spec.plot(freq, 1.1*spectrum, label='spectrum')
         set_axis(ax_spec, 'x', -1000, 1000, range=(-650, 600), step=500, minor=5,
-                 label=r'$\Delta f$ (100 MHz)', labelpad=1)
+                 label=r'$\Delta f$ (MHz)', labelpad=1)
         w1 = 5.9823 # GHz
         w2 = 5.8824 # GHz
         wd = 5.9325 # GHz
