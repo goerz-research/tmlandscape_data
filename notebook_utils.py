@@ -1093,19 +1093,6 @@ def ensure_ham_files(runfolder, rwa=True, stdout=None, rho=False,
             if dissipation:
                 cmds.append(['rewrite_dissipation.py',])
             cmds.append(['tm_en_logical_eigenstates.py', '.'])
-        if (rwa):
-            if dissipation:
-                cmds.append(['tm_en_gh', '--rwa', '--dissipation', '.'])
-            else:
-                cmds.append(['tm_en_gh', '--rwa', '.'])
-        else:
-            if dissipation:
-                cmds.append(['tm_en_gh', '--dissipation', '.'])
-            else:
-                cmds.append(['tm_en_gh', '.'])
-        if dissipation:
-            cmds.append(['rewrite_dissipation.py',])
-        cmds.append(['tm_en_logical_eigenstates', '.'])
         env = os.environ.copy()
         env['OMP_NUM_THREADS'] = '1'
         for cmd in cmds:

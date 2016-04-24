@@ -94,6 +94,8 @@ def propagate(runfolder, pulse_file, rwa, rho=False, rho_pop_plot=False,
             env['OMP_NUM_THREADS'] = '1'
             if use_threads:
                 env['OMP_NUM_THREADS'] = '4'
+                if rho:
+                    env['OMP_NUM_THREADS'] = '16'
             start = time.time()
             prop_log = os.path.join(runfolder, 'prop.log')
             if keep is None:

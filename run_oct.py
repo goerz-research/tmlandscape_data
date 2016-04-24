@@ -411,7 +411,7 @@ def run_oct(runfolder, target='target_gate.dat', rwa=False,
     logger.info("Starting optimization of %s (in %s)", runfolder,
                 temp_runfolder)
     with open(os.path.join(runfolder, 'oct.log'), 'w', 0) as stdout:
-        ensure_ham_files(temp_runfolder, stdout=stdout)
+        ensure_ham_files(temp_runfolder, rwa=rwa, stdout=stdout)
         # we assume that the value for lambda_a is badly chosen and iterate
         # over optimizations until we find a good value
         bad_lambda = True
@@ -574,7 +574,7 @@ def get_iter_stop(config):
 @click.option( '--debug', is_flag=True, default=False,
     help="Enable debugging output")
 @click.option('--threads', 'use_threads', is_flag=True, default=False,
-    help="Use 4 OpenMP threads")
+    help="Use 4 OpenMP threads (16 if --prop-rho)")
 @click.option('--prop-only', is_flag=True, default=False,
     help="Only propagate, instead of doing OCT")
 @click.option(

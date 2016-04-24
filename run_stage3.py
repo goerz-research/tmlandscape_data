@@ -42,6 +42,12 @@ def main(argv=None):
             '--rho', action='store_true', dest='prop_rho',
             default=False, help="Do the propagation in Liouville space.")
         arg_parser.add_option(
+            '--debug', action='store_true', dest='debug',
+            default=False, help="Enable debugging output")
+        arg_parser.add_option(
+            '--threads', action='store_true', dest='threads',
+            default=False, help="Use OpenMP threads in propagation")
+        arg_parser.add_option(
             '--n_qubit', action='store', dest='n_qubit', type="int",
             default=None, help="Use the given number of qubit levels, "
             "instead of the number specified in the config file.")
@@ -125,13 +131,20 @@ def main(argv=None):
                             prop_opts += " --prop-n_qubit=%d" % options.n_qubit
                         if options.n_cavity is not None:
                             prop_opts += " --prop-n_cavity=%d" % options.n_cavity
+                        if options.debug:
+                            prop_opts += " --debug"
+                        if options.threads:
+                            prop_opts += " --threads"
                         command = './run_oct.py {prop_opts} {rwa} {pre_simplex} {runfolder}'\
                                 .format(rwa=rwa, pre_simplex=pre_simplex,
                                         prop_opts=prop_opts,
                                         runfolder=runfolder)
                     else:
-                        command = './run_oct.py --continue {rwa} {pre_simplex} {runfolder}'\
-                                .format(rwa=rwa, pre_simplex=pre_simplex,
+                        oct_opts = '--continue'
+                        if options.debug:
+                            oct_opts += " --debug"
+                        command = './run_oct.py {oct_opts} {rwa} {pre_simplex} {runfolder}'\
+                                .format(oct_opts=oct_opts, rwa=rwa, pre_simplex=pre_simplex,
                                         runfolder=runfolder)
                     jobs.append(command)
                 else:
