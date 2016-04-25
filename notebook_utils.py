@@ -1586,6 +1586,15 @@ def get_prop_fig_table(stage4_table, stage4_folder='stage4',
     return table
 
 
+def get_Liouville_error(prop_log):
+    with open(prop_log) as in_fh:
+        for line in in_fh:
+            m = re.search(r'F_avg\(L\)\s*:\s*([\d.Ee+-]+)', line)
+            if m:
+                return 1.0 - float(m.group(1))
+    return None
+
+
 def get_rho_prop_table(stage4_table, stage4_folder='stage4',
         stage_prop_folder='stage_prop_rho'):
     """Generate table comparing the gate error in Hilbert space to the gate
@@ -1605,12 +1614,7 @@ def get_rho_prop_table(stage4_table, stage4_folder='stage4',
         fld_prop = fld_stage4.replace(stage4_folder, stage_prop_folder)
         for target in targets:
             runfolder = os.path.join(fld_prop, target)
-            err = None
-            with open(os.path.join(runfolder, 'prop.log')) as in_fh:
-                for line in in_fh:
-                    m = re.search(r'F_avg\(L\)\s*:\s*([\d.Ee+-]+)', line)
-                    if m:
-                        err = 1.0 - float(m.group(1))
+            err = get_Liouville_error(os.path.join(runfolder, 'prop.log'))
             L_err[target][fld_stage4] = err
     L_err['tot']  = pd.Series(index=index, data=0.0)
     for target in targets:
