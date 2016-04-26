@@ -22,21 +22,19 @@ def get_stage4_runfolders(runs, stage4_folder):
     return runfolders
 
 
-def prepare_prop(runfolder, stage4_folder='stage4',
-        stage_prop_folder='stage_prop', dry_run=False):
+def prepare_prop(oct_folder, prop_folder, dry_run=False):
     """Generate propagation folder based on the given stage 4 runfolder.
 
-    The stage4 runfolder must contain a config file and a file pulse.dat that
+    The oct_folder must contain a config file and a file pulse.dat that
     is the result of running OCT. The config file will be modified such that it
     is valid both for Liouville and Hilbert space propagation.
     """
     logger = logging.getLogger(__name__)
-    stage4_guess_file = os.path.join(runfolder, 'pulse.guess')
-    stage4_pulse_file = os.path.join(runfolder, 'pulse.dat')
-    stage4_target_gate = os.path.join(runfolder, 'target_gate.dat')
-    stage4_config = os.path.join(runfolder, 'config')
-    prop_folder = runfolder.replace(stage4_folder, stage_prop_folder)
-    assert prop_folder != runfolder
+    stage4_guess_file = os.path.join(oct_folder, 'pulse.guess')
+    stage4_pulse_file = os.path.join(oct_folder, 'pulse.dat')
+    stage4_target_gate = os.path.join(oct_folder, 'target_gate.dat')
+    stage4_config = os.path.join(oct_folder, 'config')
+    assert prop_folder != oct_folder
     prop_pulse_file = os.path.join(prop_folder, 'pulse.dat')
     prop_config = os.path.join(prop_folder, 'config')
     prop_U_dat = os.path.join(prop_folder, 'U.dat')
@@ -44,7 +42,7 @@ def prepare_prop(runfolder, stage4_folder='stage4',
     if os.path.isdir(prop_folder):
         if os.path.isfile(prop_pulse_file):
             # we discard any existing data that does not match the pulse in the
-            # stage 4 runfolder
+            # oct_folder
             if not filecmp.cmp(prop_pulse_file, stage4_pulse_file):
                 logger.debug("Removing %s: stale pulse" % prop_folder)
                 QDYN.shutil.rmtree(prop_folder, ignore_errors=True)
@@ -146,10 +144,10 @@ def main(argv=None):
     else:
         logger.setLevel(logging.INFO)
     folders = get_stage4_runfolders(runs, stage4_folder=options.stage4_folder)
-    for folder in folders:
-        prepare_prop(folder, stage4_folder=options.stage4_folder,
-                stage_prop_folder=options.stage_prop_folder,
-                dry_run=options.dry_run)
+    for oct_folder in folders:
+        prop_folder = runfolder.replace(options.stage4_folder,
+                                        options.stage_prop_folder)
+        prepare_prop(oct_folder, prop_folder, dry_run=options.dry_run)
 
 
 if __name__ == "__main__":
