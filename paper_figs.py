@@ -472,12 +472,12 @@ def generate_error_plot(outfile):
     data = r'''
     #                   minimum error  achieved PE error
     # gate duration [ns]
-    5                        3.77e-04           1.54e-03
-    10                       7.54e-04           8.84e-04
-    20                       1.51e-03           1.56e-03
-    50                       3.76e-03           3.87e-03
-    100                      7.51e-03           7.59e-03
-    200                      1.49e-02           1.50e-02
+    5                        3.02e-04           1.10e-03
+    10                       6.03e-04           6.31e-04
+    20                       1.21e-03           1.21e-03
+    50                       3.01e-03           3.01e-03
+    100                      6.00e-03           6.01e-03
+    200                      1.20e-02           1.20e-02
     '''
     T, eps_0, eps_PE = np.genfromtxt(StringIO(data), unpack=True)
     fig = new_figure(fig_width, fig_height, style=STYLE)
@@ -493,7 +493,7 @@ def generate_error_plot(outfile):
                 horizontalalignment='center', verticalalignment='top',
                 )
     set_axis(ax, 'x', 4, 210, label='gate time (ns)', logscale=True, labelpad=-2)
-    set_axis(ax, 'y', 1e-4, 1.0e-1, label='lowest gate error', logscale=True)
+    set_axis(ax, 'y', 1e-4, 2.0e-2, label='lowest gate error', logscale=True)
     ax.tick_params(axis='x', pad=3)
 
     if OUTFOLDER is not None:
