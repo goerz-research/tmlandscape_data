@@ -461,39 +461,57 @@ def generate_popdyn_plot(outfile):
 
 def generate_error_plot(outfile):
 
-    fig_height      = 4.0
+    fig_height      = 4.5
     fig_width       = 8.5               # Total canvas (cv) width
     left_margin     = 1.2               # Left cv -> plot area
     right_margin    = 0.2               # plot area -> right cv
     top_margin      = 0.25              # top cv -> plot area
     bottom_margin   = 0.6
-    h = fig_height - (bottom_margin + top_margin)
+    gap = 0.15
+    h = 0.5*(fig_height - (bottom_margin + top_margin + gap))
     w = fig_width  - (left_margin + right_margin)
     data = r'''
-    #                   minimum error  achieved PE error
+    #                   minimum error   min err (B)     PE error     err(H1)
     # gate duration [ns]
-    5                        3.02e-04           1.10e-03
-    10                       6.03e-04           6.31e-04
-    20                       1.21e-03           1.21e-03
-    50                       3.01e-03           3.01e-03
-    100                      6.00e-03           6.01e-03
-    200                      1.20e-02           1.20e-02
+    5                        3.02e-04      3.62e-04     1.10e-03   1.00e-00
+    10                       6.03e-04      7.23e-04     6.31e-04   7.34e-02
+    20                       1.21e-03      1.45e-03     1.21e-03   2.20e-02
+    50                       3.01e-03      3.61e-03     3.01e-03   4.46e-03
+    100                      6.00e-03      7.20e-03     6.01e-03   7.65e-03
+    200                      1.20e-02      1.43e-02     1.20e-02   1.47e-02
     '''
-    T, eps_0, eps_PE = np.genfromtxt(StringIO(data), unpack=True)
     fig = new_figure(fig_width, fig_height, style=STYLE)
-    pos = [left_margin/fig_width, bottom_margin/fig_height,
+
+    T, eps_0, eps_0B, eps_PE, eps_H1 = np.genfromtxt(StringIO(data), unpack=True)
+    pos = [left_margin/fig_width, (bottom_margin+h+gap)/fig_height,
            w/fig_width, h/fig_height]
     ax = fig.add_axes(pos)
-    ax.plot(T, eps_0, label=r'$\varepsilon_{\text{avg}}^0$', marker='o', ls='dotted')
-    ax.plot(T, eps_PE, label=r'$\varepsilon_{\text{avg}}^{\text{PE}}$', marker='o', ls='dashed')
+    ax.plot(T, eps_0, label=r'$\varepsilon_{\text{avg}}^0$', marker='o', color=get_color('grey'))
+    ax.plot(T, eps_PE, label=r'$\varepsilon_{\text{avg}}^{\text{PE}}$', color=get_color('orange'), marker='o', dashes=ls['dashed'])
     ax.legend(loc='lower right')
     ax.annotate('QSL', xy=(10, 1e-3),  xycoords='data',
                 xytext=(10, 1e-2), textcoords='data',
                 arrowprops=dict(facecolor='black', width=1, headwidth=3, shrink=0.05),
                 horizontalalignment='center', verticalalignment='top',
                 )
+    set_axis(ax, 'x', 4, 210, label='', logscale=True, ticklabels=False)
+    set_axis(ax, 'y', 2e-4, 3.0e-2, label='gate error', logscale=True)
+    ax.tick_params(axis='x', pad=3)
+
+    pos = [left_margin/fig_width, bottom_margin/fig_height,
+           w/fig_width, h/fig_height]
+    ax = fig.add_axes(pos)
+    ax.plot(T, eps_0, label=None, marker='o', color=get_color('grey'))
+    ax.plot(T, eps_0B, label=r'$\varepsilon_{\text{avg}}^{0,B}$', marker='o', color=get_color('blue'), dashes=ls['dashed'])
+    ax.plot(T, eps_H1, label=r'$\varepsilon_{\text{avg}}^{H1,B}$', marker='o', color=get_color('red'), dashes=ls['long-dashed'])
+    ax.legend(loc='upper left')
+    ax.annotate('QSL', xy=(50, 3e-3),  xycoords='data',
+                xytext=(50, 7e-4), textcoords='data',
+                arrowprops=dict(facecolor='black', width=0.7, headwidth=2, shrink=0.1),
+                horizontalalignment='center', verticalalignment='top',
+                )
     set_axis(ax, 'x', 4, 210, label='gate time (ns)', logscale=True, labelpad=-2)
-    set_axis(ax, 'y', 1e-4, 2.0e-2, label='lowest gate error', logscale=True)
+    set_axis(ax, 'y', 2e-4, 3.0e-2, label='gate error', logscale=True)
     ax.tick_params(axis='x', pad=3)
 
     if OUTFOLDER is not None:
@@ -778,23 +796,23 @@ def main(argv=None):
     }
 
     # Fig 1
-    generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
+    #generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
 
     # Fig 2
-    generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
-                      zeta_table, outfile='fig2_main.pdf')
+    #generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
+                      #zeta_table, outfile='fig2_main.pdf')
 
     # Fig 3
-    generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
-                      zeta_table, outfile='fig3_right.pdf')
-    generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
-                      outfile='fig3_left.pdf')
+    #generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
+                      #zeta_table, outfile='fig3_right.pdf')
+    #generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
+                      #outfile='fig3_left.pdf')
     # Fig 4
     generate_error_plot(outfile='fig4.pdf')
     # Fig 5
-    generate_universal_pulse_plot(universal_rf, outfile='fig5.pdf')
+    #generate_universal_pulse_plot(universal_rf, outfile='fig5.pdf')
     # Fig 6
-    generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
+    #generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
 
 if __name__ == "__main__":
     sys.exit(main())
