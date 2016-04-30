@@ -9,7 +9,7 @@ import matplotlib
 from collections import OrderedDict
 matplotlib.use('Agg')
 import matplotlib.pylab as plt
-from notebook_utils import get_Q_table, diss_error, PlotGrid
+from notebook_utils import get_Q_table, diss_error, PlotGrid, render_values
 from notebook_utils import (get_stage1_table, get_stage2_table,
         get_stage3_table, get_zeta_table, read_target_gate)
 from mgplottools.mpl import new_figure, set_axis, get_color, ls
@@ -31,62 +31,137 @@ def generate_field_free_plot(zeta_table, T, outfile):
     """Plot field-free entangling energy zeta, and projected concurrence after
     the given gate duration T in ns.
     """
-    plots = PlotGrid(layout='paper')
-    # parameters matching those in generate_map_plot
-    plots.cell_width      =  5.986667
-    plots.cell_height     =  4.6 # top + bottom + h from generate_map_plot
-    #plots.left_margin     =  1.2 # set dynamically below
-    plots.bottom_margin   =  0.8
-    plots.h               =  3.6
-    plots.w               =  3.6
-    plots.cbar_width      =  0.25
-    plots.cbar_gap        =  0.6
-    plots.density         =  300
-    plots.n_cols          =  3
-    plots.contour_labels  = False
-    plots.cbar_title      = True
-    plots.ylabelpad       = -1.0
-    plots.xlabelpad       =  0.5
-    plots.clabelpad       =  4.0
-    plots.scatter_size    =  0.0
-    plots.x_major_ticks   = 0.5
-    plots.x_minor         = 5
-    plots.y_major_ticks   = 1.0
-    plots.y_minor         = 5
-    plots.draw_cell_box   = False
+    left_margin   = 1.0
+    cbar_width    = 0.25
+    cbar_gap      = 0.25
+    hgap1         = 1.13
+    hgap2         = 0.93
+    right_margin  = 1.0
+    w             = 4.2
 
-    plots.labels = [
-    #          w_2   w_c     label pos
-        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
-    ]
+    top_margin    = 0.7
+    bottom_margin = 0.8
+    h             = 3.6
+
+    density = 300
+    contour_labels = False
+    wc_min = 4.5
+    wc_max = 10.0
+    w2_min = 5.0
+    w2_max = 7.0
+    x_major_ticks = 0.5
+    x_minor = 5
+    y_major_ticks = 1.0
+    y_minor = 2
+    xlabelpad = 3.0
+    ylabelpad = 1.0
+
+    fig_height = bottom_margin + top_margin + h
+    fig_width  = (left_margin + 2 * cbar_gap + 3 * cbar_width +
+                  hgap1 + hgap2 + right_margin + 3*w)
+
+    fig = new_figure(fig_width, fig_height, style=STYLE)
+    axs = []
+    cbar_axs = []
+
+    # Zeta
 
     zeta = zeta_table['zeta [MHz]']
     abs_zeta = np.clip(np.abs(zeta), a_min=1e-5, a_max=1e5)
     w2 = zeta_table['w2 [GHz]']
     wc = zeta_table['wc [GHz]']
 
-    plots.add_cell(w2, wc, abs_zeta, title=r'$\zeta$~(MHz)', logscale=True,
-                   vmin=1e-3, left_margin=1.1, y_labels=True)
+    pos = [left_margin/fig_width, bottom_margin/fig_height,
+           w/fig_width, h/fig_height]
+    ax = fig.add_axes(pos); axs.append(ax)
+    pos_cbar = [(left_margin+w+cbar_gap)/fig_width, bottom_margin/fig_height,
+               cbar_width/fig_width, h/fig_height]
+    ax_cbar = fig.add_axes(pos_cbar); cbar_axs.append(ax_cbar)
+    cbar = render_values(w2, wc, abs_zeta, ax, ax_cbar, density=density,
+                         logscale=True, vmin=1e-1)
+    set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
+    set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+    ax.tick_params(which='both', direction='out')
+    ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+    ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+    fig.text((left_margin + w + cbar_gap + cbar_width+0.53)/fig_width,
+              1-0.2/fig_height, r'$\zeta$~(MHz)', verticalalignment='top',
+              horizontalalignment='right')
+    labels = [
+    #          w_2   w_c     label pos
+        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    ]
+    for (label, x_y_data, x_y_label, color) in labels:
+        ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+        ax.annotate(label, x_y_label, color=color)
+
+    # Entanglement time
 
     T_entangling = 500.0/abs_zeta
-    plots.add_cell(w2, wc, T_entangling, logscale=True, vmax=1e3,
-                    #vmin=0.0, vmax=100.0,
-                   title=r'$T(C_0=1)$ (ns)', left_margin=1.09,
-                   y_labels=False)
+
+    pos = [(left_margin+cbar_gap+cbar_width+hgap1+w)/fig_width,
+            bottom_margin/fig_height, w/fig_width, h/fig_height]
+    ax = fig.add_axes(pos)
+    pos_cbar = [(left_margin+2*(w+cbar_gap)+hgap1+cbar_width)/fig_width,
+                bottom_margin/fig_height, cbar_width/fig_width, h/fig_height]
+    ax_cbar = fig.add_axes(pos_cbar)
+    cbar = render_values(w2, wc, T_entangling, ax, ax_cbar, density=density,
+                        logscale=True, vmax=1e3)
+    set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
+    set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
+             minor=y_minor, ticklabels=False)
+    ax.tick_params(which='both', direction='out')
+    ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+    fig.text((left_margin + 2*(w + cbar_gap + cbar_width)+hgap1+0.53)/fig_width,
+              1-0.2/fig_height, r'$T(C_0=1)$ (ns)', verticalalignment='top',
+              horizontalalignment='right')
+    labels = [
+    #          w_2   w_c     label pos
+        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    ]
+    for (label, x_y_data, x_y_label, color) in labels:
+        ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+        ax.annotate(label, x_y_label, color=color)
+
+    # Relative effective decay rate
 
     gamma_bare = 0.012
     rel_decay = zeta_table['gamma [MHz]'] / gamma_bare
     print("Min: %s" % np.min(rel_decay))
     print("Max: %s" % np.max(rel_decay))
-    plots.add_cell(w2, wc, rel_decay, logscale=False, vmin=1, vmax=2.3,
-                   title=r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$',
-                   left_margin=0.85, y_labels=False, cmap=plt.cm.cubehelix_r)
+
+    pos = [(left_margin+w+cbar_gap+cbar_width+hgap1+w
+                 +cbar_gap+cbar_width+hgap2)/fig_width,
+            bottom_margin/fig_height, w/fig_width, h/fig_height]
+    ax = fig.add_axes(pos)
+    pos_cbar = [(left_margin+w+cbar_gap+cbar_width+hgap1+w
+                 +cbar_gap+cbar_width+hgap2+w+cbar_gap)/fig_width,
+                bottom_margin/fig_height, cbar_width/fig_width, h/fig_height]
+    ax_cbar = fig.add_axes(pos_cbar)
+    cbar = render_values(w2, wc, rel_decay, ax, ax_cbar, density=density,
+                         logscale=False, vmin=1, vmax=2.3,
+                         cmap=plt.cm.cubehelix_r)
+    set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
+    set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
+            minor=y_minor, ticklabels=False)
+    ax.tick_params(which='both', direction='out')
+    ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+    fig.text(0.995,
+              1-0.2/fig_height, r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$', verticalalignment='top',
+              horizontalalignment='right')
+    labels = [
+    #          w_2   w_c     label pos
+        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    ]
+    for (label, x_y_data, x_y_label, color) in labels:
+        ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+        ax.annotate(label, x_y_label, color=color)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
-
-    fig = plots.plot(quiet=False, show=False, style=STYLE)
 
     fig.savefig(outfile)
     print("written %s" % outfile)
@@ -796,23 +871,23 @@ def main(argv=None):
     }
 
     # Fig 1
-    #generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
+    generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
 
     # Fig 2
-    #generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
-                      #zeta_table, outfile='fig2_main.pdf')
+    generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
+                      zeta_table, outfile='fig2_main.pdf')
 
     # Fig 3
-    #generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
-                      #zeta_table, outfile='fig3_right.pdf')
-    #generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
-                      #outfile='fig3_left.pdf')
+    generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
+                      zeta_table, outfile='fig3_right.pdf')
+    generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
+                      outfile='fig3_left.pdf')
     # Fig 4
     generate_error_plot(outfile='fig4.pdf')
     # Fig 5
-    #generate_universal_pulse_plot(universal_rf, outfile='fig5.pdf')
+    generate_universal_pulse_plot(universal_rf, outfile='fig5.pdf')
     # Fig 6
-    #generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
+    generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
 
 if __name__ == "__main__":
     sys.exit(main())
