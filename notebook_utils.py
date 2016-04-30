@@ -185,8 +185,8 @@ class PlotGrid(object):
         self.labels = []
 
     def add_cell(self, w2, wc, val, val_alpha=None, logscale=False, vmin=None,
-            vmax=None, contour_levels=0, title=None, cmap=None, bg='white',
-            x_labels=True, y_labels=True, left_margin=None,
+            vmax=None, contour_levels=0, title=None, show_cbar=True, cmap=None,
+            bg='white', x_labels=True, y_labels=True, left_margin=None,
             bottom_margin=None):
         """Add a cell to the plot grid
 
@@ -212,6 +212,7 @@ class PlotGrid(object):
             cell_dict['vmax'] = vmax
         cell_dict['contour_levels'] = contour_levels
         cell_dict['title'] = title
+        cell_dict['show_cbar'] = show_cbar
         cell_dict['cmap'] = cmap
         cell_dict['bg'] = bg
         cell_dict['x_labels'] = x_labels
@@ -276,17 +277,23 @@ class PlotGrid(object):
             ax_contour = fig.add_axes(pos_contour)
             cell_axes.append(ax_contour)
 
-            pos_cbar = [(col*cell_width + left_margin + self.w
-                         + self.cbar_gap)/fig_width,
-                        ((n_rows-row-1)*cell_height
-                            + bottom_margin)/fig_height,
-                            self.cbar_width/fig_width, self.h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-            cell_axes.append(ax_cbar)
+            if cell_dict['show_cbar']:
+                pos_cbar = [(col*cell_width + left_margin + self.w
+                            + self.cbar_gap)/fig_width,
+                            ((n_rows-row-1)*cell_height
+                                + bottom_margin)/fig_height,
+                                self.cbar_width/fig_width, self.h/fig_height]
+                ax_cbar = fig.add_axes(pos_cbar)
+                cell_axes.append(ax_cbar)
+            else:
+                ax_cbar = None
 
             if self.cbar_title:
-                axT = ax_cbar.twinx()
-                cell_axes.append(axT)
+                if ax_cbar is None:
+                    axT = None
+                else:
+                    axT = ax_cbar.twinx()
+                    cell_axes.append(axT)
                 cbar = render_values(cell_dict['w2'], cell_dict['wc'],
                               cell_dict['val'], ax_contour, axT,
                               density=self.density,
@@ -296,11 +303,10 @@ class PlotGrid(object):
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
                               scatter_size=self.scatter_size,
-                              cmap=cell_dict['cmap'], bg=cell_dict['bg'],
-                              x_labels=cell_dict['x_labels'],
-                              y_labels=cell_dict['y_labels'])
-                ax_cbar.set_yticks([])
-                ax_cbar.set_yticklabels('',visible=False)
+                              cmap=cell_dict['cmap'], bg=cell_dict['bg'])
+                if ax_cbar is not None:
+                    ax_cbar.set_yticks([])
+                    ax_cbar.set_yticklabels('',visible=False)
             else:
                 cbar = render_values(cell_dict['w2'], cell_dict['wc'],
                               cell_dict['val'], ax_contour, ax_cbar,
@@ -311,28 +317,13 @@ class PlotGrid(object):
                               contour_levels=cell_dict['contour_levels'],
                               contour_labels=self.contour_labels,
                               scatter_size=self.scatter_size,
-                              cmap=cell_dict['cmap'], bg=cell_dict['bg'],
-                              x_labels=cell_dict['x_labels'],
-                              y_labels=cell_dict['y_labels'])
+                              cmap=cell_dict['cmap'], bg=cell_dict['bg'])
 
             for (label, x_y_data, x_y_label, color) in self.labels:
                 ax_contour.scatter((x_y_data[0],), (x_y_data[1], ),
                                    color=color, marker='x')
                 ax_contour.annotate(label, x_y_label, color=color)
 
-            # show the resonance line (cavity on resonace with qubit 2)
-            #ax_contour.plot(np.linspace(self.wc_min, self.wc_max, 10),
-                            #np.linspace(self.wc_min, self.wc_max, 10),
-                            #color='white')
-            #ax_contour.plot(np.linspace(self.w2_min, self.w2_max, 10),
-                            #6.0*np.ones(10), color='white')
-            #ax_contour.axvline(6.29, color='white', ls='--')
-            #ax_contour.axvline(6.31, color='white', ls='--')
-            #ax_contour.axvline(5.71, color='white', ls='--')
-            #ax_contour.axvline(6.0,  color='white', ls='-')
-            #ax_contour.axvline(5.69, color='white', ls='--')
-            #ax_contour.axvline(6.58, color='white', ls='--')
-            #ax_contour.axvline(6.62, color='white', ls='--')
             # ticks and axis labels
             set_axis(ax_contour, 'x', self.w2_min, self.w2_max,
                      self.x_major_ticks, minor=self.x_minor)
@@ -352,8 +343,9 @@ class PlotGrid(object):
 
             if cell_dict['title'] is not None:
                 if self.cbar_title:
-                    ax_cbar.set_ylabel(cell_dict['title'],
-                                       labelpad=self.clabelpad)
+                    if ax_cbar is not None:
+                        ax_cbar.set_ylabel(cell_dict['title'],
+                                        labelpad=self.clabelpad)
                 else:
                     ax_contour.set_title(cell_dict['title'])
 
@@ -363,7 +355,8 @@ class PlotGrid(object):
                 row += 1
 
             self._axes.append(cell_axes)
-            self._cbars.append(cbar)
+            if cell_dict['show_cbar']:
+                self._cbars.append(cbar)
 
         if show:
             plt.show(fig)
@@ -438,9 +431,8 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
 
 
 def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
-    logscale=False, val_alpha=None, vmin=None, vmax=None, contour_levels=11,
-    contour_labels=False, scatter_size=5, clip=True, cmap=None, bg='white',
-    y_labels=True, x_labels=True):
+    logscale=False, val_alpha=None, vmin=None, vmax=None, contour_levels=0,
+    contour_labels=False, scatter_size=0, clip=True, cmap=None, bg='white'):
     """Render the given data onto the given axes
 
     Parameters
@@ -454,7 +446,7 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         Array of values (z-axis)
     ax_contour: matplotlib.axes.Axes instance
         Axes onto which to render the contour plot for (w_2, w_c, val)
-    ax_cbar: matplotlib.axes.Axes instance
+    ax_cbar: matplotlib.axes.Axes instance or None
         Axes onto which to render the color bar describing the contour plot
     density: int
         Number of points per GHz to be used for interpolating the plots
@@ -482,10 +474,6 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         based on the data.
     bg: string
         Color of background, i.e., the color that val_alpha will fade into
-    x_labels: boolean
-        If False, suppress both the x-ticklabels and the x-axis-label
-    y_labels: boolean
-        If False, suppress both the y-ticklabels and the y-axis-label
 
     Returns
     -------
@@ -544,9 +532,12 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
                         linewidth=0.1*scatter_size, zorder=10)
     ax_contour.set_axis_bgcolor('white')
-    fig = ax_cbar.figure
-    cbar = fig.colorbar(cmesh, cax=ax_cbar)
-    return cbar
+    if ax_cbar is None:
+        return None
+    else:
+        fig = ax_cbar.figure
+        cbar = fig.colorbar(cmesh, cax=ax_cbar)
+        return cbar
 
 
 def plot_C_loss(target_table, target='PE', C_min=0.0, C_max=1.0,
