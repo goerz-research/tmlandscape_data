@@ -287,6 +287,14 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax.set_yticklabels([])
         else:
             ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+        labels = [
+        #          w_2   w_c     label pos
+            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+            ax.annotate(label, x_y_label, color=color)
 
         # row 2: 1-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
@@ -313,6 +321,14 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax.set_yticklabels([])
         else:
             ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+        labels = [
+        #          w_2   w_c     label pos
+            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+            ax.annotate(label, x_y_label, color=color)
 
         # row 3: C_0-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
@@ -343,6 +359,14 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
         else:
             ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
         ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+        labels = [
+        #          w_2   w_c     label pos
+            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+            ax.annotate(label, x_y_label, color=color)
 
         fig.text((left_margin+i_col*(w+hgap)+0.5*w)/fig_width,
                  (bottom_margin+2*(h+vgap)+h-0.2)/fig_height,
@@ -352,8 +376,6 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
 
-    #fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
-    #fig_width = map_plots.n_cols * map_plots.cell_width
     fig.savefig(outfile)
     print("written %s" % outfile)
     plt.close(fig)
@@ -362,58 +384,47 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
 def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
         zeta_table, outfile):
 
-    # axes:
-    # * 200
-    # * 50
-    # * 10
+    left_margin   = 1.0
+    hgap          = 0.35
+    cbar_width    = 0.25
+    cbar_gap      = hgap
+    right_margin  = 1.0
+    w             = 4.2
 
-    # vertical layout parameters
-    top = 0.2     # top of figure to T=200 axes
-    bottom = 0.8  # bottom of figure to T=010 axes
-    gap = 0.4     # vertical gap between axes
-    h = 3.6       # height of all axes
-    cell_height = ((bottom + top + 2*gap) / 3.0) + h # 4.2
-    bottom_margin = { # within each cell
-         10: bottom,
-         50: (bottom + h + gap) - cell_height,
-        200: (bottom + 2*(h+gap)) - 2*cell_height,
-    }
+    top_margin    = 0.3
+    bottom_margin = 0.8
+    vgap          = 0.45
+    h             = 3.6
 
-    # set up map plot
-    map_plots = PlotGrid(layout='paper')
-    map_plots.cell_width      =  5.85
-    map_plots.cell_height     =  cell_height
-    #map_plots.left_margin     =  1.2 # set dynamically below
-    #map_plots.bottom_margin   =  1.0 # set dynamically below
-    map_plots.h               =  h
-    map_plots.w               =  3.6
-    map_plots.cbar_width      =  0.25
-    map_plots.cbar_gap        =  0.6
-    map_plots.density         =  300
-    map_plots.n_cols          =  2
-    map_plots.contour_labels  = False
-    map_plots.cbar_title      = True
-    map_plots.ylabelpad       = -1.0
-    map_plots.xlabelpad       =  0.5
-    map_plots.clabelpad       =  4.0
-    map_plots.scatter_size    =  0.0
-    map_plots.x_major_ticks   = 0.5
-    map_plots.x_minor         = 5
-    map_plots.y_major_ticks   = 1.0
-    map_plots.y_minor         = 5
-    map_plots.draw_cell_box   = False
+    weyl_offset_x = 0.0
+    weyl_offset_y = 0.0
+    weyl_width    = 4.0
+    weyl_height   = 3.0
 
-    map_plots.labels = [
-        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
-    ]
+    density = 300
+    wc_min = 4.5
+    wc_max = 10.0
+    w2_min = 5.0
+    w2_max = 7.0
+    x_major_ticks = 0.5
+    x_minor = 5
+    y_major_ticks = 1.0
+    y_minor = 2
+    xlabelpad = 3.0
+    ylabelpad = 1.0
+
+    fig_height = bottom_margin + 3*h + 2*vgap + top_margin
+    fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
+                  + right_margin)
+    fig = new_figure(fig_width, fig_height, style=STYLE)
 
     data = OrderedDict([
             (200, stage_table_200),
             (50,  stage_table_050),
             (10,  stage_table_010), ])
 
-    for T in data.keys():
+
+    for i_col, T in enumerate(data.keys()):
 
         stage_table = data[T]
         min_err = diss_error(gamma=1.2e-5, t=T)
@@ -428,6 +439,9 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
                 .apply(lambda df: df.sort('J_PE').head(1))\
                 .reset_index(level=0, drop=True)
 
+        t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
+        weyl = QDYN.weyl.WeylChamber()
+
         # table of zetas at the same data points as C_opt_table
         ind = ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]']
         zeta_table2 = pd.merge(C_opt_table[ind+['C', 'max loss']],
@@ -437,102 +451,14 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
         gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
         C_ff = np.abs(np.sin(0.5*gamma))
 
-        # plot the maps
-        map_x_labels = False
-        if T == 10:
-            map_x_labels = True
-
-        map_plots.add_cell(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
-                    C_opt_table['C'], vmin=0.0, vmax=1.0,
-                    val_alpha=(1-C_opt_table['max loss']), bg='black',
-                    contour_levels=0, logscale=False, title=r'$C_{\text{PE}}$ (opt)',
-                    left_margin=1.1, bottom_margin=bottom_margin[T],
-                    x_labels=map_x_labels, y_labels=True)
-        map_plots.add_cell(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
-                    zeta_table2['C']-C_ff, vmin=0.0, vmax=1.0,
-                    val_alpha=(1-zeta_table2['max loss']), bg='black',
-                    contour_levels=0, logscale=False, title=r'$C_{\text{PE}} - C_0$',
-                    left_margin=0.8, bottom_margin=bottom_margin[T],
-                    x_labels=map_x_labels, y_labels=False)
-
-    if OUTFOLDER is not None:
-        outfile = os.path.join(OUTFOLDER, outfile)
-
-    out_path, out_filename = os.path.split(outfile)
-
-    fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
-    fig_maps.savefig(outfile)
-    print("written %s" % outfile)
-    plt.close(fig_maps)
-
-
-
-def generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
-        outfile):
-
-    # axes:
-    # * 200
-    # * 50
-    # * 10
-
-    # vertical layout parameters (see PE plot)
-    top = 0.2     # top of figure to T=200 axes
-    bottom = 0.8  # bottom of figure to T=010 axes
-    gap = 0.4     # vertical gap between axes
-    h = 3.6       # height of all axes
-    cell_height = ((bottom + top + 2*gap) / 3.0) + h # 4.2
-    bottom_margin = { # within each cell
-         10: bottom,
-         50: (bottom + h + gap) - cell_height,
-        200: (bottom + 2*(h+gap)) - 2*cell_height,
-    }
-
-    weyl_bottom_offset = {
-         10: bottom,
-         50: cell_height + bottom_margin[50],
-        200: 2*cell_height + bottom_margin[200],
-    }
-
-    weyl_label_offset = {
-         10: bottom + h - 0.25,
-         50: cell_height + bottom_margin[50] + h - 0.25,
-        200: 2*cell_height + bottom_margin[200] + h -  0.25,
-    }
-
-    # set up Weyl plot
-    weyl_fig_width = 4.35
-    weyl_fig_height = 3 * cell_height
-    fig_weyl = new_figure(weyl_fig_width, weyl_fig_height, style=STYLE)
-    weyl_left_margin = 0.3
-    weyl_w = 3.8
-    weyl_h = 3.2
-    ax_weyl = {}
-
-    data = OrderedDict([
-            (200, stage_table_200),
-            (50,  stage_table_050),
-            (10,  stage_table_010), ])
-
-    for T in data.keys():
-
-        stage_table = data[T]
-        min_err = diss_error(gamma=1.2e-5, t=T)
-
-        # filter stage table to single frequencies
-        stage_table = stage_table[stage_table['category'].str.contains('1freq')]
-
-        (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
-
-        # plot the weyl_chamber
-        pos_weyl = [weyl_left_margin/weyl_fig_width,
-                    (weyl_bottom_offset[T])/weyl_fig_height,
-                    weyl_w/weyl_fig_width, weyl_h/weyl_fig_height]
-        ax_weyl = fig_weyl.add_axes(pos_weyl, projection='3d')
-        w = QDYN.weyl.WeylChamber()
-        t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
-        w.scatter(t_PE_weyl['c1'], t_PE_weyl['c2'], t_PE_weyl['c3'],
-                  s=5, linewidth=0)
-        w.render(ax_weyl)
+        # row 1: Weyl chamber
+        pos = [(left_margin+i_col*(w+hgap)+weyl_offset_x)/fig_width,
+               (bottom_margin+2*(h+vgap)+weyl_offset_y)/fig_height,
+               weyl_width/fig_width, weyl_height/fig_height]
+        ax_weyl = fig.add_axes(pos, projection='3d');
+        weyl.scatter(t_PE_weyl['c1'], t_PE_weyl['c2'], t_PE_weyl['c3'],
+                     s=5, linewidth=0)
+        weyl.render(ax_weyl)
         ax_weyl.xaxis._axinfo['ticklabel']['space_factor'] = 1.0
         ax_weyl.yaxis._axinfo['ticklabel']['space_factor'] = 1.0
         ax_weyl.zaxis._axinfo['ticklabel']['space_factor'] = 1.3
@@ -542,16 +468,90 @@ def generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
         ax_weyl.xaxis.set_major_formatter(weyl_x_tick_fmt)
         ax_weyl.yaxis.set_major_formatter(weyl_y_tick_fmt)
         ax_weyl.zaxis.set_major_formatter(weyl_z_tick_fmt)
-        fig_weyl.text(0.5, weyl_label_offset[T]/weyl_fig_height,
-                      r'$T = %d$~ns' % T, verticalalignment='top',
-                      horizontalalignment='center', size=10)
+
+        # row 2: 1-C_SQ
+        pos = [(left_margin+i_col*(w+hgap))/fig_width,
+               (bottom_margin+h+vgap)/fig_height,
+               w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos);
+        if T == 10:
+            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                        (bottom_margin+h+vgap)/fig_height,
+                        cbar_width/fig_width, h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+        else:
+            ax_cbar = None
+        cbar = render_values(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
+                             C_opt_table['C'], ax, ax_cbar, density=density,
+                             vmin=0.0, vmax=1.0, bg='black',
+                             val_alpha=(1-C_opt_table['max loss']))
+        if ax_cbar is not None:
+            ax_cbar.set_ylabel(r'$C_{\text{PE}}$ (opt)', rotation=90)
+        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor, ticklabels=False)
+        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col > 0:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+        labels = [
+        #          w_2   w_c     label pos
+            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+            ax.annotate(label, x_y_label, color=color)
+
+        # row 3: C_0-C_SQ
+        pos = [(left_margin+i_col*(w+hgap))/fig_width,
+               bottom_margin/fig_height,
+               w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos);
+        if T == 10:
+            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                        bottom_margin/fig_height,
+                        cbar_width/fig_width, h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+        else:
+            ax_cbar = None
+        cbar = render_values(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
+                             zeta_table2['C']-C_ff,
+                             ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
+                             val_alpha=(1-zeta_table2['max loss']), bg='black',
+                             )
+        if ax_cbar is not None:
+            ax_cbar.set_ylabel(r'$C_{\text{PE}}-C_{0}$', rotation=90)
+        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
+        ax.set_xticklabels(['5', '5.5', '6', '6.5', '7'])
+        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
+                 minor=y_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col > 0:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+        labels = [
+        #          w_2   w_c     label pos
+            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
+            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+            ax.annotate(label, x_y_label, color=color)
+
+        fig.text((left_margin+i_col*(w+hgap)+0.5*w)/fig_width,
+                 (bottom_margin+2*(h+vgap)+h-0.2)/fig_height,
+                 r'$T = %d$~ns' % T, verticalalignment='top',
+                 horizontalalignment='center', size=10)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
 
-    fig_weyl.savefig(outfile)
+    fig.savefig(outfile)
     print("written %s" % outfile)
-    plt.close(fig_weyl)
+    plt.close(fig)
 
 
 def generate_popdyn_plot(outfile):
@@ -911,11 +911,9 @@ def main(argv=None):
 
     # Fig 3
     generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
-                      zeta_table, outfile='fig3_right.pdf')
-    generate_map_plot_weyl(stage_table_200, stage_table_050, stage_table_010,
-                      outfile='fig3_left.pdf')
+                         zeta_table, outfile='fig3_main.pdf')
     # Fig 4
-    generate_error_plot(outfile='fig4.pdf')
+    generate_error_plot(outfile='fig4_main.pdf')
     # Fig 5
     generate_universal_pulse_plot(universal_rf, outfile='fig5.pdf')
     # Fig 6
