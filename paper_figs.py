@@ -44,7 +44,6 @@ def generate_field_free_plot(zeta_table, T, outfile):
     h             = 3.6
 
     density = 300
-    contour_labels = False
     wc_min = 4.5
     wc_max = 10.0
     w2_min = 5.0
@@ -202,66 +201,42 @@ def weyl_z_tick_fmt(z, pos):
 def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
         zeta_table, outfile):
 
-    # axes:
-    # * 200
-    # * 50
-    # * 10
+    left_margin   = 1.0
+    hgap          = 0.35
+    cbar_width    = 0.25
+    cbar_gap      = hgap
+    right_margin  = 1.0
+    w             = 4.2
 
-    # vertical layout parameters
-    top = 0.2     # top of figure to T=200 axes
-    bottom = 0.8  # bottom of figure to T=010 axes
-    gap = 0.4     # vertical gap between axes
-    h = 3.6       # height of all axes
-    cell_height = ((bottom + top + 2*gap) / 3.0) + h # 4.2
-    bottom_margin = { # within each cell
-         10: bottom,
-         50: (bottom + h + gap) - cell_height,
-        200: (bottom + 2*(h+gap)) - 2*cell_height,
-    }
+    top_margin    = 0.3
+    bottom_margin = 0.8
+    vgap          = 0.45
+    h             = 3.6
 
-    # set up map plot
-    map_plots = PlotGrid(layout='paper')
-    map_plots.cell_width      =  5.75
-    map_plots.cell_height     =  cell_height
-    #map_plots.left_margin     =  1.2 # set dynamically below
-    #map_plots.bottom_margin   =  1.0 # set dynamically below
-    map_plots.h               =  h
-    map_plots.w               =  3.6
-    map_plots.cbar_width      =  0.25
-    map_plots.cbar_gap        =  0.6
-    map_plots.density         =  300
-    map_plots.n_cols          =  3
-    map_plots.contour_labels  = False
-    map_plots.cbar_title      = True
-    map_plots.ylabelpad       = -1.0
-    map_plots.xlabelpad       =  0.5
-    map_plots.clabelpad       =  4.0
-    map_plots.scatter_size    =  0.0
-    map_plots.x_major_ticks   = 0.5
-    map_plots.x_minor         = 5
-    map_plots.y_major_ticks   = 1.0
-    map_plots.y_minor         = 5
-    map_plots.draw_cell_box   = False
+    density = 300
+    wc_min = 4.5
+    wc_max = 10.0
+    w2_min = 5.0
+    w2_max = 7.0
+    x_major_ticks = 0.5
+    x_minor = 5
+    y_major_ticks = 1.0
+    y_minor = 2
+    xlabelpad = 3.0
+    ylabelpad = 1.0
 
-    weyl_label_offset = {
-         10: bottom + h - 0.25,
-         50: cell_height + bottom_margin[50] + h - 0.25,
-        200: 2*cell_height + bottom_margin[200] + h -  0.25,
-    }
-    weyl_fig_height = 3 * cell_height
-
-
-    map_plots.labels = [
-        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
-    ]
+    fig_height = bottom_margin + 3*h + 2*vgap + top_margin
+    fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
+                  + right_margin)
+    fig = new_figure(fig_width, fig_height, style=STYLE)
 
     data = OrderedDict([
             (200, stage_table_200),
             (50,  stage_table_050),
             (10,  stage_table_010), ])
 
-    for T in data.keys():
+
+    for i_col, T in enumerate(data.keys()):
 
         stage_table = data[T]
         min_err = diss_error(gamma=1.2e-5, t=T)
@@ -289,42 +264,99 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
         gamma2 = -2.0 * np.pi * (zeta2/1000.0) * T # entangling phase
         C_ff2 = np.abs(np.sin(0.5*gamma2))
 
-        # plot the maps
-        map_x_labels = False
+        # row 1: 1-C_0
+        pos = [(left_margin+i_col*(w+hgap))/fig_width,
+               (bottom_margin+2*(h+vgap))/fig_height,
+               w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos);
         if T == 10:
-            map_x_labels = True
+            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                        (bottom_margin+2*(h+vgap))/fig_height,
+                        cbar_width/fig_width, h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+        else:
+            ax_cbar = None
+        cbar = render_values(zeta_table['w2 [GHz]'], zeta_table['wc [GHz]'],
+                1-C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0)
+        if ax_cbar is not None:
+            ax_cbar.set_ylabel(r'$1-C_0$', rotation=90)
+        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor, ticklabels=False)
+        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col > 0:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
 
-        map_plots.add_cell(zeta_table['w2 [GHz]'], zeta_table['wc [GHz]'],
-                    1-C_ff, vmin=0.0, vmax=1.0,
-                    contour_levels=0, logscale=False, title=r'$1-C_0$ (field-free)',
-                    left_margin=1.1, bottom_margin=bottom_margin[T],
-                    x_labels=map_x_labels, y_labels=True)
-        map_plots.add_cell(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
-                    1-C_opt_table['C'], vmin=0.0, vmax=1.0,
-                    val_alpha=(1-C_opt_table['max loss']), bg='black',
-                    contour_levels=0, logscale=False, title=r'$1-C_{\text{SQ}}$ (opt)',
-                    left_margin=0.9, bottom_margin=bottom_margin[T],
-                    x_labels=map_x_labels, y_labels=False)
-        map_plots.add_cell(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
-                    -zeta_table2['C']+C_ff2, vmin=0.0, vmax=1.0,
-                    val_alpha=(1-zeta_table2['max loss']), bg='black',
-                    contour_levels=0, logscale=False, title=r'$C_{0} - C_{\text{SQ}}$',
-                    left_margin=0.7, bottom_margin=bottom_margin[T],
-                    x_labels=map_x_labels, y_labels=False)
+        # row 2: 1-C_SQ
+        pos = [(left_margin+i_col*(w+hgap))/fig_width,
+               (bottom_margin+h+vgap)/fig_height,
+               w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos);
+        if T == 10:
+            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                        (bottom_margin+h+vgap)/fig_height,
+                        cbar_width/fig_width, h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+        else:
+            ax_cbar = None
+        cbar = render_values(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
+                             1-C_opt_table['C'], ax, ax_cbar, density=density,
+                             vmin=0.0, vmax=1.0, bg='black',
+                             val_alpha=(1-C_opt_table['max loss']))
+        if ax_cbar is not None:
+            ax_cbar.set_ylabel(r'$1-C_{\text{SQ}}$ (opt)', rotation=90)
+        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor, ticklabels=False)
+        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col > 0:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+
+        # row 3: C_0-C_SQ
+        pos = [(left_margin+i_col*(w+hgap))/fig_width,
+               bottom_margin/fig_height,
+               w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos);
+        if T == 10:
+            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                        bottom_margin/fig_height,
+                        cbar_width/fig_width, h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+        else:
+            ax_cbar = None
+        cbar = render_values(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
+                             -zeta_table2['C']+C_ff2,
+                             ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
+                             val_alpha=(1-zeta_table2['max loss']), bg='black',
+                             )
+        if ax_cbar is not None:
+            ax_cbar.set_ylabel(r'$C_{0} - C_{\text{SQ}}$', rotation=90)
+        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
+        ax.set_xticklabels(['5', '5.5', '6', '6.5', '7'])
+        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
+                 minor=y_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col > 0:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+
+        fig.text((left_margin+i_col*(w+hgap)+0.5*w)/fig_width,
+                 (bottom_margin+2*(h+vgap)+h-0.2)/fig_height,
+                 r'$T = %d$~ns' % T, verticalalignment='top',
+                 horizontalalignment='center', size=10)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
 
-    fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
-    fig_width = map_plots.n_cols * map_plots.cell_width
-    for T in [10, 50, 200]:
-        fig_maps.text((1.1+0.5*map_plots.w)/fig_width,
-                      weyl_label_offset[T]/weyl_fig_height,
-                      r'$T = %d$~ns' % T, verticalalignment='top',
-                      horizontalalignment='center', size=10)
-    fig_maps.savefig(outfile)
+    #fig_maps = map_plots.plot(quiet=False, show=False, style=STYLE)
+    #fig_width = map_plots.n_cols * map_plots.cell_width
+    fig.savefig(outfile)
     print("written %s" % outfile)
-    plt.close(fig_maps)
+    plt.close(fig)
 
 
 def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
