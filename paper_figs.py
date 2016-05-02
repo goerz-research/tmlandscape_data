@@ -630,23 +630,24 @@ def generate_error_plot(outfile):
 
 def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
     fig_width    = 18.0
-    fig_height   = 12.5
+    fig_height   = 14.2
     spec_offset  =  0.7
     phase_deriv_offset =  2.95
     phase_offset =  4.45
     pulse_offset = 5.95
     phase_h       =  1.5
     phase_deriv_h =  1.5
-    label_offset = 12.3
-    error_offset = 11.9
+    label_offset = 14.0
+    error_offset = 13.6
     spec_h       =  1.5
     pulse_h      =  1.5
     left_margin  =  1.4
     right_margin =  0.25
     gap          =  0.0 # horizontal gap between panels
     y_label_offset  = 0.07
-
-    dyn_offset = 8.3
+    log_offset = 8.3
+    log_h = 1.0
+    dyn_offset = 10.0
     dyn_width = 1.55
 
     fig = new_figure(fig_width, fig_height, style=STYLE)
@@ -751,6 +752,28 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
             set_axis(ax_pulse, 'y', 0, 300, step=100, minor=2, label='')
         else:
             set_axis(ax_pulse, 'y', 0, 300, step=100, minor=2, label='',
+                     ticklabels=False)
+
+        # logical subspace population
+        pos = [left_offset/fig_width,log_offset/fig_height,
+               w/fig_width, log_h/fig_height]
+        ax_log = fig.add_axes(pos)
+        dyn = QDYNTransmonLib.popdyn.PopPlot(universal_rf[tgt])
+        pop_loss = np.zeros(len(dyn.tgrid))
+        for i_state, basis_state in enumerate(['11', '10', '01', '00']):
+            pop_loss += 0.25*(dyn.pop[basis_state].pop00 + dyn.pop[basis_state].pop01 + dyn.pop[basis_state].pop10 + dyn.pop[basis_state].pop11)
+        pop_loss = 1.0 - pop_loss
+        ax_log.fill(dyn.tgrid, pop_loss, color=get_color('grey'))
+        if i_tgt < 4:
+            set_axis(ax_log, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                    labelpad=1, drop_ticklabels=[-1, ])
+        else:
+            set_axis(ax_log, 'x', 0, 50, step=10, minor=2, label='time (ns)',
+                    labelpad=1)
+        if i_tgt == 0:
+            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2, label='')
+        else:
+            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2, label='',
                      ticklabels=False)
 
         # population dynamics
@@ -939,109 +962,10 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
                 (pulse_offset+0.5*pulse_h)/fig_height,
                 r'$\vert\epsilon\vert$ (MHz)',
                 rotation='vertical', va='center', ha='left')
-
-    if OUTFOLDER is not None:
-        outfile = os.path.join(OUTFOLDER, outfile)
-    fig.savefig(outfile, format=os.path.splitext(outfile)[1][1:])
-    print("written %s" % outfile)
-
-
-def generate_universal_popdyn_plot(universal_rf, outfile):
-    fig_width           = 18.0
-    legend_offset       = 8.70
-    target_label_offset = 8.25
-    state_label_offset  = 0.07
-    left_margin         = 1.4
-    right_margin        = 0.25
-    bottom_margin       = 0.75
-    top_margin          = 1.0
-    h = 1.8
-
-    w = float(fig_width - (left_margin + right_margin))/5
-    fig_height = bottom_margin + top_margin + 4*h
-
-    fig = new_figure(fig_width, fig_height, style=STYLE)
-
-    for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
-
-        left_offset = left_margin + i_tgt*w
-
-        dyn = QDYNTransmonLib.popdyn.PopPlot(universal_rf[tgt])
-
-        for i_state, basis_state in enumerate(['11', '10', '01', '00']):
-
-            bottom_offset = bottom_margin + i_state*h
-
-            pos = [left_offset/fig_width, bottom_offset/fig_height,
-                   w/fig_width, h/fig_height]
-            ax_pop = fig.add_axes(pos)
-
-            legend_lines = []
-            p00, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop00,
-                              **dyn.styles['00'])
-            p01, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop01,
-                              **dyn.styles['01'])
-            p10, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop10,
-                              **dyn.styles['10'])
-            p11, = ax_pop.plot(dyn.tgrid, dyn.pop[basis_state].pop11,
-                              **dyn.styles['11'])
-            pop_sum =   dyn.pop[basis_state].pop00 \
-                      + dyn.pop[basis_state].pop10 \
-                      + dyn.pop[basis_state].pop01 \
-                      + dyn.pop[basis_state].pop11
-            tot, = ax_pop.plot(dyn.tgrid, pop_sum, **dyn.styles['tot'])
-            for line in (p00, p01, p10, p11, tot):
-                legend_lines.append(line)
-
-            if i_state == 0:
-                if i_tgt < 4:
-                    set_axis(ax_pop, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                            labelpad=1, drop_ticklabels=[-1, ])
-                else:
-                    set_axis(ax_pop, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                            labelpad=1)
-            else:
-                set_axis(ax_pop, 'x', 0, 50, step=10, minor=2,
-                        label='', ticklabels=False)
-            if i_tgt == 0:
-                if i_state < 3:
-                    set_axis(ax_pop, 'y', 0, 1, step=0.5, minor=5, label='population',
-                            labelpad=1, drop_ticklabels=[-1, ])
-                else:
-                    set_axis(ax_pop, 'y', 0, 1, step=0.5, minor=5, label='population',
-                            labelpad=1)
-            else:
-                set_axis(ax_pop, 'y', 0, 1, step=0.5, minor=5,
-                        label='', ticklabels=False)
-
-    fig.legend(legend_lines,
-        ('00', '01', '10', '11', 'total logical subspace'),
-        bbox_to_anchor=[(left_margin+2.5*w)/fig_width, legend_offset/fig_height],
-        loc='center', ncol=5)
-
-    state_labels = {
-            '00': r'$\ket{\Psi(0)}=\ket{00}$',
-            '01': r'$\ket{\Psi(0)}=\ket{01}$',
-            '10': r'$\ket{\Psi(0)}=\ket{10}$',
-            '11': r'$\ket{\Psi(0)}=\ket{11}$'
-    }
-    for i_state, basis_state in enumerate(['11', '10', '01', '00']):
-        fig.text(state_label_offset/fig_width,
-                 (bottom_margin + (i_state+0.5)*h)/fig_height,
-                 state_labels[basis_state],
-                 rotation='vertical', va='center', ha='left')
-
-    target_labels = {
-            'PE': r'BGATE',
-            'S_R': r'Phasegate (2)',
-            'S_L': r'Phasegate (1)',
-            'H_R': r'Hadamard (2)',
-            'H_L': r'Hadamard (1)'
-    }
-    for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
-        fig.text((left_margin + (i_tgt+0.5)*w)/fig_width,
-                  target_label_offset/fig_height, target_labels[tgt],
-                  va='center', ha='center')
+    fig.text(y_label_offset/fig_width,
+                (log_offset+0.5*log_h)/fig_height,
+                r'$1-\text{pop}$',
+                rotation='vertical', va='center', ha='left')
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -1091,11 +1015,10 @@ def main(argv=None):
                          zeta_table, outfile='fig3_main.pdf')
     # Fig 4
     generate_error_plot(outfile='fig4_main.pdf')
+
     # Fig 5
     generate_universal_pulse_plot(universal_rf, field_free_rf,
                                   outfile='fig5.pdf')
-    # Fig 6
-    #generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
 
 if __name__ == "__main__":
     sys.exit(main())
