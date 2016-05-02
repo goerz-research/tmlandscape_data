@@ -93,8 +93,8 @@ def generate_field_free_plot(zeta_table, T, outfile):
               horizontalalignment='right')
     labels = [
     #          w_c   w_2     label pos
-        ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-        ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+        ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+        ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -126,8 +126,8 @@ def generate_field_free_plot(zeta_table, T, outfile):
               horizontalalignment='right')
     labels = [
     #          w_c   w_2     label pos
-        ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-        ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+        ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+        ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -163,8 +163,8 @@ def generate_field_free_plot(zeta_table, T, outfile):
              verticalalignment='top', horizontalalignment='right')
     labels = [
     #          w_c   w_2     label pos
-        ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-        ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+        ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+        ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -302,8 +302,8 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -338,8 +338,8 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -377,8 +377,8 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
         ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -514,8 +514,8 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
             ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
         labels = [
         #          w_c   w_2     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -553,8 +553,8 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
         ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
         labels = [
         #          w_c   w_2     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
