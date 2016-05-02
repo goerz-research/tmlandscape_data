@@ -79,8 +79,12 @@ def generate_field_free_plot(zeta_table, T, outfile):
     ax_cbar = fig.add_axes(pos_cbar); cbar_axs.append(ax_cbar)
     cbar = render_values(wc, w2, abs_zeta, ax, ax_cbar, density=density,
                          logscale=True, vmin=1e-1)
+    cbar.ax.yaxis.set_ticks(cbar.norm(np.concatenate(
+            [np.arange(0.1, 1, 0.1), np.arange(1, 10, 1),
+            np.arange(10, 100, 10)])), minor=True)
     set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor)
+    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+             minor=x_minor)
     ax.tick_params(which='both', direction='out')
     ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
     ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
@@ -108,6 +112,9 @@ def generate_field_free_plot(zeta_table, T, outfile):
     ax_cbar = fig.add_axes(pos_cbar)
     cbar = render_values(wc, w2, T_entangling, ax, ax_cbar, density=density,
                         logscale=True, vmax=1e3)
+    cbar.ax.yaxis.set_ticks(cbar.norm(np.concatenate(
+            [np.arange(4, 10, 1), np.arange(10, 100, 10),
+            np.arange(100, 1000, 100)])), minor=True)
     set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor,
              ticklabels=False)
     set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
@@ -144,15 +151,16 @@ def generate_field_free_plot(zeta_table, T, outfile):
     cbar = render_values(wc, w2, rel_decay, ax, ax_cbar, density=density,
                          logscale=False, vmin=1, vmax=2.3,
                          cmap=plt.cm.cubehelix_r)
+    cbar.set_ticks([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])
     set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor,
              ticklabels=False)
     set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
             minor=x_minor)
     ax.tick_params(which='both', direction='out')
     ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
-    fig.text(0.995,
-              1-0.2/fig_height, r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$', verticalalignment='top',
-              horizontalalignment='right')
+    fig.text(0.995, 1-0.2/fig_height,
+             r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$',
+             verticalalignment='top', horizontalalignment='right')
     labels = [
     #          w_c   w_2     label pos
         ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
