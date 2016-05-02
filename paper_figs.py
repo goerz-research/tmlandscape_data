@@ -32,7 +32,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
     """Plot field-free entangling energy zeta, and projected concurrence after
     the given gate duration T in ns.
     """
-    left_margin   = 1.0
+    left_margin   = 1.05
     cbar_width    = 0.25
     cbar_gap      = 0.25
     hgap1         = 1.13
@@ -42,17 +42,17 @@ def generate_field_free_plot(zeta_table, T, outfile):
 
     top_margin    = 0.7
     bottom_margin = 0.8
-    h             = 3.6
+    h             = 2.5
 
     density = 300
     wc_min = 4.5
-    wc_max = 10.0
+    wc_max = 9.0
     w2_min = 5.0
     w2_max = 7.0
-    x_major_ticks = 0.5
-    x_minor = 5
-    y_major_ticks = 1.0
-    y_minor = 2
+    y_major_ticks = 0.5
+    y_minor = 5
+    x_major_ticks = 1.0
+    x_minor = 2
     xlabelpad = 3.0
     ylabelpad = 1.0
 
@@ -77,20 +77,20 @@ def generate_field_free_plot(zeta_table, T, outfile):
     pos_cbar = [(left_margin+w+cbar_gap)/fig_width, bottom_margin/fig_height,
                cbar_width/fig_width, h/fig_height]
     ax_cbar = fig.add_axes(pos_cbar); cbar_axs.append(ax_cbar)
-    cbar = render_values(w2, wc, abs_zeta, ax, ax_cbar, density=density,
+    cbar = render_values(wc, w2, abs_zeta, ax, ax_cbar, density=density,
                          logscale=True, vmin=1e-1)
-    set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
-    set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+    set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
+    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor)
     ax.tick_params(which='both', direction='out')
-    ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
-    ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+    ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
+    ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
     fig.text((left_margin + w + cbar_gap + cbar_width+0.53)/fig_width,
               1-0.2/fig_height, r'$\zeta$~(MHz)', verticalalignment='top',
               horizontalalignment='right')
     labels = [
-    #          w_2   w_c     label pos
-        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    #          w_c   w_2     label pos
+        ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+        ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -106,20 +106,21 @@ def generate_field_free_plot(zeta_table, T, outfile):
     pos_cbar = [(left_margin+2*(w+cbar_gap)+hgap1+cbar_width)/fig_width,
                 bottom_margin/fig_height, cbar_width/fig_width, h/fig_height]
     ax_cbar = fig.add_axes(pos_cbar)
-    cbar = render_values(w2, wc, T_entangling, ax, ax_cbar, density=density,
+    cbar = render_values(wc, w2, T_entangling, ax, ax_cbar, density=density,
                         logscale=True, vmax=1e3)
-    set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
-    set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
-             minor=y_minor, ticklabels=False)
+    set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor,
+             ticklabels=False)
+    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+             minor=x_minor)
     ax.tick_params(which='both', direction='out')
-    ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+    ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
     fig.text((left_margin + 2*(w + cbar_gap + cbar_width)+hgap1+0.53)/fig_width,
               1-0.2/fig_height, r'$T(C_0=1)$ (ns)', verticalalignment='top',
               horizontalalignment='right')
     labels = [
-    #          w_2   w_c     label pos
-        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    #          w_c   w_2     label pos
+        ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+        ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -140,21 +141,22 @@ def generate_field_free_plot(zeta_table, T, outfile):
                  +cbar_gap+cbar_width+hgap2+w+cbar_gap)/fig_width,
                 bottom_margin/fig_height, cbar_width/fig_width, h/fig_height]
     ax_cbar = fig.add_axes(pos_cbar)
-    cbar = render_values(w2, wc, rel_decay, ax, ax_cbar, density=density,
+    cbar = render_values(wc, w2, rel_decay, ax, ax_cbar, density=density,
                          logscale=False, vmin=1, vmax=2.3,
                          cmap=plt.cm.cubehelix_r)
-    set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
-    set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
-            minor=y_minor, ticklabels=False)
+    set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor,
+             ticklabels=False)
+    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+            minor=x_minor)
     ax.tick_params(which='both', direction='out')
-    ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+    ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
     fig.text(0.995,
               1-0.2/fig_height, r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$', verticalalignment='top',
               horizontalalignment='right')
     labels = [
-    #          w_2   w_c     label pos
-        ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-        ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+    #          w_c   w_2     label pos
+        ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+        ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -202,7 +204,7 @@ def weyl_z_tick_fmt(z, pos):
 def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
         zeta_table, outfile):
 
-    left_margin   = 1.0
+    left_margin   = 1.1
     hgap          = 0.35
     cbar_width    = 0.25
     cbar_gap      = hgap
@@ -212,17 +214,17 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
     top_margin    = 0.3
     bottom_margin = 0.8
     vgap          = 0.45
-    h             = 3.6
+    h             = 2.5
 
     density = 300
     wc_min = 4.5
-    wc_max = 10.0
+    wc_max = 9.0
     w2_min = 5.0
     w2_max = 7.0
-    x_major_ticks = 0.5
-    x_minor = 5
-    y_major_ticks = 1.0
-    y_minor = 2
+    y_major_ticks = 0.5
+    y_minor = 5
+    x_major_ticks = 1.0
+    x_minor = 2
     xlabelpad = 3.0
     ylabelpad = 1.0
 
@@ -277,21 +279,23 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(zeta_table['w2 [GHz]'], zeta_table['wc [GHz]'],
+        cbar = render_values(zeta_table['wc [GHz]'], zeta_table['w2 [GHz]'],
                 1-C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0)
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$1-C_0$', rotation=90)
-        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor, ticklabels=False)
-        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -309,23 +313,25 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
+        cbar = render_values(C_opt_table['wc [GHz]'], C_opt_table['w2 [GHz]'],
                              1-C_opt_table['C'], ax, ax_cbar, density=density,
                              vmin=0.0, vmax=1.0, bg='black',
                              val_alpha=(1-C_opt_table['max loss']))
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$1-C_{\text{SQ}}$ (opt)', rotation=90)
-        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor, ticklabels=False)
-        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -343,36 +349,37 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
+        cbar = render_values(zeta_table2['wc [GHz]'], zeta_table2['w2 [GHz]'],
                              -zeta_table2['C']+C_ff2,
                              ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
                              val_alpha=(1-zeta_table2['max loss']), bg='black',
                              )
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$C_{0} - C_{\text{SQ}}$', rotation=90)
-        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
-        ax.set_xticklabels(['5', '5.5', '6', '6.5', '7'])
-        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
-                 minor=y_minor)
+            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+                 minor=x_minor)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
-        ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
             ax.annotate(label, x_y_label, color=color)
 
-        fig.text((left_margin+i_col*(w+hgap)+0.5*w)/fig_width,
+        fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
                  (bottom_margin+2*(h+vgap)+h-0.2)/fig_height,
                  r'$T = %d$~ns' % T, verticalalignment='top',
-                 horizontalalignment='center', size=10)
+                 horizontalalignment='right', size=10)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -385,36 +392,36 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
 def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
         zeta_table, outfile):
 
-    left_margin   = 1.0
+    left_margin   = 1.1
     hgap          = 0.35
     cbar_width    = 0.25
     cbar_gap      = hgap
     right_margin  = 1.0
     w             = 4.2
 
-    top_margin    = 0.3
+    top_margin    = 0.0
     bottom_margin = 0.8
     vgap          = 0.45
-    h             = 3.6
+    h             = 2.5
 
-    weyl_offset_x = 0.0
-    weyl_offset_y = 0.0
-    weyl_width    = 4.0
-    weyl_height   = 3.0
+    weyl_offset_x = 0.3
+    weyl_offset_y = -0.1
+    weyl_width    = 3.5
+    weyl_height   = 2.5
 
     density = 300
     wc_min = 4.5
-    wc_max = 10.0
+    wc_max = 9.0
     w2_min = 5.0
     w2_max = 7.0
-    x_major_ticks = 0.5
-    x_minor = 5
-    y_major_ticks = 1.0
-    y_minor = 2
+    y_major_ticks = 0.5
+    y_minor = 5
+    x_major_ticks = 1.0
+    x_minor = 2
     xlabelpad = 3.0
     ylabelpad = 1.0
 
-    fig_height = bottom_margin + 3*h + 2*vgap + top_margin
+    fig_height = bottom_margin + 3*h + 2*vgap + top_margin + 0.5
     fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
                   + right_margin)
     fig = new_figure(fig_width, fig_height, style=STYLE)
@@ -482,23 +489,25 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(C_opt_table['w2 [GHz]'], C_opt_table['wc [GHz]'],
+        cbar = render_values(C_opt_table['wc [GHz]'], C_opt_table['w2 [GHz]'],
                              C_opt_table['C'], ax, ax_cbar, density=density,
                              vmin=0.0, vmax=1.0, bg='black',
                              val_alpha=(1-C_opt_table['max loss']))
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$C_{\text{PE}}$ (opt)', rotation=90)
-        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor, ticklabels=False)
-        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max), minor=y_minor)
+            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
+            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
         labels = [
-        #          w_2   w_c     label pos
-            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+        #          w_c   w_2     label pos
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
@@ -516,36 +525,37 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(zeta_table2['w2 [GHz]'], zeta_table2['wc [GHz]'],
+        cbar = render_values(zeta_table2['wc [GHz]'], zeta_table2['w2 [GHz]'],
                              zeta_table2['C']-C_ff,
                              ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
                              val_alpha=(1-zeta_table2['max loss']), bg='black',
                              )
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$C_{\text{PE}}-C_{0}$', rotation=90)
-        set_axis(ax, 'x', w2_min, w2_max, x_major_ticks, minor=x_minor)
-        ax.set_xticklabels(['5', '5.5', '6', '6.5', '7'])
-        set_axis(ax, 'y', 5, 10, y_major_ticks, range=(wc_min, wc_max),
-                 minor=y_minor)
+            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+                 minor=x_minor)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_c$ (GHz)", labelpad=ylabelpad)
-        ax.set_xlabel(r"$\omega_2$ (GHz)", labelpad=xlabelpad)
+            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
         labels = [
-        #          w_2   w_c     label pos
-            ("A", (6.32, 5.75), (6.4, 5.2), 'grey'),
-            ("B", (5.9,  6.2),  (5.95, 6.45), 'grey')
+        #          w_c   w_2     label pos
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'grey'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'grey')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
             ax.annotate(label, x_y_label, color=color)
 
-        fig.text((left_margin+i_col*(w+hgap)+0.5*w)/fig_width,
-                 (bottom_margin+2*(h+vgap)+h-0.2)/fig_height,
+        fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                 (bottom_margin+2*(h+vgap)+h+0.3)/fig_height,
                  r'$T = %d$~ns' % T, verticalalignment='top',
-                 horizontalalignment='center', size=10)
+                 horizontalalignment='right', size=10)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
