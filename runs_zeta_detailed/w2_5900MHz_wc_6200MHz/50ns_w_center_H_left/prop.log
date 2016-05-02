@@ -1,0 +1,187 @@
+**** tm_en_gh --rwa --dissipation .
+Starting on Tue Apr 26 20:23:10 -0700 2016
+
+This is tm_en_gh                                                         rev.03508eb57aa9da474d018ba0a80756003104b893
+ compiled on Tue Mar 22 18:27:41 2016 on host mlhpc2
+QDYN 2.0dev revision 50b2d685df2070f8ff93d299e6b374b322a10cb7 (UNKNOWN)
+  features: no-check-cheby, no-check-newton, no-parallel-ham, parallel-oct, backtraces
+  compiled with ifort on Tue Mar 22 18:10:49 2016 on host mlhpc2
+
+*** Read config file ./config ***
+*** Done reading config file ***
+
+*** Transmon Parameters ***
+[RWA]
+Cavity Detuning      det_c   =  267.500 MHz
+Qubit 1 Detuning     det_1   =   67.500 MHz
+Qubit 1 Detuning     det_2   =  -32.500 MHz
+Qubit 1 Anharmonicity alpha_1 = -290.000 MHz
+Qubit 1 Anharmonicity alpha_2 = -310.000 MHz
+Qubit-Qubit Coupling J_qubit  =    0.000 MHz
+Left Qubit-Cavity g_1         =   70.000 MHz
+Right Qubit-Cavity g_2        =   70.000 MHz
+Left Qubit Decay gamma_1      =    0.012 MHz
+Right Qubit Decay gamma_1     =    0.012 MHz
+Cavity Decay kappa            =    0.050 MHz
+
+Number of qubit levels        =    5
+Number of cavity levels       =    6
+
+*** Grid Initialization ***
+Using dummy grid (ignoring config)
+  Initializing fake 1x1 grid
+
+*** Generate Hamiltonian ***
+Hamiltonian is generated from transmon parameters
+
+Written out drift hamiltonian to ham_drift.dat
+
+Written out control hamiltonian to ham_ctrl.dat
+
+*** Generate Logical States ***
+ 
+Logical eigenstates written to 'logical_eigenstates.dat'
+ 
+
+Done: Tue Apr 26 20:23:10 -0700 2016
+**** rewrite_dissipation.py
+**** tm_en_logical_eigenstates.py .
+**** tm_en_prop .
+*** Read config file ./config ***
+*** Done reading config file ***
+Number of qubit levels        =    5
+Number of cavity levels       =    6
+Starting on Tue Apr 26 20:23:11 -0700 2016
+
+This is tm_en_prop rev.03508eb57aa9da474d018ba0a80756003104b893
+ compiled on Tue Mar 22 18:27:41 2016 on host mlhpc2
+QDYN 2.0dev revision 50b2d685df2070f8ff93d299e6b374b322a10cb7 (UNKNOWN)
+  features: no-check-cheby, no-check-newton, no-parallel-ham, parallel-oct, backtraces
+  compiled with ifort on Tue Mar 22 18:10:49 2016 on host mlhpc2
+
+*** Pulse Initialization ***
+Using pulse.dat (ignoring config)
+    1 pulses in config file
+    Initializing pulse 1
+ 
+**** WARNING **** in thread 001 module qdyn_pulse_mod, routine init_pulse_file
+Mismatch between pulse%is_complex and values in file
+ 
+      setting pulse shape as flattop in [   0.000E+00,   5.000E+01]
+      with t_rise =    2.000E+00, t_fall =    2.000E+00, baseline =   0.0000
+*** Grid Initialization ***
+Using dummy grid (ignoring config)
+  Initializing fake 1x1 grid
+tm_en_check_rwa.py: ALL OK
+*** Read Hamiltonian ***
+Reading Hamiltonian entries from ./ham_drift.dat
+Reading Hamiltonian entries from ./ham_ctrl.dat
+
+*** Reading logical basis  ***
+
+ logical states are read from ./logical_states.dat
+
+eigen dist 00:   0.0000E+00 nrm:   0.0000E+00 En:  0.0000E+00  0.0000E+00 MHz
+eigen dist 01:   5.6778E-05 nrm:   3.1570E-01 En: -5.0245E+01 -7.1233E-03 MHz
+eigen dist 10:   5.6497E-05 nrm:   3.1305E-01 En:  4.9823E+01 -7.0917E-03 MHz
+eigen dist 11:   3.2731E-02 nrm:   8.2562E-04 En: -1.3043E-01 -1.4429E-02 MHz
+
+*** Preparing Propagation ***
+   -> set_oct_2q_gate_targets
+
+
+*** Propagation ***
+Propagating 00 state (thread  1)
+Propagating 01 state (thread  2)
+Propagating 10 state (thread  3)
+Propagating 11 state (thread  4)
+norm(psi1) =    9.9822201265852240E-01
+norm(psi2) =    9.9589960680067868E-01
+norm(psi3) =    9.9873146928206624E-01
+norm(psi4) =    9.9644042088570572E-01
+
+*** Maximally Populated Cavity Levels ***
+
+Propagation  1: psi00_allpops.dat
+  max pop n:    4
+  with population:       1.001E-06
+  at t =           3.3267 ns
+  for qubit state = 00.00
+
+Propagation  2: psi01_allpops.dat
+  max pop n:    4
+  with population:       1.036E-06
+  at t =           1.6008 ns
+  for qubit state = 00.00
+
+Propagation  3: psi10_allpops.dat
+  max pop n:    4
+  with population:       1.033E-06
+  at t =           1.6258 ns
+  for qubit state = 00.00
+
+Propagation  4: psi11_allpops.dat
+  max pop n:    4
+  with population:       1.155E-06
+  at t =           0.9505 ns
+  for qubit state = 00.00
+
+
+Maximum populated qubit level:    3
+
+
+*** Implemented Gate in canonical basis ***
+
+U = [
+{-3.85268406E-01,-5.85396209E-01}(-8.77558449E-04,-1.35129816E-03)(-3.92328334E-01,-5.92851252E-01)( 5.64642220E-04, 1.05792513E-03)
+( 1.48720641E-03, 1.47849421E-03){-3.90211954E-01,-5.89976429E-01}( 4.11069222E-05,-2.16126940E-04)(-3.82758066E-01,-5.87035371E-01)
+(-3.89417519E-01,-5.94455598E-01)( 3.62214410E-04,-1.54224605E-04){ 3.86817861E-01, 5.85061438E-01}(-1.70955748E-03,-1.70454863E-03)
+( 1.44347924E-03, 1.38922348E-04)(-3.84506249E-01,-5.85451610E-01)( 7.06781068E-04, 2.42753530E-03){ 3.85762597E-01, 5.93224957E-01}
+]
+concurrence(U) =   0.01674
+1-concurrence(U) =    9.832577E-01
+
+Closest unitary gate
+U_unitary = [
+{-3.85802460E-01,-5.86761525E-01}(-9.59722913E-04,-1.89896729E-03)(-3.93148212E-01,-5.93545610E-01)( 5.28262185E-04, 8.12584554E-04)
+( 1.07848012E-03, 1.34007878E-03){-3.91684820E-01,-5.92842461E-01}(-2.29171963E-04,-4.92911868E-04)(-3.84613378E-01,-5.89228405E-01)
+(-3.90377709E-01,-5.95372737E-01)( 5.28265038E-04,-5.32914326E-04){ 3.87036952E-01, 5.85946659E-01}(-1.70217235E-03,-1.41317008E-03)
+( 9.81522774E-04,-1.26404415E-06)(-3.86570206E-01,-5.87944899E-01)( 9.18370141E-04, 2.42132128E-03){ 3.87060500E-01, 5.95869760E-01}
+]
+
+Local Invariants g1, g2, g3 (U_unitary):  0.99982  0.00000  2.99964
+Local Invariants g1, g2, g3 (O):  1.00000  0.00000  3.00000
+concurrence(U_unitary) =   0.01675
+1-concurrence(U_unitary) =    9.832460E-01
+
+Loss of population from logical subspace:     5.933736830359138E-03
+
+Reached diagonal phases:
+phi00 = -0.68528 [pi]
+phi01 = -0.68600 [pi]
+phi10 =  0.31405 [pi]
+phi11 =  0.31647 [pi]
+chi   =  0.00315 [pi]
+concurrence(chi) =   0.00494
+1-concurrence(chi) =    9.950576E-01
+
+optimal gate: target_gate.dat
+F_sm      :     9.940152059098286E-01
+F_avg     :     9.940254173617911E-01
+Infidelity:     5.974582638208936E-03
+
+*** Implemented Gate with cavity traced out ***
+
+norm(psi_red1) =    9.9999999999999989E-01
+norm(psi_red2) =    9.9999999999999989E-01
+norm(psi_red3) =    1.0000000000000000E+00
+norm(psi_red4) =    9.9999999999999989E-01
+U_red = [
+{-3.38812797E-01,-5.11653213E-01}( 7.55588883E-02, 1.10359246E-01)(-4.39600994E-01,-6.57023809E-01)( 1.08688565E-01, 1.72993772E-01)
+( 1.04648576E-01, 1.71135628E-01){-3.26978752E-01,-4.87578671E-01}( 8.64989937E-02, 1.26265270E-01)(-4.40666101E-01,-6.76615042E-01)
+(-3.38390304E-01,-5.18632423E-01)( 6.09442055E-02, 1.03112035E-01){ 4.35778878E-01, 6.51734333E-01}(-4.20753127E-02,-8.09836403E-02)
+( 2.46601505E-02, 3.26806062E-02)(-3.16553367E-01,-4.86842728E-01)(-7.50696133E-02,-1.11518996E-01){ 4.42428562E-01, 6.84268762E-01}
+]
+
+
+Done: Tue Apr 26 20:23:12 -0700 2016

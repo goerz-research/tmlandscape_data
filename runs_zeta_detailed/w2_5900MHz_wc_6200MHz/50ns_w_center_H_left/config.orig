@@ -1,0 +1,40 @@
+
+tgrid: n = 1
+1 : t_start = 0.0, t_stop = 50.000000_ns, nt = 2000
+
+pulse: n = 1
+1: type = file, filename = pulse.guess, id = 1,  time_unit = ns, &
+ampl_unit = MHz, is_complex = T, oct_increase_factor = 5.0, &
+oct_outfile = pulse.dat, oct_lambda_a = 1.0e-1, oct_lambda_intens = 0.0, &
+oct_shape = flattop, shape_t_start = 0.0, t_rise = 2.000000_ns, &
+shape_t_stop = 50.000000_ns, t_fall = 2.000000_ns, check_tgrid = F
+
+oct: iter_stop = 10000, max_megs = 9000, type = krotovpk, &
+    A = 0, B = 0, C = 0.0, iter_dat = oct_iters.dat, &
+    keep_pulses = prev, max_hours = 23,  continue = T, dynamic_sigma = T, &
+    sigma_form = local, J_T_conv = 1.0e-3, lbfgs_memory = 10
+
+misc: prop = newton, mass = 1.0
+
+user_ints: n_qubit = 5, n_cavity = 6
+
+user_strings: gate = target_gate.dat, J_T = SM
+
+user_logicals: prop_guess = F, dissipation = T
+
+user_reals: &
+LI_unitarity_weight = 0.01, &
+w_c     = 6200.0_MHz, &
+w_1     = 6000.0_MHz, &
+w_2     = 5900.0_MHz, &
+w_d = 5932.500000_MHz, &
+alpha_1 = -290.0_MHz, &
+alpha_2 = -310.0_MHz, &
+J       =   0.0_MHz, &
+g_1     = 70.0_MHz, &
+g_2     = 70.0_MHz, &
+n0_qubit  = 0.0, &
+n0_cavity = 0.0, &
+kappa   = 0.05_MHz, &
+gamma_1 = 0.012_MHz, &
+gamma_2 = 0.012_MHz, &

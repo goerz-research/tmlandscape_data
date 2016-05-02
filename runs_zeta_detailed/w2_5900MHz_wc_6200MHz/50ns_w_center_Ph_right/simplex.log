@@ -1,0 +1,27 @@
+Fri Mar 25 23:01:44 2016
+# Formula "1freq_rwa" with E0 = 50.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.179095
+# Formula "1freq_rwa" with E0 = 52.5, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.185947
+# Formula "1freq_rwa" with E0 = 47.5, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.172678
+# Formula "1freq_rwa" with E0 = 45.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.166685
+# Formula "1freq_rwa" with E0 = 40.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.155930
+# Formula "1freq_rwa" with E0 = 35.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.146737
+# Formula "1freq_rwa" with E0 = 25.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.132659
+# Formula "1freq_rwa" with E0 = 15.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.123740
+# Formula "1freq_rwa" with E0 = -5.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.119430
+# Formula "1freq_rwa" with E0 = -25.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.132659
+# Formula "1freq_rwa" with E0 = -25.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.132659
+# Formula "1freq_rwa" with E0 = 5.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.119430
+# Formula "1freq_rwa" with E0 = -15.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.123740
+# Formula "1freq_rwa" with E0 = 0.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118898
+# Formula "1freq_rwa" with E0 = 5.0, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.119430
+# Formula "1freq_rwa" with E0 = -2.5, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.119031
+# Formula "1freq_rwa" with E0 = 2.5, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.119031
+# Formula "1freq_rwa" with E0 = -1.25, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118931
+# Formula "1freq_rwa" with E0 = 1.25, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118931
+# Formula "1freq_rwa" with E0 = -0.625, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118906
+# Formula "1freq_rwa" with E0 = 0.625, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118906
+# Formula "1freq_rwa" with E0 = -0.3125, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118900
+# Formula "1freq_rwa" with E0 = 0.3125, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118900
+# Formula "1freq_rwa" with E0 = -0.15625, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118899
+# Formula "1freq_rwa" with E0 = 0.15625, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118899
+# Formula "1freq_rwa" with E0 = -0.078125, T = 50, w_L = 5.9325, w_d = 5.9325 -> 0.118898

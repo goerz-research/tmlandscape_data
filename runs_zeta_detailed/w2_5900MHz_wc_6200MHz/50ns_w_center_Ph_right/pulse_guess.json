@@ -1,0 +1,16 @@
+{
+  "T": 50,
+  "ampl_unit": "MHz",
+  "formula": "1freq_rwa",
+  "freq_unit": "MHz",
+  "mode": "complex",
+  "nt": 5000,
+  "parameters": {
+    "E0": 100.0,
+    "T": 50,
+    "w_L": 5.9325,
+    "w_d": 5.9325
+  },
+  "t0": 0.0,
+  "time_unit": "ns"
+}
