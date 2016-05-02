@@ -10,12 +10,22 @@ import matplotlib
 from collections import OrderedDict
 matplotlib.use('Agg')
 import matplotlib.pylab as plt
-from notebook_utils import get_Q_table, diss_error, PlotGrid, render_values
-from notebook_utils import (get_stage1_table, get_stage2_table,
-        get_stage3_table, get_zeta_table, read_target_gate)
+from notebook_utils import diss_error, render_values
+from notebook_utils import get_stage3_table, get_zeta_table, read_target_gate
 from mgplottools.mpl import new_figure, set_axis, get_color, ls
-from matplotlib.ticker import FuncFormatter, ScalarFormatter
+from matplotlib.ticker import FuncFormatter
 import pandas as pd
+
+"""
+This script generates all the plots for the paper. All the required data a part
+of the repository. That is, running
+
+    ./create_venv.sh
+    . setenv.sh
+    ./paper_figs.py
+
+from a clean checkout should be sufficient to generate the figures.
+"""
 
 STYLE = 'paper.mplstyle'
 
@@ -294,7 +304,8 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor, ticklabels=False)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+                 minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
@@ -330,7 +341,8 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor, ticklabels=False)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+                 minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
@@ -506,7 +518,8 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max), minor=x_minor, ticklabels=False)
+        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+                 minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
@@ -518,7 +531,8 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
+            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color,
+                       marker='x')
             ax.annotate(label, x_y_label, color=color)
 
         # row 3: C_0-C_SQ
@@ -736,35 +750,37 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
         pos = [left_offset/fig_width, phase_deriv_offset/fig_height,
                w/fig_width, phase_deriv_h/fig_height]
         ax_phase_deriv = fig.add_axes(pos)
-        ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000, derivative=True))
+        ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000,
+                            derivative=True))
         if i_tgt < 4:
-            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                    labelpad=1, drop_ticklabels=[-1, ])
+            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2,
+                     label='time (ns)', labelpad=1, drop_ticklabels=[-1, ])
         else:
-            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                    labelpad=1)
+            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2,
+                     label='time (ns)', labelpad=1)
         if i_tgt == 0:
-            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250), step=200, minor=2,
-                    label='')
+            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250),
+                     step=200, minor=2, label='')
         else:
-            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250), step=200, minor=2,
-                     label='', ticklabels=False)
-        ax_phase_deriv.axhline(y=1000*(w2-wd), ls='--', color=get_color('green'))
-        ax_phase_deriv.axhline(y=1000*(w1-wd), ls='--', color=get_color('orange'))
+            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250),
+                     step=200, minor=2, label='', ticklabels=False)
+        ax_phase_deriv.axhline(y=1000*(w2-wd), ls='--',
+                               color=get_color('green'))
+        ax_phase_deriv.axhline(y=1000*(w1-wd), ls='--',
+                               color=get_color('orange'))
 
         pos = [left_offset/fig_width, phase_offset/fig_height,
                w/fig_width, phase_h/fig_height]
         ax_phase = fig.add_axes(pos)
         ax_phase.plot(p.tgrid, p.phase(unwrap=True) / np.pi)
-        #ax_phase.plot(p.tgrid, p.phase(unwrap=True, s=1000) / np.pi, dashes=ls['dotted'], color='grey')
         set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='',
                  ticklabels=False, labelpad=1)
         if i_tgt == 0:
             set_axis(ax_phase, 'y', -16, 4, range=(-15, 5), step=4, minor=2,
                     label='', drop_ticklabels=[-1, ])
         else:
-            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4, minor=2,
-                     label='', ticklabels=False)
+            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4,
+                     minor=2, label='', ticklabels=False)
 
         # pulse
         pos = [left_offset/fig_width, pulse_offset/fig_height,
@@ -789,7 +805,10 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
         dyn = QDYNTransmonLib.popdyn.PopPlot(universal_rf[tgt])
         pop_loss = np.zeros(len(dyn.tgrid))
         for i_state, basis_state in enumerate(['11', '10', '01', '00']):
-            pop_loss += 0.25*(dyn.pop[basis_state].pop00 + dyn.pop[basis_state].pop01 + dyn.pop[basis_state].pop10 + dyn.pop[basis_state].pop11)
+            pop_loss += 0.25*(  dyn.pop[basis_state].pop00
+                              + dyn.pop[basis_state].pop01
+                              + dyn.pop[basis_state].pop10
+                              + dyn.pop[basis_state].pop11)
         pop_loss = 1.0 - pop_loss
         avg_loss = np.trapz(pop_loss, dyn.tgrid) / dyn.tgrid[-1]
         ax_log.fill(dyn.tgrid, pop_loss, color=get_color('grey'))
@@ -801,10 +820,11 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
             set_axis(ax_log, 'x', 0, 50, step=10, minor=2, label='time (ns)',
                     labelpad=1)
         if i_tgt == 0:
-            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2, label='')
+            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2,
+                     label='')
         else:
-            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2, label='',
-                     ticklabels=False)
+            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2,
+                     label='', ticklabels=False)
 
         # population dynamics
         tgrid, psi01_ff_re, psi01_ff_im = np.genfromtxt(
