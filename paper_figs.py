@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+from os.path import join
 import sys
 from StringIO import StringIO
 import QDYN
@@ -627,23 +628,26 @@ def generate_error_plot(outfile):
     print("written %s" % outfile)
 
 
-def generate_universal_pulse_plot(universal_rf, outfile):
+def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
     fig_width    = 18.0
-    fig_height   = 8.5
+    fig_height   = 12.5
     spec_offset  =  0.7
-    phase_deriv_offset =  2.95 # PHASE
-    phase_offset =  4.45 # PHASE
+    phase_deriv_offset =  2.95
+    phase_offset =  4.45
     pulse_offset = 5.95
-    phase_h       =  1.5 # PHASE
-    phase_deriv_h =  1.5 # PHASE
-    label_offset = 8.3
-    error_offset = 7.9
+    phase_h       =  1.5
+    phase_deriv_h =  1.5
+    label_offset = 12.3
+    error_offset = 11.9
     spec_h       =  1.5
     pulse_h      =  1.5
     left_margin  =  1.4
     right_margin =  0.25
     gap          =  0.0 # horizontal gap between panels
     y_label_offset  = 0.07
+
+    dyn_offset = 8.3
+    dyn_width = 1.55
 
     fig = new_figure(fig_width, fig_height, style=STYLE)
 
@@ -656,6 +660,8 @@ def generate_universal_pulse_plot(universal_rf, outfile):
             'S_R': r'Phasegate (2)',
             'PE': r'BGATE',
     }
+
+    polar_axes = []
 
     for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
 
@@ -698,7 +704,8 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         else:
             set_axis(ax_spec, 'y', 0, 100, step=50, minor=2, label='',
                      ticklabels=False)
-        ##### PHASE ######
+
+        # phase
         pos = [left_offset/fig_width, phase_deriv_offset/fig_height,
                w/fig_width, phase_deriv_h/fig_height]
         ax_phase_deriv = fig.add_axes(pos)
@@ -731,7 +738,6 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         else:
             set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4, minor=2,
                      label='', ticklabels=False)
-        ##### PHASE ######
 
         # pulse
         pos = [left_offset/fig_width, pulse_offset/fig_height,
@@ -746,6 +752,176 @@ def generate_universal_pulse_plot(universal_rf, outfile):
         else:
             set_axis(ax_pulse, 'y', 0, 300, step=100, minor=2, label='',
                      ticklabels=False)
+
+        # population dynamics
+        tgrid, psi01_ff_re, psi01_ff_im = np.genfromtxt(
+                        join(field_free_rf, 'psi01_phases.dat'),
+                        usecols=(0,3,4), unpack=True)
+        phase01_ff = np.unwrap(np.arctan2(psi01_ff_re, psi01_ff_im))
+        E01 = (phase01_ff/tgrid)[-1]
+        psi10_ff_re, psi10_ff_im = np.genfromtxt(
+                        join(field_free_rf, 'psi10_phases.dat'), usecols=(5,6),
+                        unpack=True)
+        phase10_ff = np.unwrap(np.arctan2(psi10_ff_re, psi10_ff_im))
+        E10 = (phase10_ff/tgrid)[-1]
+        psi11_ff_re, psi11_ff_im = np.genfromtxt(
+                        join(field_free_rf, 'psi11_phases.dat'), usecols=(7,8),
+                        unpack=True)
+        phase11_ff = np.unwrap(np.arctan2(psi11_ff_re, psi11_ff_im))
+        E11 = (phase11_ff/tgrid)[-1]
+
+        tgrid, psi00_00_re, psi00_00_im, psi00_01_re, psi00_01_im, \
+        psi00_10_re, psi00_10_im, psi00_11_re, psi00_11_im \
+        = np.genfromtxt(join(universal_rf[tgt], 'psi00_phases.dat'),
+                        unpack=True)
+        phase00_00 = np.unwrap(np.arctan2(psi00_00_re, psi00_00_im))
+        phase00_01 = np.unwrap(np.arctan2(psi00_01_re, psi00_01_im))-E01*tgrid
+        phase00_10 = np.unwrap(np.arctan2(psi00_10_re, psi00_10_im))-E10*tgrid
+        phase00_11 = np.unwrap(np.arctan2(psi00_11_re, psi00_11_im))-E11*tgrid
+        r00_00 = np.sqrt(psi00_00_re**2 + psi00_00_im**2)
+        r00_01 = np.sqrt(psi00_01_re**2 + psi00_01_im**2)
+        r00_10 = np.sqrt(psi00_10_re**2 + psi00_10_im**2)
+        r00_11 = np.sqrt(psi00_11_re**2 + psi00_11_im**2)
+
+        tgrid, psi01_00_re, psi01_00_im, psi01_01_re, psi01_01_im, \
+        psi01_10_re, psi01_10_im, psi01_11_re, psi01_11_im \
+        = np.genfromtxt(join(universal_rf[tgt], 'psi01_phases.dat'),
+                        unpack=True)
+        phase01_00 = np.unwrap(np.arctan2(psi01_00_re, psi01_00_im))
+        phase01_01 = np.unwrap(np.arctan2(psi01_01_re, psi01_01_im))-E01*tgrid
+        phase01_10 = np.unwrap(np.arctan2(psi01_10_re, psi01_10_im))-E10*tgrid
+        phase01_11 = np.unwrap(np.arctan2(psi01_11_re, psi01_11_im))-E11*tgrid
+        r01_00 = np.sqrt(psi01_00_re**2 + psi01_00_im**2)
+        r01_01 = np.sqrt(psi01_01_re**2 + psi01_01_im**2)
+        r01_10 = np.sqrt(psi01_10_re**2 + psi01_10_im**2)
+        r01_11 = np.sqrt(psi01_11_re**2 + psi01_11_im**2)
+
+        tgrid, psi10_00_re, psi10_00_im, psi10_01_re, psi10_01_im, \
+        psi10_10_re, psi10_10_im, psi10_11_re, psi10_11_im \
+        = np.genfromtxt(join(universal_rf[tgt], 'psi10_phases.dat'),
+                        unpack=True)
+        phase10_00 = np.unwrap(np.arctan2(psi10_00_re, psi10_00_im))
+        phase10_01 = np.unwrap(np.arctan2(psi10_01_re, psi10_01_im))-E01*tgrid
+        phase10_10 = np.unwrap(np.arctan2(psi10_10_re, psi10_10_im))-E10*tgrid
+        phase10_11 = np.unwrap(np.arctan2(psi10_11_re, psi10_11_im))-E11*tgrid
+        r10_00 = np.sqrt(psi10_00_re**2 + psi10_00_im**2)
+        r10_01 = np.sqrt(psi10_01_re**2 + psi10_01_im**2)
+        r10_10 = np.sqrt(psi10_10_re**2 + psi10_10_im**2)
+        r10_11 = np.sqrt(psi10_11_re**2 + psi10_11_im**2)
+
+        tgrid, psi11_00_re, psi11_00_im, psi11_01_re, psi11_01_im, \
+        psi11_10_re, psi11_10_im, psi11_11_re, psi11_11_im \
+        = np.genfromtxt(join(universal_rf[tgt], 'psi11_phases.dat'),
+                        unpack=True)
+        phase11_00 = np.unwrap(np.arctan2(psi11_00_re, psi11_00_im))
+        phase11_01 = np.unwrap(np.arctan2(psi11_01_re, psi11_01_im))-E01*tgrid
+        phase11_10 = np.unwrap(np.arctan2(psi11_10_re, psi11_10_im))-E10*tgrid
+        phase11_11 = np.unwrap(np.arctan2(psi11_11_re, psi11_11_im))-E11*tgrid
+        r11_00 = np.sqrt(psi11_00_re**2 + psi11_00_im**2)
+        r11_01 = np.sqrt(psi11_01_re**2 + psi11_01_im**2)
+        r11_10 = np.sqrt(psi11_10_re**2 + psi11_10_im**2)
+        r11_11 = np.sqrt(psi11_11_re**2 + psi11_11_im**2)
+
+        dyn_h_offset = 0.5*(w - 2*dyn_width)
+        pos00 = [(left_offset+dyn_h_offset)/fig_width,
+                 (dyn_offset+dyn_width)/fig_height,
+                 dyn_width/fig_width, dyn_width/fig_height]
+        pos01 = [(left_offset+dyn_h_offset+dyn_width)/fig_width,
+                 (dyn_offset+dyn_width)/fig_height,
+                 dyn_width/fig_width, dyn_width/fig_height]
+        pos10 = [(left_offset+dyn_h_offset)/fig_width,
+                 dyn_offset/fig_height,
+                 dyn_width/fig_width, dyn_width/fig_height]
+        pos11 = [(left_offset+dyn_h_offset+dyn_width)/fig_width,
+                 dyn_offset/fig_height,
+                 dyn_width/fig_width, dyn_width/fig_height]
+        ax00 = fig.add_axes(pos00, projection='polar')
+        ax01 = fig.add_axes(pos01, projection='polar')
+        ax10 = fig.add_axes(pos10, projection='polar')
+        ax11 = fig.add_axes(pos11, projection='polar')
+        polar_axes.extend([ax00, ax01, ax10, ax11])
+        if i_tgt == 0:
+            fig.text((left_offset + dyn_h_offset-0.1)/fig_width,
+                    (dyn_offset+dyn_width)/fig_height, rotation='vertical',
+                    s=r'$\Im[\Psi(t)]$', verticalalignment='center',
+                    horizontalalignment='right')
+            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
+                    (dyn_offset+0.25*dyn_width)/fig_height, rotation='vertical',
+                    s=r'$\ket{00}$', verticalalignment='center',
+                    horizontalalignment='right', color=get_color('blue'))
+            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
+                    (dyn_offset+0.75*dyn_width)/fig_height, rotation='vertical',
+                    s=r'$\ket{01}$', verticalalignment='center',
+                    horizontalalignment='right', color=get_color('orange'))
+            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
+                    (dyn_offset+1.25*dyn_width)/fig_height, rotation='vertical',
+                    s=r'$\ket{10}$', verticalalignment='center',
+                    horizontalalignment='right', color=get_color('red'))
+            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
+                    (dyn_offset+1.75*dyn_width)/fig_height, rotation='vertical',
+                    s=r'$\ket{11}$', verticalalignment='center',
+                    horizontalalignment='right', color=get_color('green'))
+        fig.text((left_offset + dyn_h_offset + dyn_width)/fig_width,
+                (dyn_offset-0.1)/fig_height,
+                s=r'$\Re[\Psi(t)]$', verticalalignment='top',
+                horizontalalignment='center')
+
+        ax00.plot(phase00_00, r00_00, color=get_color('blue'),   lw=0.7)
+        ax00.plot(phase00_01, r00_01, color=get_color('orange'), lw=0.7)
+        ax00.plot(phase00_10, r00_10, color=get_color('red'),    lw=0.7)
+        ax00.plot(phase00_11, r00_10, color=get_color('green'),  lw=0.7)
+        ax01.plot(phase01_00, r01_00, color=get_color('blue'),   lw=0.7)
+        ax01.plot(phase01_01, r01_01, color=get_color('orange'), lw=0.7)
+        ax01.plot(phase01_10, r01_10, color=get_color('red'),    lw=0.7)
+        ax01.plot(phase01_11, r01_11, color=get_color('green'),  lw=0.7)
+        ax10.plot(phase10_00, r10_00, color=get_color('blue'),   lw=0.7)
+        ax10.plot(phase10_01, r10_01, color=get_color('orange'), lw=0.7)
+        ax10.plot(phase10_10, r10_10, color=get_color('red'),    lw=0.7)
+        ax10.plot(phase10_11, r10_11, color=get_color('green'),  lw=0.7)
+        ax11.plot(phase11_00, r11_00, color=get_color('blue'),   lw=0.7)
+        ax11.plot(phase11_01, r11_01, color=get_color('orange'), lw=0.7)
+        ax11.plot(phase11_10, r11_10, color=get_color('red'),    lw=0.7)
+        ax11.plot(phase11_11, r11_11, color=get_color('green'),  lw=0.7)
+        ax00.scatter((phase00_00[0], ), (r00_00[0], ), c=(get_color('blue'),),
+                     marker='s')
+        ax00.scatter(
+            (phase00_00[-1], phase00_01[-1], phase00_10[-1], phase00_11[-1]),
+            (r00_00[-1], r00_01[-1], r00_10[-1], r00_11[-1]),
+            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
+            lw=0.5
+        )
+        ax01.scatter((phase01_01[0], ), (r01_01[0], ), c=(get_color('orange'),),
+                     marker='s')
+        ax01.scatter(
+            (phase01_00[-1], phase01_01[-1], phase01_10[-1], phase01_11[-1]),
+            (r01_00[-1], r01_01[-1], r01_10[-1], r01_11[-1]),
+            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
+            lw=0.5
+        )
+        ax10.scatter((phase10_10[0], ), (r10_10[0], ), c=(get_color('red'),),
+                     marker='s')
+        ax10.scatter(
+            (phase10_00[-1], phase10_01[-1], phase10_10[-1], phase10_11[-1]),
+            (r10_00[-1], r10_01[-1], r10_10[-1], r10_11[-1]),
+            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
+            lw=0.5
+        )
+        ax11.scatter((phase11_11[0], ), (r11_11[0], ), c=(get_color('green'),),
+                     marker='s')
+        ax11.scatter(
+            (phase11_00[-1], phase11_01[-1], phase11_10[-1], phase11_11[-1]),
+            (r11_00[-1], r11_01[-1], r11_10[-1], r11_11[-1]),
+            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
+            lw=0.5
+        )
+
+    for ax in polar_axes:
+        ax.grid(False)
+        ax.set_yticklabels([])
+        ax.set_xticklabels([])
+        ax.plot(np.linspace(0, 2*np.pi, 50), np.ones(50)/np.sqrt(2.0), lw=0.5,
+                dashes=ls['dashed'], color='black')
+        ax.set_rmax(1.0)
 
     fig.text(y_label_offset/fig_width,
                 (spec_offset+0.5*spec_h)/fig_height,
@@ -901,6 +1077,7 @@ def main(argv=None):
         'S_R': universal_root+'/50ns_w_center_Ph_right',
         'PE':  universal_root+'/PE_LI_BGATE_50ns_cont_SM'
     }
+    field_free_rf = universal_root+'/analyze_ham'
 
     # Fig 1
     generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
@@ -915,9 +1092,10 @@ def main(argv=None):
     # Fig 4
     generate_error_plot(outfile='fig4_main.pdf')
     # Fig 5
-    generate_universal_pulse_plot(universal_rf, outfile='fig5.pdf')
+    generate_universal_pulse_plot(universal_rf, field_free_rf,
+                                  outfile='fig5.pdf')
     # Fig 6
-    generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
+    #generate_universal_popdyn_plot(universal_rf, outfile='fig6.pdf')
 
 if __name__ == "__main__":
     sys.exit(main())

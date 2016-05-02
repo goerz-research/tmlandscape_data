@@ -69,7 +69,7 @@ text.usetex         : True   # use latex for all text handling. The following fo
                              # matplotlib mailing list
 #text.latex.unicode : False # use "ucs" and "inputenc" LaTeX packages for handling
                             # unicode strings.
-text.latex.preamble : \usepackage{helvet},\usepackage{braket},\usepackage{amssymb},\usepackage{amsmath},\usepackage{amsfonts},\usepackage{amsthm},\renewcommand{\Re}{\mathfrak{Re}},\renewcommand{\Im}{\mathfrak{Im}},\usepackage[EULERGREEK]{sansmath},\sansmath
+text.latex.preamble : \usepackage{helvet},\usepackage{braket},\usepackage{amssymb},\usepackage{amsmath},\usepackage{amsfonts},\usepackage{amsthm},\renewcommand{\Re}{\text{Re}},\renewcommand{\Im}{\text{Im}},\usepackage[EULERGREEK]{sansmath},\sansmath
 
 #text.dvipnghack : None      # some versions of dvipng don't handle alpha
                              # channel properly.  Use True to correct
