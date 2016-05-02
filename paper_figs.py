@@ -590,8 +590,8 @@ def generate_error_plot(outfile):
     fig_height      = 4.5
     fig_width       = 8.5               # Total canvas (cv) width
     left_margin     = 1.2               # Left cv -> plot area
-    right_margin    = 0.2               # plot area -> right cv
-    top_margin      = 0.25              # top cv -> plot area
+    right_margin    = 0.05              # plot area -> right cv
+    top_margin      = 0.05              # top cv -> plot area
     bottom_margin   = 0.6
     gap = 0.15
     h = 0.5*(fig_height - (bottom_margin + top_margin + gap))
@@ -612,12 +612,16 @@ def generate_error_plot(outfile):
     pos = [left_margin/fig_width, (bottom_margin+h+gap)/fig_height,
            w/fig_width, h/fig_height]
     ax = fig.add_axes(pos)
-    ax.plot(T, eps_0, label=r'$\varepsilon_{\text{avg}}^0$', marker='o', color=get_color('grey'))
-    ax.plot(T, eps_PE, label=r'$\varepsilon_{\text{avg}}^{\text{PE}}$', color=get_color('orange'), marker='o', dashes=ls['dashed'])
+    ax.plot(T, eps_0, label=r'$\varepsilon_{\text{avg}}^0$',
+            marker='o', color=get_color('grey'))
+    ax.plot(T, eps_PE, label=r'$\varepsilon_{\text{avg}}^{\text{PE}}$',
+            color=get_color('orange'), marker='o', dashes=ls['dashed'])
     ax.legend(loc='lower right')
-    ax.annotate('QSL', xy=(10, 1e-3),  xycoords='data',
-                xytext=(10, 1e-2), textcoords='data',
-                arrowprops=dict(facecolor='black', width=1, headwidth=3, shrink=0.05),
+    ax.annotate(r'$\text{QSL\,}_{\text{PE}}$',
+                xy=(0.230, 0.3), xycoords='axes fraction',
+                xytext=(0.230, 0.7), textcoords='axes fraction',
+                arrowprops=dict(facecolor='black', width=0.75, headwidth=2,
+                                shrink=0.20),
                 horizontalalignment='center', verticalalignment='top',
                 )
     set_axis(ax, 'x', 4, 210, label='', logscale=True, ticklabels=False)
@@ -628,13 +632,17 @@ def generate_error_plot(outfile):
            w/fig_width, h/fig_height]
     ax = fig.add_axes(pos)
     ax.plot(T, eps_0, label=None, marker='o', color=get_color('grey'))
-    ax.plot(T, eps_0B, label=r'$\varepsilon_{\text{avg}}^{0,B}$', marker='o', color=get_color('blue'), dashes=ls['dashed'])
-    ax.plot(T, eps_H1, label=r'$\varepsilon_{\text{avg}}^{H1,B}$', marker='o', color=get_color('red'), dashes=ls['long-dashed'])
+    ax.plot(T, eps_0B, label=r'$\varepsilon_{\text{avg}}^{0,\text{B}}$',
+            marker='o', color=get_color('blue'), dashes=ls['dashed'])
+    ax.plot(T, eps_H1, label=r'$\varepsilon_{\text{avg}}^{\text{H1,B}}$',
+            marker='o', color=get_color('red'), dashes=ls['long-dashed'])
     ax.legend(loc='upper left')
-    ax.annotate('QSL', xy=(50, 3e-3),  xycoords='data',
-                xytext=(50, 7e-4), textcoords='data',
-                arrowprops=dict(facecolor='black', width=0.7, headwidth=2, shrink=0.1),
-                horizontalalignment='center', verticalalignment='top',
+    ax.annotate(r'$\text{QSL\,}^{\text{B}}_{\text{H1}}$',
+                xy=(0.637, 0.5), xycoords='axes fraction',
+                xytext=(0.7, 0.1), textcoords='axes fraction',
+                arrowprops=dict(facecolor='black', width=0.7, headwidth=2,
+                                shrink=0.25),
+                horizontalalignment='left', verticalalignment='bottom',
                 )
     set_axis(ax, 'x', 4, 210, label='gate time (ns)', logscale=True, labelpad=-2)
     set_axis(ax, 'y', 2e-4, 3.0e-2, label='gate error', logscale=True)
