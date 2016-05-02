@@ -755,6 +755,8 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
                w/fig_width, pulse_h/fig_height]
         ax_pulse = fig.add_axes(pos)
         p.render_pulse(ax_pulse)
+        avg_pulse = np.trapz(np.abs(p.amplitude), p.tgrid) / p.tgrid[-1]
+        ax_pulse.axhline(y=avg_pulse, color='black', dashes=ls['dotted'])
         set_axis(ax_pulse, 'x', 0, 50, step=10, minor=2, #label='time (ns)',
                  label='', ticklabels=False,
                  labelpad=1)
@@ -773,7 +775,9 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
         for i_state, basis_state in enumerate(['11', '10', '01', '00']):
             pop_loss += 0.25*(dyn.pop[basis_state].pop00 + dyn.pop[basis_state].pop01 + dyn.pop[basis_state].pop10 + dyn.pop[basis_state].pop11)
         pop_loss = 1.0 - pop_loss
+        avg_loss = np.trapz(pop_loss, dyn.tgrid) / dyn.tgrid[-1]
         ax_log.fill(dyn.tgrid, pop_loss, color=get_color('grey'))
+        ax_log.axhline(y=avg_loss, color='black', dashes=ls['dotted'])
         if i_tgt < 4:
             set_axis(ax_log, 'x', 0, 50, step=10, minor=2, label='time (ns)',
                     labelpad=1, drop_ticklabels=[-1, ])
@@ -974,7 +978,7 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
                 rotation='vertical', va='center', ha='left')
     fig.text(y_label_offset/fig_width,
                 (log_offset+0.5*log_h)/fig_height,
-                r'$1-\text{pop}$',
+                r'$\text{pop}_\text{out}$',
                 rotation='vertical', va='center', ha='left')
 
     if OUTFOLDER is not None:
