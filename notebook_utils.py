@@ -432,7 +432,8 @@ def pulse_config_compat(analytical_pulse, config_file, adapt_config=False):
 
 def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
     logscale=False, val_alpha=None, vmin=None, vmax=None, contour_levels=0,
-    contour_labels=False, scatter_size=0, clip=True, cmap=None, bg='white'):
+    contour_labels=False, scatter_size=0, clip=True, cmap=None, bg='white',
+    transform_x=None, transform_y=None):
     """Render the given data onto the given axes
 
     Parameters
@@ -474,6 +475,10 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         based on the data.
     bg: string
         Color of background, i.e., the color that val_alpha will fade into
+    transform_x: callable or None
+        Transformation to be applied against the x-axis values
+    transform_y: callable or None
+        Transformation to be applied against the y-axis values
 
     Returns
     -------
@@ -492,6 +497,10 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
         vmin=abs(z).min()
     if vmax is None:
         vmax=abs(z).max()
+    if transform_x is not None:
+        x = transform_x(x)
+    if transform_y is not None:
+        y = transform_y(y)
     if logscale:
         if cmap is None:
             cmap=plt.cm.gnuplot2
@@ -515,7 +524,7 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
             rgba[:,:,i] *= z_alpha[:,:]
             rgba[:,:,i] += (1.0-z_alpha[:,:]) * bg_rgb[i]
     ax_contour.imshow(rgba, interpolation='nearest', aspect='auto',
-                        extent=[w_2.min(),w_2.max(),w_c.min(),w_c.max()],
+                        extent=[x.min(),x.max(),y.min(),y.max()],
                         origin='lower')
     if not logscale:
         if isinstance(contour_levels, int):
@@ -529,6 +538,8 @@ def render_values(w_2, w_c, val, ax_contour, ax_cbar, density=100,
                 ax_contour.clabel(contour, fontsize='smaller', lineine=1,
                                 fmt='%g')
     if scatter_size > 0:
+        if transform_x is not None or transform_y is not None:
+            raise NotImplementedError()
         ax_contour.scatter(w_2, w_c, marker='o', c='cyan', s=scatter_size,
                         linewidth=0.1*scatter_size, zorder=10)
     ax_contour.set_axis_bgcolor('white')

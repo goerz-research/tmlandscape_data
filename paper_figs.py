@@ -59,12 +59,25 @@ def generate_field_free_plot(zeta_table, T, outfile):
     wc_max = 9.0
     w2_min = 5.0
     w2_max = 7.0
-    y_major_ticks = 0.5
-    y_minor = 5
-    x_major_ticks = 1.0
-    x_minor = 2
+    w1 = 6.0
+    g = 0.07
+    alpha = 0.3
+
+    y_tick0 = -3
+    y_tick1 =  3
+    y_major_ticks = 1
+    y_minor = 2
+    x_tick0 =  -20
+    x_tick1 =  40
+    x_major_ticks = 10
+    x_minor = 5
     xlabelpad = 3.0
     ylabelpad = 1.0
+
+    Delta2 = lambda w2: (w2 - w1)/alpha
+    DeltaC = lambda wc: (wc - w1)/g
+    y_range = (Delta2(w2_min), Delta2(w2_max))
+    x_range = (DeltaC(wc_min), DeltaC(wc_max))
 
     fig_height = bottom_margin + top_margin + h
     fig_width  = (left_margin + 2 * cbar_gap + 3 * cbar_width +
@@ -88,16 +101,18 @@ def generate_field_free_plot(zeta_table, T, outfile):
                cbar_width/fig_width, h/fig_height]
     ax_cbar = fig.add_axes(pos_cbar); cbar_axs.append(ax_cbar)
     cbar = render_values(wc, w2, abs_zeta, ax, ax_cbar, density=density,
-                         logscale=True, vmin=1e-1)
+                         logscale=True, vmin=1e-1,
+                         transform_x=DeltaC, transform_y=Delta2)
     cbar.ax.yaxis.set_ticks(cbar.norm(np.concatenate(
             [np.arange(0.1, 1, 0.1), np.arange(1, 10, 1),
             np.arange(10, 100, 10)])), minor=True)
-    set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
-             minor=x_minor)
+    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+             range=y_range, minor=y_minor)
+    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+             range=x_range, minor=x_minor)
     ax.tick_params(which='both', direction='out')
-    ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
-    ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
+    ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+    ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
     fig.text((left_margin + w + cbar_gap + cbar_width+0.53)/fig_width,
               1-0.2/fig_height, r'$\zeta$~(MHz)', verticalalignment='top',
               horizontalalignment='right')
@@ -107,8 +122,10 @@ def generate_field_free_plot(zeta_table, T, outfile):
         ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
-        ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
-        ax.annotate(label, x_y_label, color=color)
+        ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                   color=color, marker='x')
+        ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                    color=color)
 
     # Entanglement time
 
@@ -121,16 +138,17 @@ def generate_field_free_plot(zeta_table, T, outfile):
                 bottom_margin/fig_height, cbar_width/fig_width, h/fig_height]
     ax_cbar = fig.add_axes(pos_cbar)
     cbar = render_values(wc, w2, T_entangling, ax, ax_cbar, density=density,
-                        logscale=True, vmax=1e3)
+                         logscale=True, vmax=1e3,
+                         transform_x=DeltaC, transform_y=Delta2)
     cbar.ax.yaxis.set_ticks(cbar.norm(np.concatenate(
             [np.arange(4, 10, 1), np.arange(10, 100, 10),
             np.arange(100, 1000, 100)])), minor=True)
-    set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor,
-             ticklabels=False)
-    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
+    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
+             minor=y_minor, ticklabels=False)
+    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
              minor=x_minor)
     ax.tick_params(which='both', direction='out')
-    ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
+    ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
     fig.text((left_margin + 2*(w + cbar_gap + cbar_width)+hgap1+0.53)/fig_width,
               1-0.2/fig_height, r'$T(C_0=1)$ (ns)', verticalalignment='top',
               horizontalalignment='right')
@@ -140,8 +158,10 @@ def generate_field_free_plot(zeta_table, T, outfile):
         ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
-        ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
-        ax.annotate(label, x_y_label, color=color)
+        ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                   color=color, marker='x')
+        ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                    color=color)
 
     # Relative effective decay rate
 
@@ -160,14 +180,14 @@ def generate_field_free_plot(zeta_table, T, outfile):
     ax_cbar = fig.add_axes(pos_cbar)
     cbar = render_values(wc, w2, rel_decay, ax, ax_cbar, density=density,
                          logscale=False, vmin=1, vmax=2.3,
-                         cmap=plt.cm.cubehelix_r)
+                         cmap=plt.cm.cubehelix_r,
+                         transform_x=DeltaC, transform_y=Delta2)
     cbar.set_ticks([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])
-    set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor,
+    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range, minor=y_minor,
              ticklabels=False)
-    set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
-            minor=x_minor)
+    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range, minor=x_minor)
     ax.tick_params(which='both', direction='out')
-    ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
+    ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
     fig.text(0.995, 1-0.2/fig_height,
              r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$',
              verticalalignment='top', horizontalalignment='right')
@@ -177,8 +197,10 @@ def generate_field_free_plot(zeta_table, T, outfile):
         ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
-        ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
-        ax.annotate(label, x_y_label, color=color)
+        ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                   color=color, marker='x')
+        ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                    color=color)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -239,12 +261,25 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
     wc_max = 9.0
     w2_min = 5.0
     w2_max = 7.0
-    y_major_ticks = 0.5
-    y_minor = 5
-    x_major_ticks = 1.0
-    x_minor = 2
+    w1 = 6.0
+    g = 0.07
+    alpha = 0.3
+
+    y_tick0 = -3
+    y_tick1 =  3
+    y_major_ticks = 1
+    y_minor = 2
+    x_tick0 =  -20
+    x_tick1 =  40
+    x_major_ticks = 10
+    x_minor = 5
     xlabelpad = 3.0
     ylabelpad = 1.0
+
+    Delta2 = lambda w2: (w2 - w1)/alpha
+    DeltaC = lambda wc: (wc - w1)/g
+    y_range = (Delta2(w2_min), Delta2(w2_max))
+    x_range = (DeltaC(wc_min), DeltaC(wc_max))
 
     fig_height = bottom_margin + 3*h + 2*vgap + top_margin
     fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
@@ -298,27 +333,31 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
         else:
             ax_cbar = None
         cbar = render_values(zeta_table['wc [GHz]'], zeta_table['w2 [GHz]'],
-                1-C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0)
+                1-C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
+                transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$1-C_0$', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
-                 minor=x_minor, ticklabels=False)
+        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                range=y_range, minor=y_minor)
+        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                range=x_range, minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
             ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
-            ax.annotate(label, x_y_label, color=color)
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
 
         # row 2: 1-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
@@ -335,27 +374,31 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
         cbar = render_values(C_opt_table['wc [GHz]'], C_opt_table['w2 [GHz]'],
                              1-C_opt_table['C'], ax, ax_cbar, density=density,
                              vmin=0.0, vmax=1.0, bg='black',
-                             val_alpha=(1-C_opt_table['max loss']))
+                             val_alpha=(1-C_opt_table['max loss']),
+                             transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$1-C_{\text{SQ}}$ (opt)', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
-                 minor=x_minor, ticklabels=False)
+        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                range=y_range, minor=y_minor)
+        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                range=x_range, minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
             ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
-            ax.annotate(label, x_y_label, color=color)
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
 
         # row 3: C_0-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
@@ -373,28 +416,31 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
                              -zeta_table2['C']+C_ff2,
                              ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
                              val_alpha=(1-zeta_table2['max loss']), bg='black',
-                             )
+                             transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$C_{0} - C_{\text{SQ}}$', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
-                 minor=x_minor)
+        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
+                minor=y_minor)
+        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
+                minor=x_minor)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
-        ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
         labels = [
         #          w_2   w_c     label pos
             ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
-            ax.annotate(label, x_y_label, color=color)
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
 
         fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
                  (bottom_margin+2*(h+vgap)+h-0.2)/fig_height,
@@ -434,12 +480,25 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
     wc_max = 9.0
     w2_min = 5.0
     w2_max = 7.0
-    y_major_ticks = 0.5
-    y_minor = 5
-    x_major_ticks = 1.0
-    x_minor = 2
+    w1 = 6.0
+    g = 0.07
+    alpha = 0.3
+
+    y_tick0 = -3
+    y_tick1 =  3
+    y_major_ticks = 1
+    y_minor = 2
+    x_tick0 =  -20
+    x_tick1 =  40
+    x_major_ticks = 10
+    x_minor = 5
     xlabelpad = 3.0
     ylabelpad = 1.0
+
+    Delta2 = lambda w2: (w2 - w1)/alpha
+    DeltaC = lambda wc: (wc - w1)/g
+    y_range = (Delta2(w2_min), Delta2(w2_max))
+    x_range = (DeltaC(wc_min), DeltaC(wc_max))
 
     fig_height = bottom_margin + 3*h + 2*vgap + top_margin + 0.5
     fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
@@ -512,28 +571,31 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
         cbar = render_values(C_opt_table['wc [GHz]'], C_opt_table['w2 [GHz]'],
                              C_opt_table['C'], ax, ax_cbar, density=density,
                              vmin=0.0, vmax=1.0, bg='black',
-                             val_alpha=(1-C_opt_table['max loss']))
+                             val_alpha=(1-C_opt_table['max loss']),
+                             transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$C_{\text{PE}}$ (opt)', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
-                 minor=x_minor, ticklabels=False)
+        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                range=y_range, minor=y_minor)
+        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                range=x_range, minor=x_minor, ticklabels=False)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_c   w_2     label pos
             ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color,
-                       marker='x')
-            ax.annotate(label, x_y_label, color=color)
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
 
         # row 3: C_0-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
@@ -551,28 +613,31 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
                              zeta_table2['C']-C_ff,
                              ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
                              val_alpha=(1-zeta_table2['max loss']), bg='black',
-                             )
+                             transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$C_{\text{PE}}-C_{0}$', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', w2_min, w2_max, y_major_ticks, minor=y_minor)
-        set_axis(ax, 'x', 5, 10, x_major_ticks, range=(wc_min, wc_max),
-                 minor=x_minor)
+        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                range=y_range, minor=y_minor)
+        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                range=x_range, minor=x_minor)
         ax.tick_params(which='both', direction='out')
         if i_col > 0:
             ax.set_yticklabels([])
         else:
-            ax.set_ylabel(r"$\omega_2$ (GHz)", labelpad=ylabelpad)
-        ax.set_xlabel(r"$\omega_c$ (GHz)", labelpad=xlabelpad)
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
         labels = [
         #          w_c   w_2     label pos
             ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((x_y_data[0],), (x_y_data[1], ), color=color, marker='x')
-            ax.annotate(label, x_y_label, color=color)
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
 
         fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
                  (bottom_margin+2*(h+vgap)+h+0.3)/fig_height,
