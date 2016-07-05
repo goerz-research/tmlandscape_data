@@ -685,6 +685,17 @@ def generate_error_plot(outfile):
     100                      6.00e-03      7.20e-03     6.01e-03   7.65e-03
     200                      1.20e-02      1.43e-02     1.20e-02   1.47e-02
     '''
+    # The above data is taken from the following sources:
+    #
+    # * eps_avg^{H1,B}: See notebook QSL_Hadamard1.ipynb,
+    #   runfolders in ./QSL_H1_prop. For 50ns, run in
+    #   ./propagate_universal/rho/H_L/
+    # * For eps_avg^{PE}: See notebook Stage3Analysis.ipynb,
+    #   runfolders in ./liouville_prop/stage3/
+    # * For eps_avg^{0,B}: See notebook UniversalPropLiouville.ipynb
+    #   runfolders in ./propagate_universal/liouville_ff/
+    # * For eps_avg^0: See notebook LiouvilleError.ipynb (analytic formula)
+    #
     fig = new_figure(fig_width, fig_height, style=STYLE)
 
     T, eps_0, eps_0B, eps_PE, eps_H1 = np.genfromtxt(StringIO(data), unpack=True)
@@ -767,6 +778,15 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
             'PE': r'BGATE',
     }
 
+    errors = { # errors obtained from *Liouville space* propagation, see
+               # ./propagate_universal/rho folder
+            'H_L': 4.46e-3,
+            'H_R': 5.03e-3,
+            'S_L': 4.79e-3,
+            'S_R': 4.07e-3,
+            'PE':  4.70e-3,
+    }
+
     polar_axes = []
 
     for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
@@ -775,8 +795,10 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
 
         p = QDYN.pulse.Pulse(os.path.join(universal_rf[tgt], 'pulse.dat'),
                              freq_unit='MHz')
-        U = QDYN.gate2q.Gate2Q(os.path.join(universal_rf[tgt], 'U.dat'))
-        O = read_target_gate(os.path.join(universal_rf[tgt], 'target_gate.dat'))
+        #U = QDYN.gate2q.Gate2Q(os.path.join(universal_rf[tgt], 'U.dat'))
+        #O = read_target_gate(os.path.join(universal_rf[tgt], 'target_gate.dat'))
+        #err = 1-U.F_avg(O) # (non-Hermitian) Hilbert space error
+        err = errors[tgt] #  Liouville space error
         freq, spectrum = p.spectrum(mode='abs', sort=True)
         spectrum *= 1.0 / len(spectrum)
 
@@ -786,7 +808,7 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
                   horizontalalignment='center')
 
         fig.text((left_offset + 0.5*w)/fig_width, error_offset/fig_height,
-                  r'$\varepsilon_{\text{avg}} = %s$' % latex_exp(1-U.F_avg(O)),
+                  r'$\varepsilon_{\text{avg}} = %s$' % latex_exp(err),
                   verticalalignment='top', horizontalalignment='center')
 
         # spectrum
