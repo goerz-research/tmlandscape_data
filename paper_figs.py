@@ -1101,7 +1101,7 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
                 rotation='vertical', va='center', ha='left')
     fig.text(y_label_offset/fig_width,
                 (log_offset+0.5*log_h)/fig_height,
-                r'$\varepsilon_\text{pop}$',
+                r'$P_\text{outside}$',
                 rotation='vertical', va='center', ha='left')
 
     if OUTFOLDER is not None:
