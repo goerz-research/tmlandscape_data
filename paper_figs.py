@@ -6,12 +6,13 @@ from StringIO import StringIO
 import QDYN
 import QDYNTransmonLib
 import numpy as np
+from numpy import sin, cos, pi
 import matplotlib
 from collections import OrderedDict
 matplotlib.use('Agg')
 import matplotlib.pylab as plt
 from notebook_utils import diss_error, render_values
-from notebook_utils import get_stage3_table, get_zeta_table, read_target_gate
+from notebook_utils import get_stage3_table, get_zeta_table
 from mgplottools.mpl import new_figure, set_axis, get_color, ls
 from matplotlib.ticker import FuncFormatter
 import pandas as pd
@@ -79,6 +80,12 @@ def generate_field_free_plot(zeta_table, T, outfile):
     y_range = (Delta2(w2_min), Delta2(w2_max))
     x_range = (DeltaC(wc_min), DeltaC(wc_max))
 
+    def polar(r, phi):
+        dx = r * cos(2*pi*phi/360.0)
+        dy = r * sin(2*pi*phi/360.0)
+        print (dx, dy) # DEBUG
+        return dx, dy
+
     fig_height = bottom_margin + top_margin + h
     fig_width  = (left_margin + 2 * cbar_gap + 3 * cbar_width +
                   hgap1 + hgap2 + right_margin + 3*w)
@@ -117,7 +124,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
               1-0.2/fig_height, r'$\zeta$~(MHz)', verticalalignment='top',
               horizontalalignment='right')
     labels = [
-    #          w_c   w_2     label pos
+    #         w_c   w_2     label pos
         ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
         ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
     ]
@@ -162,6 +169,37 @@ def generate_field_free_plot(zeta_table, T, outfile):
                    color=color, marker='x')
         ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
                     color=color)
+    other_gates = [
+        # label Dc    D2            r    phi (label)   #                  T [ns]
+        ("1",  'o', (15,   1),     (5,  45), 'Black'), #                  150  \cite{LeekPRB2009}
+        ("2",  '>', (42,   0.85),  (5, 180), 'Black'), # (Delta_c = 58)   220  \cite{ChowPRL2011}
+        ("3",  'o', (26,   0.29),  (6, -50), 'Black'), #                  110  \cite{ChowPRL2012}
+        ("4",  '>', (42,   1.1 ),  (6, 115), 'Black'), # (Delta_c = 95)   200  \cite{PolettoPRL2012}
+        ("5",  'o', (24,   2.3 ),  (5,  45), 'Black'), #                  500  \cite{ChowNJP2013}
+        ("6",  '>', (42,   0.6 ),  (6,-115), 'Black'), # (Delta_c = 43)   350  \cite{ChowNC2014}
+        ("7",  'o', (29,   0.6 ),  (5,   0), 'Black'), #                  350  \cite{CorcolesNC2015}
+        ("8",  'o', ( 1.4, 1.76),  (5,  45), 'Black'), #                   50  \cite{EconomouPRB2015}
+        ("9",  'o', (17,   0.17),  (6, -50), 'Black'), #                  120  \cite{CrossPRA2015}
+        ("10", 'o', (25,   0.6 ),  (6, 180), 'Black'), #                  200  \cite{1603.04821}
+    ]
+    for (label, marker, x_y_data, r_phi_label, color) in other_gates:
+        ax.scatter((x_y_data[0], ), (x_y_data[1], ), color=color,
+                   marker=marker, s=1.5)
+        r, phi = r_phi_label
+        ax.annotate(label, xy=x_y_data, xycoords='data', color=color,
+                    xytext=polar(r, phi), textcoords='offset points',
+                    ha='center', va='center')
+                    #xytext=(3,0), textcoords='offset points',
+    # guides for Delta_2 = 0, \pm 2 alpha
+    # These are broken up into several segments to make them appear "in the background"
+    ax.plot([-22, -13], [0, 0], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([10, 15],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([21, 26],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([30, 38],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([-22, -6], [2, 2], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([12, 38], [2, 2], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([-22, -14], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([4, 43], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
 
     # Relative effective decay rate
 
