@@ -278,223 +278,8 @@ def weyl_z_tick_fmt(z, pos):
         return ''
 
 
-def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
-        zeta_table, outfile):
-
-    left_margin   = 1.1
-    hgap          = 0.35
-    cbar_width    = 0.25
-    cbar_gap      = hgap
-    right_margin  = 1.0
-    w             = 4.2
-
-    top_margin    = 0.3
-    bottom_margin = 0.8
-    vgap          = 0.45
-    h             = 2.5
-
-    density = 300
-    wc_min = 4.5
-    wc_max = 9.0
-    w2_min = 5.0
-    w2_max = 7.0
-    w1 = 6.0
-    g = 0.07
-    alpha = 0.3
-
-    y_tick0 = -3
-    y_tick1 =  3
-    y_major_ticks = 1
-    y_minor = 2
-    x_tick0 =  -20
-    x_tick1 =  40
-    x_major_ticks = 10
-    x_minor = 5
-    xlabelpad = 3.0
-    ylabelpad = 1.0
-
-    Delta2 = lambda w2: (w2 - w1)/alpha
-    DeltaC = lambda wc: (wc - w1)/g
-    y_range = (Delta2(w2_min), Delta2(w2_max))
-    x_range = (DeltaC(wc_min), DeltaC(wc_max))
-
-    fig_height = bottom_margin + 3*h + 2*vgap + top_margin
-    fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
-                  + right_margin)
-    fig = new_figure(fig_width, fig_height, style=STYLE)
-
-    data = OrderedDict([
-            (200, stage_table_200),
-            (50,  stage_table_050),
-            (10,  stage_table_010), ])
-
-
-    for i_col, T in enumerate(data.keys()):
-
-        stage_table = data[T]
-        min_err = diss_error(gamma=1.2e-5, t=T)
-
-        # filter stage table to single frequencies
-        stage_table = stage_table[stage_table['category'].str.contains('1freq')]
-
-        # get optimized concurrence table
-        (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
-        C_opt_table = t_SQ\
-                .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)\
-                .apply(lambda df: df.sort('J_PE').head(1))\
-                .reset_index(level=0, drop=True)
-
-        zeta = zeta_table['zeta [MHz]']
-        gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
-        C_ff = np.abs(np.sin(0.5*gamma))
-
-        # table of zetas at the same data points as C_opt_table
-        ind = ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]']
-        zeta_table2 = pd.merge(C_opt_table[ind+['C', 'max loss']],
-                              zeta_table[ind+['zeta [MHz]']],
-                              on=ind, how='left').dropna()
-        zeta2 = zeta_table2['zeta [MHz]']
-        gamma2 = -2.0 * np.pi * (zeta2/1000.0) * T # entangling phase
-        C_ff2 = np.abs(np.sin(0.5*gamma2))
-
-        # row 1: 1-C_0
-        pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+2*(h+vgap))/fig_height,
-               w/fig_width, h/fig_height]
-        ax = fig.add_axes(pos);
-        if T == 10:
-            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+2*(h+vgap))/fig_height,
-                        cbar_width/fig_width, h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-        else:
-            ax_cbar = None
-        cbar = render_values(zeta_table['wc [GHz]'], zeta_table['w2 [GHz]'],
-                1-C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
-                transform_x=DeltaC, transform_y=Delta2)
-        if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$1-C_0$', rotation=90)
-            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
-                range=y_range, minor=y_minor)
-        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
-                range=x_range, minor=x_minor, ticklabels=False)
-        ax.tick_params(which='both', direction='out')
-        if i_col > 0:
-            ax.set_yticklabels([])
-        else:
-            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-        labels = [
-        #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
-        ]
-        for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
-                    color=color, marker='x')
-            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                        color=color)
-
-        # row 2: 1-C_SQ
-        pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+h+vgap)/fig_height,
-               w/fig_width, h/fig_height]
-        ax = fig.add_axes(pos);
-        if T == 10:
-            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+h+vgap)/fig_height,
-                        cbar_width/fig_width, h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-        else:
-            ax_cbar = None
-        vals = 1 - np.minimum(np.array(zeta_table2['C']), C_ff2)
-        cbar = render_values(zeta_table2['wc [GHz]'], zeta_table2['w2 [GHz]'],
-                             vals, ax, ax_cbar, density=density,
-                             vmin=0.0, vmax=1.0, bg='black',
-                             val_alpha=(1-zeta_table2['max loss']),
-                             transform_x=DeltaC, transform_y=Delta2)
-        if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$1-C_{\text{SQ}}$ (opt)', rotation=90)
-            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
-                range=y_range, minor=y_minor)
-        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
-                range=x_range, minor=x_minor, ticklabels=False)
-        ax.tick_params(which='both', direction='out')
-        if i_col > 0:
-            ax.set_yticklabels([])
-        else:
-            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-        labels = [
-        #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
-        ]
-        for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
-                    color=color, marker='x')
-            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                        color=color)
-
-        # row 3: C_0-C_SQ
-        pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               bottom_margin/fig_height,
-               w/fig_width, h/fig_height]
-        ax = fig.add_axes(pos);
-        if T == 10:
-            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        bottom_margin/fig_height,
-                        cbar_width/fig_width, h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-        else:
-            ax_cbar = None
-        cbar = render_values(zeta_table2['wc [GHz]'], zeta_table2['w2 [GHz]'],
-                             -zeta_table2['C']+C_ff2,
-                             ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
-                             val_alpha=(1-zeta_table2['max loss']), bg='black',
-                             transform_x=DeltaC, transform_y=Delta2)
-        if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$C_{0} - C_{\text{SQ}}$', rotation=90)
-            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
-                minor=y_minor)
-        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
-                minor=x_minor)
-        ax.tick_params(which='both', direction='out')
-        if i_col > 0:
-            ax.set_yticklabels([])
-        else:
-            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
-        labels = [
-        #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
-        ]
-        for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
-                    color=color, marker='x')
-            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                        color=color)
-
-        fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
-                 (bottom_margin+2*(h+vgap)+h-0.2)/fig_height,
-                 r'$T = %d$~ns' % T, verticalalignment='top',
-                 horizontalalignment='right', size=10)
-
-    if OUTFOLDER is not None:
-        outfile = os.path.join(OUTFOLDER, outfile)
-
-    fig.savefig(outfile)
-    print("written %s" % outfile)
-    plt.close(fig)
-
-
-def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
-        zeta_table, outfile):
+def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010,
+                                 zeta_table, outfile):
 
     left_margin   = 1.1
     hgap          = 0.35
@@ -509,7 +294,7 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
     h             = 2.5
 
     weyl_offset_x = 0.3
-    weyl_offset_y = -0.1
+    weyl_offset_y = -0.5
     weyl_width    = 3.5
     weyl_height   = 2.5
 
@@ -538,7 +323,7 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
     y_range = (Delta2(w2_min), Delta2(w2_max))
     x_range = (DeltaC(wc_min), DeltaC(wc_max))
 
-    fig_height = bottom_margin + 3*h + 2*vgap + top_margin + 0.5
+    fig_height = bottom_margin + 5*h + 4*vgap + top_margin + 0.5
     fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
                   + right_margin)
     fig = new_figure(fig_width, fig_height, style=STYLE)
@@ -551,68 +336,153 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
 
     for i_col, T in enumerate(data.keys()):
 
+        zeta = zeta_table['zeta [MHz]']
+        gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
+        C_ff = np.abs(np.sin(0.5*gamma))
+
+        # row 1: field-free entanglement
+        pos = [(left_margin+i_col*(w+hgap))/fig_width,
+               (bottom_margin+4*(h+vgap))/fig_height,
+               w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos);
+        if T == 10:
+            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                        (bottom_margin+4*(h+vgap))/fig_height,
+                        cbar_width/fig_width, h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+        else:
+            ax_cbar = None
+        cbar = render_values(zeta_table['wc [GHz]'], zeta_table['w2 [GHz]'],
+                C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
+                transform_x=DeltaC, transform_y=Delta2)
+        if ax_cbar is not None:
+            ax_cbar.set_ylabel(r'field-free $C_0$', rotation=90)
+            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                range=y_range, minor=y_minor)
+        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                range=x_range, minor=x_minor, ticklabels=False)
+        ax.tick_params(which='both', direction='out')
+        if i_col > 0:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+        labels = [
+        #          w_2   w_c     label pos
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
+
+        # collection OCT data
+
         stage_table = data[T]
-        min_err = diss_error(gamma=1.2e-5, t=T)
 
         # filter stage table to single frequencies
         stage_table = stage_table[stage_table['category'].str.contains('1freq')]
 
         # get optimized concurrence table
         (__, t_PE), (__, t_SQ) = stage_table.groupby('target', sort=True)
-        C_opt_table = t_PE\
+        C_opt_table_PE = t_PE\
+                .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)\
+                .apply(lambda df: df.sort('J_PE').head(1))\
+                .reset_index(level=0, drop=True)
+        C_opt_table_SQ = t_SQ\
                 .groupby(['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]'], as_index=False)\
                 .apply(lambda df: df.sort('J_PE').head(1))\
                 .reset_index(level=0, drop=True)
 
-        t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
-        weyl = QDYN.weyl.WeylChamber()
-
-        # table of zetas at the same data points as C_opt_table
-        ind = ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]']
-        zeta_table2 = pd.merge(C_opt_table[ind+['C', 'max loss']],
-                              zeta_table[ind+['zeta [MHz]']],
-                              on=ind, how='left').dropna()
-        zeta = zeta_table2['zeta [MHz]']
+        zeta = zeta_table['zeta [MHz]']
         gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
         C_ff = np.abs(np.sin(0.5*gamma))
 
-        # row 1: Weyl chamber
-        pos = [(left_margin+i_col*(w+hgap)+weyl_offset_x)/fig_width,
-               (bottom_margin+2*(h+vgap)+weyl_offset_y)/fig_height,
-               weyl_width/fig_width, weyl_height/fig_height]
-        ax_weyl = fig.add_axes(pos, projection='3d');
-        weyl.scatter(t_PE_weyl['c1'], t_PE_weyl['c2'], t_PE_weyl['c3'],
-                     s=5, linewidth=0)
-        weyl.render(ax_weyl)
-        ax_weyl.xaxis._axinfo['ticklabel']['space_factor'] = 1.0
-        ax_weyl.yaxis._axinfo['ticklabel']['space_factor'] = 1.0
-        ax_weyl.zaxis._axinfo['ticklabel']['space_factor'] = 1.3
-        ax_weyl.xaxis._axinfo['label']['space_factor'] = 1.5
-        ax_weyl.yaxis._axinfo['label']['space_factor'] = 1.5
-        ax_weyl.zaxis._axinfo['label']['space_factor'] = 1.5
-        ax_weyl.xaxis.set_major_formatter(weyl_x_tick_fmt)
-        ax_weyl.yaxis.set_major_formatter(weyl_y_tick_fmt)
-        ax_weyl.zaxis.set_major_formatter(weyl_z_tick_fmt)
+        # table of zetas at the same data points as C_opt_table_PE
+        ind = ['w1 [GHz]', 'w2 [GHz]', 'wc [GHz]']
+        combined_table = pd.merge(
+                            C_opt_table_PE.rename(
+                                columns={'C': 'C_PE',
+                                         'max loss': 'max loss (PE)'}
+                                )[ind+['C_PE', 'max loss (PE)']],
+                            C_opt_table_SQ.rename(
+                                columns={'C': 'C_SQ',
+                                         'max loss': 'max loss (SQ)'}
+                                )[ind+['C_SQ', 'max loss (SQ)']],
+                            on=ind, how='left').dropna() \
+                        .merge(
+                            zeta_table[ind+['zeta [MHz]']],
+                            on=ind, how='left').dropna()
+        zeta = combined_table['zeta [MHz]']
+        gamma = -2.0 * np.pi * (zeta/1000.0) * T # entangling phase
+        C_ff = np.abs(np.sin(0.5*gamma))
 
         # row 2: 1-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+h+vgap)/fig_height,
+               (bottom_margin+3*(h+vgap))/fig_height,
                w/fig_width, h/fig_height]
         ax = fig.add_axes(pos);
         if T == 10:
             pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+h+vgap)/fig_height,
+                        (bottom_margin+3*(h+vgap))/fig_height,
                         cbar_width/fig_width, h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(C_opt_table['wc [GHz]'], C_opt_table['w2 [GHz]'],
-                             C_opt_table['C'], ax, ax_cbar, density=density,
+        vals = np.minimum(np.array(combined_table['C_SQ']), C_ff)
+        cbar = render_values(combined_table['wc [GHz]'],
+                             combined_table['w2 [GHz]'],
+                             vals, ax, ax_cbar, density=density,
                              vmin=0.0, vmax=1.0, bg='black',
-                             val_alpha=(1-C_opt_table['max loss']),
+                             val_alpha=(1-combined_table['max loss (SQ)']),
                              transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$C_{\text{PE}}$ (opt)', rotation=90)
+            ax_cbar.set_ylabel(r'minimized $C_{\text{SQ}}$', rotation=90)
+            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                range=y_range, minor=y_minor)
+        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                range=x_range, minor=x_minor, ticklabels=False)
+        ax.tick_params(which='both', direction='out')
+        if i_col > 0:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+        labels = [
+        #          w_2   w_c     label pos
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
+
+        # row 3: C_PE
+        pos = [(left_margin+i_col*(w+hgap))/fig_width,
+               (bottom_margin+2*(h+vgap))/fig_height,
+               w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos);
+        if T == 10:
+            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                        (bottom_margin+2*(h+vgap))/fig_height,
+                        cbar_width/fig_width, h/fig_height]
+            ax_cbar = fig.add_axes(pos_cbar)
+        else:
+            ax_cbar = None
+        cbar = render_values(C_opt_table_PE['wc [GHz]'],
+                             C_opt_table_PE['w2 [GHz]'],
+                             C_opt_table_PE['C'], ax, ax_cbar, density=density,
+                             vmin=0.0, vmax=1.0, bg='black',
+                             val_alpha=(1-C_opt_table_PE['max loss']),
+                             transform_x=DeltaC, transform_y=Delta2)
+        if ax_cbar is not None:
+            ax_cbar.set_ylabel(r'maximized $C_{\text{PE}}$', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
@@ -635,25 +505,30 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
             ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
                         color=color)
 
-        # row 3: C_0-C_SQ
+        # row 4: C_0-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               bottom_margin/fig_height,
+               (bottom_margin+1*(h+vgap))/fig_height,
                w/fig_width, h/fig_height]
         ax = fig.add_axes(pos);
         if T == 10:
             pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        bottom_margin/fig_height,
+                        (bottom_margin+1*(h+vgap))/fig_height,
                         cbar_width/fig_width, h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(zeta_table2['wc [GHz]'], zeta_table2['w2 [GHz]'],
-                             zeta_table2['C']-C_ff,
+        vals = ( (combined_table['C_PE'])
+                 * (1 - np.minimum(np.array(combined_table['C_SQ']), C_ff)) )
+        val_alpha = ( (1-combined_table['max loss (PE)'])
+                      * (1-combined_table['max loss (SQ)']) )
+        cbar = render_values(combined_table['wc [GHz]'],
+                             combined_table['w2 [GHz]'], vals,
                              ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
-                             val_alpha=(1-zeta_table2['max loss']), bg='black',
+                             val_alpha=val_alpha, bg='black',
                              transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$C_{\text{PE}}-C_{0}$', rotation=90)
+            ax_cbar.set_ylabel(r'$C_{\text{PE}} \times (1-C_\text{SQ})$',
+                               rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
@@ -677,10 +552,30 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
             ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
                         color=color)
 
+        # row 5: Weyl chamber
+        t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
+        weyl = QDYN.weyl.WeylChamber()
+        pos = [(left_margin+i_col*(w+hgap)+weyl_offset_x)/fig_width,
+               (bottom_margin+weyl_offset_y)/fig_height,
+               weyl_width/fig_width, weyl_height/fig_height]
+        ax_weyl = fig.add_axes(pos, projection='3d');
+        weyl.scatter(t_PE_weyl['c1'], t_PE_weyl['c2'], t_PE_weyl['c3'],
+                     s=5, linewidth=0)
+        weyl.render(ax_weyl)
+        ax_weyl.xaxis._axinfo['ticklabel']['space_factor'] = 1.0
+        ax_weyl.yaxis._axinfo['ticklabel']['space_factor'] = 1.0
+        ax_weyl.zaxis._axinfo['ticklabel']['space_factor'] = 1.3
+        ax_weyl.xaxis._axinfo['label']['space_factor'] = 1.5
+        ax_weyl.yaxis._axinfo['label']['space_factor'] = 1.5
+        ax_weyl.zaxis._axinfo['label']['space_factor'] = 1.5
+        ax_weyl.xaxis.set_major_formatter(weyl_x_tick_fmt)
+        ax_weyl.yaxis.set_major_formatter(weyl_y_tick_fmt)
+        ax_weyl.zaxis.set_major_formatter(weyl_z_tick_fmt)
+
         fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
-                 (bottom_margin+2*(h+vgap)+h+0.3)/fig_height,
+                 (bottom_margin+4*(h+vgap)+h-0.2)/fig_height,
                  r'$T = %d$~ns' % T, verticalalignment='top',
-                 horizontalalignment='right', size=10)
+                 horizontalalignment='right', size=10, color='white')
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -688,18 +583,6 @@ def generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
     fig.savefig(outfile)
     print("written %s" % outfile)
     plt.close(fig)
-
-
-def generate_popdyn_plot(outfile):
-    dyn = QDYNTransmonLib.popdyn.PopPlot(
-          "./propagate/010_RWA_w2_6000MHz_wc_6300MHz_stage3/PE_1freq/",
-          panel_width=3.5, left_margin=1.5, right_margin=3.0, top_margin=0.7)
-    dyn.styles['tot']['ls'] = '--'
-    dyn.plot(pops=('00', '01', '10', '11', 'tot'), in_panel_legend=False)
-    if OUTFOLDER is not None:
-        outfile = os.path.join(OUTFOLDER, outfile)
-    plt.savefig(outfile)
-    print("written %s" % outfile)
 
 
 def generate_error_plot(outfile):
@@ -1167,7 +1050,6 @@ def main(argv=None):
     stage_table_010 = get_stage3_table('./runs_010_RWA')
     zeta_table = get_zeta_table('./runs_050_RWA', T=50)
 
-
     universal_root = './runs_zeta_detailed/w2_5900MHz_wc_6200MHz'
     universal_rf = {
         'H_L': universal_root+'/50ns_w_center_H_left',
@@ -1182,18 +1064,16 @@ def main(argv=None):
     generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
 
     # Fig 2
-    generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
-                      zeta_table, outfile='fig2_main.pdf')
+    generate_map_plot_combined(stage_table_200, stage_table_050,
+                               stage_table_010, zeta_table,
+                               outfile='fig2_main.pdf')
 
     # Fig 3
-    generate_map_plot_PE(stage_table_200, stage_table_050, stage_table_010,
-                         zeta_table, outfile='fig3_main.pdf')
-    # Fig 4
-    generate_error_plot(outfile='fig4_main.pdf')
+    generate_error_plot(outfile='fig3_main.pdf')
 
-    # Fig 5
+    # Fig 4
     generate_universal_pulse_plot(universal_rf, field_free_rf,
-                                  outfile='fig5.pdf')
+                                  outfile='fig4.pdf')
 
 if __name__ == "__main__":
     sys.exit(main())
