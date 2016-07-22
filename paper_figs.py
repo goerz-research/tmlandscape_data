@@ -409,10 +409,11 @@ def generate_map_plot_SQ(stage_table_200, stage_table_050, stage_table_010,
             ax_cbar = fig.add_axes(pos_cbar)
         else:
             ax_cbar = None
-        cbar = render_values(C_opt_table['wc [GHz]'], C_opt_table['w2 [GHz]'],
-                             1-C_opt_table['C'], ax, ax_cbar, density=density,
+        vals = 1 - np.minimum(np.array(zeta_table2['C']), C_ff2)
+        cbar = render_values(zeta_table2['wc [GHz]'], zeta_table2['w2 [GHz]'],
+                             vals, ax, ax_cbar, density=density,
                              vmin=0.0, vmax=1.0, bg='black',
-                             val_alpha=(1-C_opt_table['max loss']),
+                             val_alpha=(1-zeta_table2['max loss']),
                              transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
             ax_cbar.set_ylabel(r'$1-C_{\text{SQ}}$ (opt)', rotation=90)
