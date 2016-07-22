@@ -51,8 +51,8 @@ def generate_field_free_plot(zeta_table, T, outfile):
     right_margin  = 1.0
     w             = 4.2
 
-    top_margin    = 0.7
-    bottom_margin = 0.8
+    top_margin    = 0.65
+    bottom_margin = 0.85
     h             = 2.5
 
     density = 300
@@ -83,7 +83,6 @@ def generate_field_free_plot(zeta_table, T, outfile):
     def polar(r, phi):
         dx = r * cos(2*pi*phi/360.0)
         dy = r * sin(2*pi*phi/360.0)
-        print (dx, dy) # DEBUG
         return dx, dy
 
     fig_height = bottom_margin + top_margin + h
@@ -195,9 +194,9 @@ def generate_field_free_plot(zeta_table, T, outfile):
     ax.plot([-22, -13], [0, 0], ls='dotted', color='Gray', lw=1) # hline
     ax.plot([10, 15],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
     ax.plot([21, 26],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([30, 38],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([30, 39],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
     ax.plot([-22, -6], [2, 2], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([12, 38], [2, 2], ls='dotted', color='Gray', lw=1) # hline
+    ax.plot([12, 43], [2, 2], ls='dotted', color='Gray', lw=1) # hline
     ax.plot([-22, -14], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
     ax.plot([4, 43], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
 
