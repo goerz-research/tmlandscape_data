@@ -288,15 +288,10 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
     right_margin  = 1.0
     w             = 4.2
 
-    top_margin    = 0.0
-    bottom_margin = 0.8
+    top_margin    = 0.25
+    bottom_margin = 0.85
     vgap          = 0.45
     h             = 2.5
-
-    weyl_offset_x = 0.3
-    weyl_offset_y = -0.5
-    weyl_width    = 3.5
-    weyl_height   = 2.5
 
     density = 300
     wc_min = 4.5
@@ -318,12 +313,14 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
     xlabelpad = 3.0
     ylabelpad = 1.0
 
+    n_rows = 4
+
     Delta2 = lambda w2: (w2 - w1)/alpha
     DeltaC = lambda wc: (wc - w1)/g
     y_range = (Delta2(w2_min), Delta2(w2_max))
     x_range = (DeltaC(wc_min), DeltaC(wc_max))
 
-    fig_height = bottom_margin + 5*h + 4*vgap + top_margin + 0.5
+    fig_height = bottom_margin + n_rows*h + (n_rows-1)*vgap + top_margin
     fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
                   + right_margin)
     fig = new_figure(fig_width, fig_height, style=STYLE)
@@ -333,7 +330,6 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
             (50,  stage_table_050),
             (10,  stage_table_010), ])
 
-
     for i_col, T in enumerate(data.keys()):
 
         zeta = zeta_table['zeta [MHz]']
@@ -342,12 +338,12 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
 
         # row 1: field-free entanglement
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+4*(h+vgap))/fig_height,
+               (bottom_margin+(n_rows-1)*(h+vgap))/fig_height,
                w/fig_width, h/fig_height]
         ax = fig.add_axes(pos);
         if T == 10:
             pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+4*(h+vgap))/fig_height,
+                        (bottom_margin+(n_rows-1)*(h+vgap))/fig_height,
                         cbar_width/fig_width, h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
         else:
@@ -356,7 +352,7 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
                 C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
                 transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'field-free $C_0$', rotation=90)
+            ax_cbar.set_ylabel(r'$C_0$', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
@@ -370,14 +366,19 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
             ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
             ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
                         color=color)
+        if (i_col == 2):
+            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                     (bottom_margin+(n_rows-1)*(h+vgap)+0.2)/fig_height,
+                    r'field-free', verticalalignment='bottom',
+                    horizontalalignment='right', size=10, color='white')
 
         # collection OCT data
 
@@ -422,12 +423,12 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
 
         # row 2: 1-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+3*(h+vgap))/fig_height,
+               (bottom_margin+(n_rows-2)*(h+vgap))/fig_height,
                w/fig_width, h/fig_height]
         ax = fig.add_axes(pos);
         if T == 10:
             pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+3*(h+vgap))/fig_height,
+                        (bottom_margin+(n_rows-2)*(h+vgap))/fig_height,
                         cbar_width/fig_width, h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
         else:
@@ -440,7 +441,7 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
                              val_alpha=(1-combined_table['max loss (SQ)']),
                              transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'minimized $C_{\text{SQ}}$', rotation=90)
+            ax_cbar.set_ylabel(r'$C_{\text{SQ}}$', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
@@ -454,23 +455,28 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
             ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
+            ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
             ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
                         color=color)
+        if (i_col == 2):
+            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                     (bottom_margin+(n_rows-2)*(h+vgap)+0.2)/fig_height,
+                    r'minimization', verticalalignment='bottom',
+                    horizontalalignment='right', size=10, color='white')
 
         # row 3: C_PE
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+2*(h+vgap))/fig_height,
+               (bottom_margin+(n_rows-3)*(h+vgap))/fig_height,
                w/fig_width, h/fig_height]
         ax = fig.add_axes(pos);
         if T == 10:
             pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+2*(h+vgap))/fig_height,
+                        (bottom_margin+(n_rows-3)*(h+vgap))/fig_height,
                         cbar_width/fig_width, h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
         else:
@@ -482,7 +488,7 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
                              val_alpha=(1-C_opt_table_PE['max loss']),
                              transform_x=DeltaC, transform_y=Delta2)
         if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'maximized $C_{\text{PE}}$', rotation=90)
+            ax_cbar.set_ylabel(r'$C_{\text{PE}}$', rotation=90)
             cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
             ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
         set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
@@ -499,20 +505,29 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
             ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
+        if (i_col > 0):
+            labels[0] = \
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed')
+
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
             ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
                         color=color)
+        if (i_col == 2):
+            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                     (bottom_margin+(n_rows-3)*(h+vgap)+0.2)/fig_height,
+                    r'maximization', verticalalignment='bottom',
+                    horizontalalignment='right', size=10, color='white')
 
         # row 4: C_0-C_SQ
         pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+1*(h+vgap))/fig_height,
+               (bottom_margin+(n_rows-4)*(h+vgap))/fig_height,
                w/fig_width, h/fig_height]
         ax = fig.add_axes(pos);
         if T == 10:
             pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+1*(h+vgap))/fig_height,
+                        (bottom_margin+(n_rows-4)*(h+vgap))/fig_height,
                         cbar_width/fig_width, h/fig_height]
             ax_cbar = fig.add_axes(pos_cbar)
         else:
@@ -543,17 +558,77 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
         ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
         labels = [
         #          w_c   w_2     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
             ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
+        if (i_col > 0):
+            labels[0] = \
+            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed')
+
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
             ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
                         color=color)
+        if (i_col == 2):
+            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                     (bottom_margin+(n_rows-4)*(h+vgap)+0.2)/fig_height,
+                    r'combined', verticalalignment='bottom',
+                    horizontalalignment='right', size=10, color='white')
+
+        # time labels at top of figure
+
+        fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                 (bottom_margin+(n_rows-1)*(h+vgap)+h-0.2)/fig_height,
+                 r'$T = %d$~ns' % T, verticalalignment='top',
+                 horizontalalignment='right', size=10, color='white')
+
+    if OUTFOLDER is not None:
+        outfile = os.path.join(OUTFOLDER, outfile)
+
+    fig.savefig(outfile)
+    print("written %s" % outfile)
+    plt.close(fig)
+
+
+def generate_weyl_plot(stage_table_200, stage_table_050, stage_table_010, outfile):
+
+    left_margin   = 1.1
+    hgap          = 0.35
+    cbar_width    = 0.25
+    cbar_gap      = hgap
+    right_margin  = 1.0
+    w             = 4.2
+
+    top_margin    = 0.0
+    bottom_margin = 0.8
+    vgap          = 0.45
+    h             = 2.5
+
+    weyl_offset_x = 0.3
+    weyl_offset_y = -0.5
+    weyl_width    = 3.5
+    weyl_height   = 2.5
+
+    fig_height = bottom_margin + h + top_margin
+    fig_width  = (left_margin + 3*w + 2*hgap + cbar_gap + cbar_width
+                  + right_margin)
+    fig = new_figure(fig_width, fig_height, style=STYLE)
+
+    data = OrderedDict([
+            (200, stage_table_200),
+            (50,  stage_table_050),
+            (10,  stage_table_010), ])
+
+    for i_col, T in enumerate(data.keys()):
+
+        # collection OCT data
+        stage_table = data[T]
+        stage_table = stage_table[stage_table['category'].str.contains('1freq')]
+        (__, t_PE), __ = stage_table.groupby('target', sort=True)
+        t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
 
         # row 5: Weyl chamber
-        t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
         weyl = QDYN.weyl.WeylChamber()
         pos = [(left_margin+i_col*(w+hgap)+weyl_offset_x)/fig_width,
                (bottom_margin+weyl_offset_y)/fig_height,
@@ -573,9 +648,9 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
         ax_weyl.zaxis.set_major_formatter(weyl_z_tick_fmt)
 
         fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
-                 (bottom_margin+4*(h+vgap)+h-0.2)/fig_height,
+                 (bottom_margin+0*(h+vgap)+h-0.2)/fig_height,
                  r'$T = %d$~ns' % T, verticalalignment='top',
-                 horizontalalignment='right', size=10, color='white')
+                 horizontalalignment='right', size=10, color='black')
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -1069,11 +1144,15 @@ def main(argv=None):
                                outfile='fig2_main.pdf')
 
     # Fig 3
-    generate_error_plot(outfile='fig3_main.pdf')
+    generate_weyl_plot(stage_table_200, stage_table_050, stage_table_010,
+                               outfile='fig3_main.pdf')
 
     # Fig 4
+    generate_error_plot(outfile='fig4_main.pdf')
+
+    # Fig 5
     generate_universal_pulse_plot(universal_rf, field_free_rf,
-                                  outfile='fig4.pdf')
+                                  outfile='fig5.pdf')
 
 if __name__ == "__main__":
     sys.exit(main())
