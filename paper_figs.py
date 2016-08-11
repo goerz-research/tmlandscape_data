@@ -630,6 +630,14 @@ def generate_weyl_plot(stage_table_200, stage_table_050, stage_table_010, outfil
 
         # row 5: Weyl chamber
         weyl = QDYN.weyl.WeylChamber()
+        weyl.PE_edge_fg_properties = {
+                  'color':'DarkMagenta', 'linestyle':'-', 'lw':0.7}
+        weyl.PE_edge_bg_properties = {
+                  'color':'DarkMagenta', 'linestyle':'--', 'lw':0.7}
+        weyl.weyl_edge_fg_properties = {
+                  'color':'Gray', 'linestyle':'-', 'lw':0.5}
+        weyl.weyl_edge_bg_properties = {
+                  'color':'Gray', 'linestyle':'--', 'lw':0.5}
         pos = [(left_margin+i_col*(w+hgap)+weyl_offset_x)/fig_width,
                (bottom_margin+weyl_offset_y)/fig_height,
                weyl_width/fig_width, weyl_height/fig_height]
