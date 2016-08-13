@@ -822,15 +822,26 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
         ax_spec.plot(freq, 1.1*spectrum, label='spectrum')
         set_axis(ax_spec, 'x', -1000, 1000, range=(-650, 600), step=500, minor=5,
                  label=r'$\Delta f$ (MHz)', labelpad=1)
-        w1 = 5.9823 # GHz
-        w2 = 5.8824 # GHz
-        wd = 5.9325 # GHz
-        ax_spec.axvline(x=1000*(w2-wd), ls='--', color=get_color('green'))
-        ax_spec.axvline(x=1000*(w1-wd), ls='--', color=get_color('orange'))
-        ax_spec.text(x=1000*(w2-wd)-50, y=90, s=r'$\omega_2^d$',
-                     ha='right', va='top', color=get_color('green'))
-        ax_spec.text(x=1000*(w1-wd)+50, y=90, s=r'$\omega_1^d$',
-                     ha='left', va='top', color=get_color('orange'))
+        delta1 = 0.5 * (49.82 + 50.11) # MHz
+        delta2 = 0.5 * (-50.25 -49.95) # MHz
+        alpha1 = 0.5 * (-225.65 -219.73) # MHz
+        alpha2 = 0.5 * (-341.00 -347.32 ) # MHz
+        # Note: the above frequencies are "dressed", cf SpectralAnalysis.ipynb
+        # The the splitting due to the static interaction (i.e., "other qubit
+        # in 0 or 1") is small, so we just average the two values and draw a
+        # single line
+        ax_spec.axvline(x=delta2, ls='--', color=get_color('green'))
+        ax_spec.axvline(x=delta1, ls='--', color=get_color('orange'))
+        ax_spec.text(x=(delta2-50), y=90, s=r'$\omega_2^d$',
+                     ha='right', va='top', color=get_color('green'),
+                     backgroundcolor='white')
+        ax_spec.text(x=(delta1+50), y=90, s=r'$\omega_1^d$',
+                     ha='left', va='top', color=get_color('orange'),
+                     backgroundcolor='white')
+        ax_spec.axvline(x=(delta2+alpha2), ls='dotted',
+                        color=get_color('green'))
+        ax_spec.axvline(x=(delta1+alpha1), ls='dotted',
+                        color=get_color('orange'))
         if i_tgt == 0:
             set_axis(ax_spec, 'y', 0, 100, step=50, minor=2, label='')
         else:
@@ -850,14 +861,18 @@ def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
             set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2,
                      label='time (ns)', labelpad=1)
         if i_tgt == 0:
-            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250),
+            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-450, 250),
                      step=200, minor=2, label='')
         else:
-            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-400, 250),
+            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-450, 250),
                      step=200, minor=2, label='', ticklabels=False)
-        ax_phase_deriv.axhline(y=1000*(w2-wd), ls='--',
+        ax_phase_deriv.axhline(y=delta2, ls='--',
                                color=get_color('green'))
-        ax_phase_deriv.axhline(y=1000*(w1-wd), ls='--',
+        ax_phase_deriv.axhline(y=delta1, ls='--',
+                               color=get_color('orange'))
+        ax_phase_deriv.axhline(y=(delta2+alpha2), ls='dotted',
+                               color=get_color('green'))
+        ax_phase_deriv.axhline(y=(delta1+alpha1), ls='dotted',
                                color=get_color('orange'))
 
         pos = [left_offset/fig_width, phase_offset/fig_height,
