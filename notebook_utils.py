@@ -963,6 +963,10 @@ def get_zeta_table(runs, T=None, limit=1e-3):
     'zeta [MHz]' : value of zeta
     'gamma [MHz]': Effective (population) decay rate for the qubit, due to
                    Purcell effect
+    'E00 [GHz]'  : energy of the 00 eigenstate
+    'E01 [GHz]'  : energy of the 01 eigenstate
+    'E10 [GHz]'  : energy of the 10 eigenstate
+    'E11 [GHz]'  : energy of the 11 eigenstate
 
     and use the runfolder path as an index
     """
@@ -981,6 +985,10 @@ def get_zeta_table(runs, T=None, limit=1e-3):
     wc_s       = pd.Series(index=runfolders)
     zeta_s     = pd.Series(index=runfolders)
     gamma_s    = pd.Series(index=runfolders)
+    E00_s      = pd.Series(index=runfolders)
+    E01_s      = pd.Series(index=runfolders)
+    E10_s      = pd.Series(index=runfolders)
+    E11_s      = pd.Series(index=runfolders)
     errors = []
     two_pi = 2.0 * np.pi
     four_pi = 4.0 * np.pi
@@ -1013,6 +1021,10 @@ def get_zeta_table(runs, T=None, limit=1e-3):
                     Gamma[state] = -1.0*float(m.group('MinusGamma'))
         for state in ['00', '01', '10', '11']:
             assert state in E
+        E00_s[i] = E['00'] / 1000.0
+        E01_s[i] = E['01'] / 1000.0
+        E10_s[i] = E['10'] / 1000.0
+        E11_s[i] = E['11'] / 1000.0
         zeta_s[i] = E['00'] - E['01'] - E['10'] + E['11']
         gamma_s[i] = np.sum(np.array(Gamma.values(), dtype=np.float64)) / 2.0
         #          = 2 * (\sum_i \Gamma_i) / 4,
@@ -1040,6 +1052,10 @@ def get_zeta_table(runs, T=None, limit=1e-3):
                 ('wc [GHz]',    wc_s/1000.0),
                 ('zeta [MHz]',  zeta_s),
                 ('gamma [MHz]', gamma_s),
+                ('E00 [GHz]',   E00_s),
+                ('E01 [GHz]',   E01_s),
+                ('E10 [GHz]',   E10_s),
+                ('E11 [GHz]',   E11_s),
             ]))
     return table[~table.index.isin(errors)]
 
