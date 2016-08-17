@@ -628,7 +628,6 @@ def generate_weyl_plot(stage_table_200, stage_table_050, stage_table_010, outfil
         (__, t_PE), __ = stage_table.groupby('target', sort=True)
         t_PE_weyl = t_PE[(t_PE['max loss']<0.1) & (t_PE['C']==1.0)]
 
-        # row 5: Weyl chamber
         weyl = QDYN.weyl.WeylChamber()
         weyl.PE_edge_fg_properties = {
                   'color':'DarkMagenta', 'linestyle':'-', 'lw':0.7}
@@ -643,8 +642,21 @@ def generate_weyl_plot(stage_table_200, stage_table_050, stage_table_010, outfil
                weyl_width/fig_width, weyl_height/fig_height]
         ax_weyl = fig.add_axes(pos, projection='3d');
         weyl.scatter(t_PE_weyl['c1'], t_PE_weyl['c2'], t_PE_weyl['c3'],
-                     s=5, linewidth=0)
+                     c='blue', s=5, linewidth=0)
+        weyl.labels = {
+            'A_1' : weyl.A1 + np.array((-0.07, 0.01 , 0.00)),
+            'A_2' : weyl.A2 + np.array((0.01, 0, -0.01)),
+            'A_3' : weyl.A3 + np.array((-0.01, 0, 0)),
+            'O'   : weyl.O  + np.array((-0.025,  0.0, 0.04)),
+            'L'   : weyl.L  + np.array((-0.10, 0, 0.01)),
+            'M'   : weyl.M  + np.array((0.05, -0.01, 0)),
+            'N'   : weyl.N  + np.array((-0.095, 0, 0.015)),
+            'P'   : weyl.P  + np.array((-0.05, 0, 0.008)),
+            'Q'   : weyl.Q  + np.array((0, 0.01, 0.03)),
+        }
         weyl.render(ax_weyl)
+        #for artist in weyl._artists:
+            #artist.set_edgecolors = artist.set_facecolors = lambda *args:None
         ax_weyl.xaxis._axinfo['ticklabel']['space_factor'] = 1.0
         ax_weyl.yaxis._axinfo['ticklabel']['space_factor'] = 1.0
         ax_weyl.zaxis._axinfo['ticklabel']['space_factor'] = 1.3
