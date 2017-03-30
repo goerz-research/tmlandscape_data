@@ -124,8 +124,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
               horizontalalignment='right')
     labels = [
     #         w_c   w_2     label pos
-        ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-        ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
+        ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
@@ -160,8 +159,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
               horizontalalignment='right')
     labels = [
     #          w_c   w_2     label pos
-        ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-        ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+        ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
@@ -230,8 +228,7 @@ def generate_field_free_plot(zeta_table, T, outfile):
              verticalalignment='top', horizontalalignment='right')
     labels = [
     #          w_c   w_2     label pos
-        ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-        ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+        ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
     ]
     for (label, x_y_data, x_y_label, color) in labels:
         ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
@@ -366,8 +363,7 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
             ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
+            ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
@@ -455,8 +451,7 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
             ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_2   w_c     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
+            ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
         ]
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
@@ -502,12 +497,8 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
             ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
         labels = [
         #          w_c   w_2     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+            ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
-        if (i_col > 0):
-            labels[0] = \
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed')
 
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
@@ -558,12 +549,8 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
         ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
         labels = [
         #          w_c   w_2     label pos
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'FireBrick'),
-            ("B", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+            ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
         ]
-        if (i_col > 0):
-            labels[0] = \
-            ("A", (5.75, 6.32 ), (5.35, 6.40), 'OrangeRed')
 
         for (label, x_y_data, x_y_label, color) in labels:
             ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
@@ -692,7 +679,7 @@ def generate_error_plot(outfile):
     h = 0.5*(fig_height - (bottom_margin + top_margin + gap))
     w = fig_width  - (left_margin + right_margin)
     data = r'''
-    #                   minimum error   min err (B)     PE error     err(H1)
+    #                   minimum error   min err (X)     PE error     err(H1)
     # gate duration [ns]
     5                        3.02e-04      3.62e-04     1.10e-03   1.00e-00
     10                       6.03e-04      7.23e-04     6.31e-04   7.34e-02
@@ -703,12 +690,12 @@ def generate_error_plot(outfile):
     '''
     # The above data is taken from the following sources:
     #
-    # * eps_avg^{H1,B}: See notebook QSL_Hadamard1.ipynb,
+    # * eps_avg^{H1,X}: See notebook QSL_Hadamard1.ipynb,
     #   runfolders in ./QSL_H1_prop. For 50ns, run in
     #   ./propagate_universal/rho/H_L/
     # * For eps_avg^{PE}: See notebook Stage3Analysis.ipynb,
     #   runfolders in ./liouville_prop/stage3/
-    # * For eps_avg^{0,B}: See notebook UniversalPropLiouville.ipynb
+    # * For eps_avg^{0,X}: See notebook UniversalPropLiouville.ipynb
     #   runfolders in ./propagate_universal/liouville_ff/
     # * For eps_avg^0: See notebook LiouvilleError.ipynb (analytic formula)
     #
@@ -738,12 +725,12 @@ def generate_error_plot(outfile):
            w/fig_width, h/fig_height]
     ax = fig.add_axes(pos)
     ax.plot(T, eps_0, label=None, marker='o', color=get_color('grey'))
-    ax.plot(T, eps_0B, label=r'$\varepsilon_{\text{avg}}^{0,\text{B}}$',
+    ax.plot(T, eps_0B, label=r'$\varepsilon_{\text{avg}}^{0,\text{X}}$',
             marker='o', color=get_color('blue'), dashes=ls['dashed'])
-    ax.plot(T, eps_H1, label=r'$\varepsilon_{\text{avg}}^{\text{H1,B}}$',
+    ax.plot(T, eps_H1, label=r'$\varepsilon_{\text{avg}}^{\text{H1,X}}$',
             marker='o', color=get_color('red'), dashes=ls['long-dashed'])
     ax.legend(loc='upper left')
-    ax.annotate(r'$\text{QSL\,}^{\text{B}}_{\text{H1}}$',
+    ax.annotate(r'$\text{QSL\,}^{\text{X}}_{\text{H1}}$',
                 xy=(0.637, 0.5), xycoords='axes fraction',
                 xytext=(0.7, 0.1), textcoords='axes fraction',
                 arrowprops=dict(facecolor='black', width=0.7, headwidth=2,
@@ -753,387 +740,6 @@ def generate_error_plot(outfile):
     set_axis(ax, 'x', 4, 210, label='gate time (ns)', logscale=True, labelpad=-2)
     set_axis(ax, 'y', 2e-4, 3.0e-2, label='gate error', logscale=True)
     ax.tick_params(axis='x', pad=3)
-
-    if OUTFOLDER is not None:
-        outfile = os.path.join(OUTFOLDER, outfile)
-    fig.savefig(outfile, format=os.path.splitext(outfile)[1][1:])
-    print("written %s" % outfile)
-
-
-def generate_universal_pulse_plot(universal_rf, field_free_rf, outfile):
-    fig_width    = 18.0
-    fig_height   = 14.2
-    spec_offset  =  0.7
-    phase_deriv_offset =  2.95
-    phase_offset =  4.45
-    pulse_offset = 5.95
-    phase_h       =  1.5
-    phase_deriv_h =  1.5
-    label_offset = 14.0
-    error_offset = 13.6
-    spec_h       =  1.5
-    pulse_h      =  1.5
-    left_margin  =  1.4
-    right_margin =  0.25
-    gap          =  0.0 # horizontal gap between panels
-    y_label_offset  = 0.07
-    log_offset = 8.3
-    log_h = 1.0
-    dyn_offset = 10.0
-    dyn_width = 1.55
-
-    fig = new_figure(fig_width, fig_height, style=STYLE)
-
-    w = float(fig_width - (left_margin + right_margin + 4 * gap)) / 5
-
-    labels = {
-            'H_L': r'Hadamard (1)',
-            'H_R': r'Hadamard (2)',
-            'S_L': r'Phasegate (1)',
-            'S_R': r'Phasegate (2)',
-            'PE': r'BGATE',
-    }
-
-    errors = { # errors obtained from *Liouville space* propagation, see
-               # ./propagate_universal/rho folder
-            'H_L': 4.46e-3,
-            'H_R': 5.03e-3,
-            'S_L': 4.79e-3,
-            'S_R': 4.07e-3,
-            'PE':  4.70e-3,
-    }
-
-    polar_axes = []
-
-    for i_tgt, tgt in enumerate(['H_L', 'H_R', 'S_L', 'S_R', 'PE']):
-
-        left_offset = left_margin + i_tgt * (w+gap)
-
-        p = QDYN.pulse.Pulse(os.path.join(universal_rf[tgt], 'pulse.dat'),
-                             freq_unit='MHz')
-        #U = QDYN.gate2q.Gate2Q(os.path.join(universal_rf[tgt], 'U.dat'))
-        #O = read_target_gate(os.path.join(universal_rf[tgt], 'target_gate.dat'))
-        #err = 1-U.F_avg(O) # (non-Hermitian) Hilbert space error
-        err = errors[tgt] #  Liouville space error
-        freq, spectrum = p.spectrum(mode='abs', sort=True)
-        spectrum *= 1.0 / len(spectrum)
-
-        # column labels
-        fig.text((left_offset + 0.5*w)/fig_width, label_offset/fig_height,
-                  labels[tgt], verticalalignment='top',
-                  horizontalalignment='center')
-
-        fig.text((left_offset + 0.5*w)/fig_width, error_offset/fig_height,
-                  r'$\varepsilon_{\text{avg}} = %s$' % latex_exp(err),
-                  verticalalignment='top', horizontalalignment='center')
-
-        # spectrum
-        pos = [left_offset/fig_width, spec_offset/fig_height,
-               w/fig_width, spec_h/fig_height]
-        ax_spec = fig.add_axes(pos)
-        ax_spec.plot(freq, 1.1*spectrum, label='spectrum')
-        set_axis(ax_spec, 'x', -1000, 1000, range=(-650, 600), step=500, minor=5,
-                 label=r'$\Delta f$ (MHz)', labelpad=1)
-        delta1 = 0.5 * (49.82 + 50.11) # MHz
-        delta2 = 0.5 * (-50.25 -49.95) # MHz
-        alpha1 = 0.5 * (-225.65 -219.73) # MHz
-        alpha2 = 0.5 * (-341.00 -347.32 ) # MHz
-        # Note: the above frequencies are "dressed", cf SpectralAnalysis.ipynb
-        # The the splitting due to the static interaction (i.e., "other qubit
-        # in 0 or 1") is small, so we just average the two values and draw a
-        # single line
-        ax_spec.axvline(x=delta2, ls='--', color=get_color('green'))
-        ax_spec.axvline(x=delta1, ls='--', color=get_color('orange'))
-        ax_spec.text(x=(delta2-50), y=90, s=r'$\omega_2^d$',
-                     ha='right', va='top', color=get_color('green'),
-                     backgroundcolor='white')
-        ax_spec.text(x=(delta1+50), y=90, s=r'$\omega_1^d$',
-                     ha='left', va='top', color=get_color('orange'),
-                     backgroundcolor='white')
-        ax_spec.axvline(x=(delta2+alpha2), ls='dotted',
-                        color=get_color('green'))
-        ax_spec.axvline(x=(delta1+alpha1), ls='dotted',
-                        color=get_color('orange'))
-        if i_tgt == 0:
-            set_axis(ax_spec, 'y', 0, 100, step=50, minor=2, label='')
-        else:
-            set_axis(ax_spec, 'y', 0, 100, step=50, minor=2, label='',
-                     ticklabels=False)
-
-        # phase
-        pos = [left_offset/fig_width, phase_deriv_offset/fig_height,
-               w/fig_width, phase_deriv_h/fig_height]
-        ax_phase_deriv = fig.add_axes(pos)
-        ax_phase_deriv.plot(p.tgrid, p.phase(unwrap=True, s=1000,
-                            derivative=True))
-        if i_tgt < 4:
-            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2,
-                     label='time (ns)', labelpad=1, drop_ticklabels=[-1, ])
-        else:
-            set_axis(ax_phase_deriv, 'x', 0, 50, step=10, minor=2,
-                     label='time (ns)', labelpad=1)
-        if i_tgt == 0:
-            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-450, 250),
-                     step=200, minor=2, label='')
-        else:
-            set_axis(ax_phase_deriv, 'y', -500, 500, range=(-450, 250),
-                     step=200, minor=2, label='', ticklabels=False)
-        ax_phase_deriv.axhline(y=delta2, ls='--',
-                               color=get_color('green'))
-        ax_phase_deriv.axhline(y=delta1, ls='--',
-                               color=get_color('orange'))
-        ax_phase_deriv.axhline(y=(delta2+alpha2), ls='dotted',
-                               color=get_color('green'))
-        ax_phase_deriv.axhline(y=(delta1+alpha1), ls='dotted',
-                               color=get_color('orange'))
-
-        pos = [left_offset/fig_width, phase_offset/fig_height,
-               w/fig_width, phase_h/fig_height]
-        ax_phase = fig.add_axes(pos)
-        ax_phase.plot(p.tgrid, p.phase(unwrap=True) / np.pi)
-        set_axis(ax_phase, 'x', 0, 50, step=10, minor=2, label='',
-                 ticklabels=False, labelpad=1)
-        if i_tgt == 0:
-            set_axis(ax_phase, 'y', -16, 4, range=(-15, 5), step=4, minor=2,
-                    label='', drop_ticklabels=[-1, ])
-        else:
-            set_axis(ax_phase, 'y', -16, 16, range=(-14.9, 4.9), step=4,
-                     minor=2, label='', ticklabels=False)
-
-        # pulse
-        pos = [left_offset/fig_width, pulse_offset/fig_height,
-               w/fig_width, pulse_h/fig_height]
-        ax_pulse = fig.add_axes(pos)
-        p.render_pulse(ax_pulse)
-        avg_pulse = np.trapz(np.abs(p.amplitude), p.tgrid) / p.tgrid[-1]
-        ax_pulse.axhline(y=avg_pulse, color='black', dashes=ls['dotted'])
-        set_axis(ax_pulse, 'x', 0, 50, step=10, minor=2, #label='time (ns)',
-                 label='', ticklabels=False,
-                 labelpad=1)
-        if i_tgt == 0:
-            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=2, label='')
-        else:
-            set_axis(ax_pulse, 'y', 0, 300, step=100, minor=2, label='',
-                     ticklabels=False)
-
-        # logical subspace population
-        pos = [left_offset/fig_width,log_offset/fig_height,
-               w/fig_width, log_h/fig_height]
-        ax_log = fig.add_axes(pos)
-        dyn = QDYNTransmonLib.popdyn.PopPlot(universal_rf[tgt])
-        pop_loss = np.zeros(len(dyn.tgrid))
-        for i_state, basis_state in enumerate(['11', '10', '01', '00']):
-            pop_loss += 0.25*(  dyn.pop[basis_state].pop00
-                              + dyn.pop[basis_state].pop01
-                              + dyn.pop[basis_state].pop10
-                              + dyn.pop[basis_state].pop11)
-        pop_loss = 1.0 - pop_loss
-        avg_loss = np.trapz(pop_loss, dyn.tgrid) / dyn.tgrid[-1]
-        ax_log.fill(dyn.tgrid, pop_loss, color=get_color('grey'))
-        ax_log.axhline(y=avg_loss, color='black', dashes=ls['dotted'])
-        if i_tgt < 4:
-            set_axis(ax_log, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                    labelpad=1, drop_ticklabels=[-1, ])
-        else:
-            set_axis(ax_log, 'x', 0, 50, step=10, minor=2, label='time (ns)',
-                    labelpad=1)
-        if i_tgt == 0:
-            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2,
-                     label='')
-        else:
-            set_axis(ax_log, 'y', 0, 0.3, range=(0,0.25), step=0.1, minor=2,
-                     label='', ticklabels=False)
-
-        # population dynamics
-        tgrid, psi01_ff_re, psi01_ff_im = np.genfromtxt(
-                        join(field_free_rf, 'psi01_phases.dat'),
-                        usecols=(0,3,4), unpack=True)
-        phase01_ff = np.unwrap(np.arctan2(psi01_ff_re, psi01_ff_im))
-        E01 = (phase01_ff/tgrid)[-1]
-        psi10_ff_re, psi10_ff_im = np.genfromtxt(
-                        join(field_free_rf, 'psi10_phases.dat'), usecols=(5,6),
-                        unpack=True)
-        phase10_ff = np.unwrap(np.arctan2(psi10_ff_re, psi10_ff_im))
-        E10 = (phase10_ff/tgrid)[-1]
-        psi11_ff_re, psi11_ff_im = np.genfromtxt(
-                        join(field_free_rf, 'psi11_phases.dat'), usecols=(7,8),
-                        unpack=True)
-        phase11_ff = np.unwrap(np.arctan2(psi11_ff_re, psi11_ff_im))
-        E11 = (phase11_ff/tgrid)[-1]
-
-        tgrid, psi00_00_re, psi00_00_im, psi00_01_re, psi00_01_im, \
-        psi00_10_re, psi00_10_im, psi00_11_re, psi00_11_im \
-        = np.genfromtxt(join(universal_rf[tgt], 'psi00_phases.dat'),
-                        unpack=True)
-        phase00_00 = np.unwrap(np.arctan2(psi00_00_re, psi00_00_im))
-        phase00_01 = np.unwrap(np.arctan2(psi00_01_re, psi00_01_im))-E01*tgrid
-        phase00_10 = np.unwrap(np.arctan2(psi00_10_re, psi00_10_im))-E10*tgrid
-        phase00_11 = np.unwrap(np.arctan2(psi00_11_re, psi00_11_im))-E11*tgrid
-        r00_00 = np.sqrt(psi00_00_re**2 + psi00_00_im**2)
-        r00_01 = np.sqrt(psi00_01_re**2 + psi00_01_im**2)
-        r00_10 = np.sqrt(psi00_10_re**2 + psi00_10_im**2)
-        r00_11 = np.sqrt(psi00_11_re**2 + psi00_11_im**2)
-
-        tgrid, psi01_00_re, psi01_00_im, psi01_01_re, psi01_01_im, \
-        psi01_10_re, psi01_10_im, psi01_11_re, psi01_11_im \
-        = np.genfromtxt(join(universal_rf[tgt], 'psi01_phases.dat'),
-                        unpack=True)
-        phase01_00 = np.unwrap(np.arctan2(psi01_00_re, psi01_00_im))
-        phase01_01 = np.unwrap(np.arctan2(psi01_01_re, psi01_01_im))-E01*tgrid
-        phase01_10 = np.unwrap(np.arctan2(psi01_10_re, psi01_10_im))-E10*tgrid
-        phase01_11 = np.unwrap(np.arctan2(psi01_11_re, psi01_11_im))-E11*tgrid
-        r01_00 = np.sqrt(psi01_00_re**2 + psi01_00_im**2)
-        r01_01 = np.sqrt(psi01_01_re**2 + psi01_01_im**2)
-        r01_10 = np.sqrt(psi01_10_re**2 + psi01_10_im**2)
-        r01_11 = np.sqrt(psi01_11_re**2 + psi01_11_im**2)
-
-        tgrid, psi10_00_re, psi10_00_im, psi10_01_re, psi10_01_im, \
-        psi10_10_re, psi10_10_im, psi10_11_re, psi10_11_im \
-        = np.genfromtxt(join(universal_rf[tgt], 'psi10_phases.dat'),
-                        unpack=True)
-        phase10_00 = np.unwrap(np.arctan2(psi10_00_re, psi10_00_im))
-        phase10_01 = np.unwrap(np.arctan2(psi10_01_re, psi10_01_im))-E01*tgrid
-        phase10_10 = np.unwrap(np.arctan2(psi10_10_re, psi10_10_im))-E10*tgrid
-        phase10_11 = np.unwrap(np.arctan2(psi10_11_re, psi10_11_im))-E11*tgrid
-        r10_00 = np.sqrt(psi10_00_re**2 + psi10_00_im**2)
-        r10_01 = np.sqrt(psi10_01_re**2 + psi10_01_im**2)
-        r10_10 = np.sqrt(psi10_10_re**2 + psi10_10_im**2)
-        r10_11 = np.sqrt(psi10_11_re**2 + psi10_11_im**2)
-
-        tgrid, psi11_00_re, psi11_00_im, psi11_01_re, psi11_01_im, \
-        psi11_10_re, psi11_10_im, psi11_11_re, psi11_11_im \
-        = np.genfromtxt(join(universal_rf[tgt], 'psi11_phases.dat'),
-                        unpack=True)
-        phase11_00 = np.unwrap(np.arctan2(psi11_00_re, psi11_00_im))
-        phase11_01 = np.unwrap(np.arctan2(psi11_01_re, psi11_01_im))-E01*tgrid
-        phase11_10 = np.unwrap(np.arctan2(psi11_10_re, psi11_10_im))-E10*tgrid
-        phase11_11 = np.unwrap(np.arctan2(psi11_11_re, psi11_11_im))-E11*tgrid
-        r11_00 = np.sqrt(psi11_00_re**2 + psi11_00_im**2)
-        r11_01 = np.sqrt(psi11_01_re**2 + psi11_01_im**2)
-        r11_10 = np.sqrt(psi11_10_re**2 + psi11_10_im**2)
-        r11_11 = np.sqrt(psi11_11_re**2 + psi11_11_im**2)
-
-        dyn_h_offset = 0.5*(w - 2*dyn_width)
-        pos00 = [(left_offset+dyn_h_offset)/fig_width,
-                 (dyn_offset+dyn_width)/fig_height,
-                 dyn_width/fig_width, dyn_width/fig_height]
-        pos01 = [(left_offset+dyn_h_offset+dyn_width)/fig_width,
-                 (dyn_offset+dyn_width)/fig_height,
-                 dyn_width/fig_width, dyn_width/fig_height]
-        pos10 = [(left_offset+dyn_h_offset)/fig_width,
-                 dyn_offset/fig_height,
-                 dyn_width/fig_width, dyn_width/fig_height]
-        pos11 = [(left_offset+dyn_h_offset+dyn_width)/fig_width,
-                 dyn_offset/fig_height,
-                 dyn_width/fig_width, dyn_width/fig_height]
-        ax00 = fig.add_axes(pos00, projection='polar')
-        ax01 = fig.add_axes(pos01, projection='polar')
-        ax10 = fig.add_axes(pos10, projection='polar')
-        ax11 = fig.add_axes(pos11, projection='polar')
-        polar_axes.extend([ax00, ax01, ax10, ax11])
-        if i_tgt == 0:
-            fig.text((left_offset + dyn_h_offset-0.1)/fig_width,
-                    (dyn_offset+dyn_width)/fig_height, rotation='vertical',
-                    s=r'$\Im[\Psi(t)]$', verticalalignment='center',
-                    horizontalalignment='right')
-            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
-                    (dyn_offset+0.25*dyn_width)/fig_height, rotation='vertical',
-                    s=r'$\ket{00}$', verticalalignment='center',
-                    horizontalalignment='right', color=get_color('blue'))
-            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
-                    (dyn_offset+0.75*dyn_width)/fig_height, rotation='vertical',
-                    s=r'$\ket{01}$', verticalalignment='center',
-                    horizontalalignment='right', color=get_color('orange'))
-            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
-                    (dyn_offset+1.25*dyn_width)/fig_height, rotation='vertical',
-                    s=r'$\ket{10}$', verticalalignment='center',
-                    horizontalalignment='right', color=get_color('red'))
-            fig.text((left_offset + dyn_h_offset-0.6)/fig_width,
-                    (dyn_offset+1.75*dyn_width)/fig_height, rotation='vertical',
-                    s=r'$\ket{11}$', verticalalignment='center',
-                    horizontalalignment='right', color=get_color('green'))
-        fig.text((left_offset + dyn_h_offset + dyn_width)/fig_width,
-                (dyn_offset-0.1)/fig_height,
-                s=r'$\Re[\Psi(t)]$', verticalalignment='top',
-                horizontalalignment='center')
-
-        ax00.plot(phase00_00, r00_00, color=get_color('blue'),   lw=0.7)
-        ax00.plot(phase00_01, r00_01, color=get_color('orange'), lw=0.7)
-        ax00.plot(phase00_10, r00_10, color=get_color('red'),    lw=0.7)
-        ax00.plot(phase00_11, r00_10, color=get_color('green'),  lw=0.7)
-        ax01.plot(phase01_00, r01_00, color=get_color('blue'),   lw=0.7)
-        ax01.plot(phase01_01, r01_01, color=get_color('orange'), lw=0.7)
-        ax01.plot(phase01_10, r01_10, color=get_color('red'),    lw=0.7)
-        ax01.plot(phase01_11, r01_11, color=get_color('green'),  lw=0.7)
-        ax10.plot(phase10_00, r10_00, color=get_color('blue'),   lw=0.7)
-        ax10.plot(phase10_01, r10_01, color=get_color('orange'), lw=0.7)
-        ax10.plot(phase10_10, r10_10, color=get_color('red'),    lw=0.7)
-        ax10.plot(phase10_11, r10_11, color=get_color('green'),  lw=0.7)
-        ax11.plot(phase11_00, r11_00, color=get_color('blue'),   lw=0.7)
-        ax11.plot(phase11_01, r11_01, color=get_color('orange'), lw=0.7)
-        ax11.plot(phase11_10, r11_10, color=get_color('red'),    lw=0.7)
-        ax11.plot(phase11_11, r11_11, color=get_color('green'),  lw=0.7)
-        ax00.scatter((phase00_00[0], ), (r00_00[0], ), c=(get_color('blue'),),
-                     marker='s')
-        ax00.scatter(
-            (phase00_00[-1], phase00_01[-1], phase00_10[-1], phase00_11[-1]),
-            (r00_00[-1], r00_01[-1], r00_10[-1], r00_11[-1]),
-            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
-            lw=0.5
-        )
-        ax01.scatter((phase01_01[0], ), (r01_01[0], ), c=(get_color('orange'),),
-                     marker='s')
-        ax01.scatter(
-            (phase01_00[-1], phase01_01[-1], phase01_10[-1], phase01_11[-1]),
-            (r01_00[-1], r01_01[-1], r01_10[-1], r01_11[-1]),
-            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
-            lw=0.5
-        )
-        ax10.scatter((phase10_10[0], ), (r10_10[0], ), c=(get_color('red'),),
-                     marker='s')
-        ax10.scatter(
-            (phase10_00[-1], phase10_01[-1], phase10_10[-1], phase10_11[-1]),
-            (r10_00[-1], r10_01[-1], r10_10[-1], r10_11[-1]),
-            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
-            lw=0.5
-        )
-        ax11.scatter((phase11_11[0], ), (r11_11[0], ), c=(get_color('green'),),
-                     marker='s')
-        ax11.scatter(
-            (phase11_00[-1], phase11_01[-1], phase11_10[-1], phase11_11[-1]),
-            (r11_00[-1], r11_01[-1], r11_10[-1], r11_11[-1]),
-            c = [get_color(clr) for clr in ['blue', 'orange', 'red', 'green']],
-            lw=0.5
-        )
-
-    for ax in polar_axes:
-        ax.grid(False)
-        ax.set_yticklabels([])
-        ax.set_xticklabels([])
-        ax.plot(np.linspace(0, 2*np.pi, 50), np.ones(50)/np.sqrt(2.0), lw=0.5,
-                dashes=ls['dashed'], color='black')
-        ax.set_rmax(1.0)
-
-    fig.text(y_label_offset/fig_width,
-                (spec_offset+0.5*spec_h)/fig_height,
-                r'$\vert F(\epsilon) \vert$ (arb. un.)',
-                rotation='vertical', va='center', ha='left')
-    fig.text(y_label_offset/fig_width,
-                (phase_offset+0.5*phase_h)/fig_height,
-                r'$\phi$ ($\pi$)',
-                rotation='vertical', va='center', ha='left')
-    fig.text(y_label_offset/fig_width,
-                (phase_deriv_offset+0.5*phase_deriv_h)/fig_height,
-                r'$\frac{d\phi}{dt}$ (MHz)',
-                rotation='vertical', va='center', ha='left')
-    fig.text(y_label_offset/fig_width,
-                (pulse_offset+0.5*pulse_h)/fig_height,
-                r'$\vert\epsilon\vert$ (MHz)',
-                rotation='vertical', va='center', ha='left')
-    fig.text(y_label_offset/fig_width,
-                (log_offset+0.5*log_h)/fig_height,
-                r'$P_\text{outside}$',
-                rotation='vertical', va='center', ha='left')
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -1186,8 +792,7 @@ def main(argv=None):
     generate_error_plot(outfile='fig4_main.pdf')
 
     # Fig 5
-    generate_universal_pulse_plot(universal_rf, field_free_rf,
-                                  outfile='fig5.pdf')
+    print("Figure 5 is generated by script in the 'revision' repository")
 
 if __name__ == "__main__":
     sys.exit(main())
