@@ -218,9 +218,10 @@ def generate_field_free_plot(zeta_table, T, outfile):
                          cmap=plt.cm.cubehelix_r,
                          transform_x=DeltaC, transform_y=Delta2)
     cbar.set_ticks([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])
-    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range, minor=y_minor,
-             ticklabels=False)
-    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range, minor=x_minor)
+    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
+             minor=y_minor, ticklabels=False)
+    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
+             minor=x_minor)
     ax.tick_params(which='both', direction='out')
     ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
     fig.text(0.995, 1-0.2/fig_height,
@@ -275,8 +276,16 @@ def weyl_z_tick_fmt(z, pos):
         return ''
 
 
-def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010,
-                                 zeta_table, outfile):
+def generate_map_plot_combined(
+        stage_table_200, stage_table_050, stage_table_010, zeta_table, outfile,
+        rows=(1,2,3,4)):
+    """Table of plots showing results for entanglement minimization /
+    maximization
+
+    By default, produces figure with 4 rows in the paper. By passing tuple of
+    `rows` that leaves out any of the values 1, 2, 3, 4, a plot that contains
+    only a subset of the default rows may be generated.
+    """
 
     left_margin   = 1.1
     hgap          = 0.35
@@ -310,7 +319,7 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
     xlabelpad = 3.0
     ylabelpad = 1.0
 
-    n_rows = 4
+    n_rows = len(rows)
 
     Delta2 = lambda w2: (w2 - w1)/alpha
     DeltaC = lambda wc: (wc - w1)/g
@@ -334,47 +343,52 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
         C_ff = np.abs(np.sin(0.5*gamma))
 
         # row 1: field-free entanglement
-        pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+(n_rows-1)*(h+vgap))/fig_height,
-               w/fig_width, h/fig_height]
-        ax = fig.add_axes(pos);
-        if T == 10:
-            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+(n_rows-1)*(h+vgap))/fig_height,
-                        cbar_width/fig_width, h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-        else:
-            ax_cbar = None
-        cbar = render_values(zeta_table['wc [GHz]'], zeta_table['w2 [GHz]'],
-                C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
-                transform_x=DeltaC, transform_y=Delta2)
-        if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$C_0$', rotation=90)
-            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
-                range=y_range, minor=y_minor)
-        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
-                range=x_range, minor=x_minor, ticklabels=False)
-        ax.tick_params(which='both', direction='out')
-        if i_col > 0:
-            ax.set_yticklabels([])
-        else:
-            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-        labels = [
-        #          w_2   w_c     label pos
-            ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
-        ]
-        for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+        if 1 in rows:
+            i_row = rows.index(1) + 1  # the *actual* row number
+            pos = [(left_margin+i_col*(w+hgap))/fig_width,
+                   (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                   w/fig_width, h/fig_height]
+            ax = fig.add_axes(pos);
+            if T == 10:
+                pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                            (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                            cbar_width/fig_width, h/fig_height]
+                ax_cbar = fig.add_axes(pos_cbar)
+            else:
+                ax_cbar = None
+            cbar = render_values(
+                    zeta_table['wc [GHz]'], zeta_table['w2 [GHz]'],
+                    C_ff, ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
+                    transform_x=DeltaC, transform_y=Delta2)
+            if ax_cbar is not None:
+                ax_cbar.set_ylabel(r'$C_0$', rotation=90)
+                cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+                ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+            set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                     range=y_range, minor=y_minor)
+            set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                     range=x_range, minor=x_minor, ticklabels=(rows[-1] == 1))
+            ax.tick_params(which='both', direction='out')
+            if i_col > 0:
+                ax.set_yticklabels([])
+            else:
+                ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+            labels = [
+                #      w_2   w_c     label pos
+                ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
+            ]
+            for (label, x_y_data, x_y_label, color) in labels:
+                ax.scatter(
+                    (DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
-            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                        color=color)
-        if (i_col == 2):
-            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
-                     (bottom_margin+(n_rows-1)*(h+vgap)+0.2)/fig_height,
-                    r'field-free', verticalalignment='bottom',
-                    horizontalalignment='right', size=10, color='white')
+                ax.annotate(
+                    label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                    color=color)
+            if (i_col == 2):
+                fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                        (bottom_margin+(n_rows-i_row)*(h+vgap)+0.2)/fig_height,
+                        r'field-free', verticalalignment='bottom',
+                        horizontalalignment='right', size=10, color='white')
 
         # collection OCT data
 
@@ -418,153 +432,171 @@ def generate_map_plot_combined(stage_table_200, stage_table_050, stage_table_010
         C_ff = np.abs(np.sin(0.5*gamma))
 
         # row 2: 1-C_SQ
-        pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+(n_rows-2)*(h+vgap))/fig_height,
-               w/fig_width, h/fig_height]
-        ax = fig.add_axes(pos);
-        if T == 10:
-            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+(n_rows-2)*(h+vgap))/fig_height,
-                        cbar_width/fig_width, h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-        else:
-            ax_cbar = None
-        vals = np.minimum(np.array(combined_table['C_SQ']), C_ff)
-        cbar = render_values(combined_table['wc [GHz]'],
-                             combined_table['w2 [GHz]'],
-                             vals, ax, ax_cbar, density=density,
-                             vmin=0.0, vmax=1.0, bg='black',
-                             val_alpha=(1-combined_table['max loss (SQ)']),
-                             transform_x=DeltaC, transform_y=Delta2)
-        if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$C_{\text{SQ}}$', rotation=90)
-            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
-                range=y_range, minor=y_minor)
-        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
-                range=x_range, minor=x_minor, ticklabels=False)
-        ax.tick_params(which='both', direction='out')
-        if i_col > 0:
-            ax.set_yticklabels([])
-        else:
-            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-        labels = [
-        #          w_2   w_c     label pos
-            ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
-        ]
-        for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+        if 2 in rows:
+            i_row = rows.index(2) + 1  # the *actual* row number
+            pos = [(left_margin+i_col*(w+hgap))/fig_width,
+                   (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                   w/fig_width, h/fig_height]
+            ax = fig.add_axes(pos)
+            if T == 10:
+                pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                            (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                            cbar_width/fig_width, h/fig_height]
+                ax_cbar = fig.add_axes(pos_cbar)
+            else:
+                ax_cbar = None
+            vals = np.minimum(np.array(combined_table['C_SQ']), C_ff)
+            cbar = render_values(combined_table['wc [GHz]'],
+                                 combined_table['w2 [GHz]'],
+                                 vals, ax, ax_cbar, density=density,
+                                 vmin=0.0, vmax=1.0, bg='black',
+                                 val_alpha=(1-combined_table['max loss (SQ)']),
+                                 transform_x=DeltaC, transform_y=Delta2)
+            if ax_cbar is not None:
+                ax_cbar.set_ylabel(r'$C_{\text{SQ}}$', rotation=90)
+                cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+                ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+            set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                     range=y_range, minor=y_minor)
+            set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                     range=x_range, minor=x_minor, ticklabels=(rows[-1] == 2))
+            ax.tick_params(which='both', direction='out')
+            if i_col > 0:
+                ax.set_yticklabels([])
+            else:
+                ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+            labels = [
+                #      w_2   w_c     label pos
+                ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
+            ]
+            for (label, x_y_data, x_y_label, color) in labels:
+                ax.scatter(
+                    (DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
-            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                        color=color)
-        if (i_col == 2):
-            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
-                     (bottom_margin+(n_rows-2)*(h+vgap)+0.2)/fig_height,
+                ax.annotate(
+                    label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                    color=color)
+            if (i_col == 2):
+                fig.text(
+                    (left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                    (bottom_margin+(n_rows-i_row)*(h+vgap)+0.2)/fig_height,
                     r'minimization', verticalalignment='bottom',
                     horizontalalignment='right', size=10, color='white')
 
         # row 3: C_PE
-        pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+(n_rows-3)*(h+vgap))/fig_height,
-               w/fig_width, h/fig_height]
-        ax = fig.add_axes(pos);
-        if T == 10:
-            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+(n_rows-3)*(h+vgap))/fig_height,
-                        cbar_width/fig_width, h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-        else:
-            ax_cbar = None
-        cbar = render_values(C_opt_table_PE['wc [GHz]'],
-                             C_opt_table_PE['w2 [GHz]'],
-                             C_opt_table_PE['C'], ax, ax_cbar, density=density,
-                             vmin=0.0, vmax=1.0, bg='black',
-                             val_alpha=(1-C_opt_table_PE['max loss']),
-                             transform_x=DeltaC, transform_y=Delta2)
-        if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$C_{\text{PE}}$', rotation=90)
-            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
-                range=y_range, minor=y_minor)
-        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
-                range=x_range, minor=x_minor, ticklabels=False)
-        ax.tick_params(which='both', direction='out')
-        if i_col > 0:
-            ax.set_yticklabels([])
-        else:
-            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-        labels = [
-        #          w_c   w_2     label pos
-            ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
-        ]
+        if 3 in rows:
+            i_row = rows.index(3) + 1  # the *actual* row number
+            pos = [(left_margin+i_col*(w+hgap))/fig_width,
+                   (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                   w/fig_width, h/fig_height]
+            ax = fig.add_axes(pos);
+            if T == 10:
+                pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                            (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                            cbar_width/fig_width, h/fig_height]
+                ax_cbar = fig.add_axes(pos_cbar)
+            else:
+                ax_cbar = None
+            cbar = render_values(C_opt_table_PE['wc [GHz]'],
+                                 C_opt_table_PE['w2 [GHz]'],
+                                 C_opt_table_PE['C'], ax, ax_cbar,
+                                 density=density,
+                                 vmin=0.0, vmax=1.0, bg='black',
+                                 val_alpha=(1-C_opt_table_PE['max loss']),
+                                 transform_x=DeltaC, transform_y=Delta2)
+            if ax_cbar is not None:
+                ax_cbar.set_ylabel(r'$C_{\text{PE}}$', rotation=90)
+                cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+                ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+            set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                    range=y_range, minor=y_minor)
+            set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                     range=x_range, minor=x_minor, ticklabels=(rows[-1] == 3))
+            ax.tick_params(which='both', direction='out')
+            if i_col > 0:
+                ax.set_yticklabels([])
+            else:
+                ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+            labels = [
+                #      w_c   w_2     label pos
+                ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+            ]
 
-        for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+            for (label, x_y_data, x_y_label, color) in labels:
+                ax.scatter(
+                    (DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
-            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                        color=color)
-        if (i_col == 2):
-            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
-                     (bottom_margin+(n_rows-3)*(h+vgap)+0.2)/fig_height,
+                ax.annotate(
+                    label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                    color=color)
+            if (i_col == 2):
+                fig.text(
+                    (left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                    (bottom_margin+(n_rows-i_row)*(h+vgap)+0.2)/fig_height,
                     r'maximization', verticalalignment='bottom',
                     horizontalalignment='right', size=10, color='white')
 
         # row 4: C_0-C_SQ
-        pos = [(left_margin+i_col*(w+hgap))/fig_width,
-               (bottom_margin+(n_rows-4)*(h+vgap))/fig_height,
-               w/fig_width, h/fig_height]
-        ax = fig.add_axes(pos);
-        if T == 10:
-            pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
-                        (bottom_margin+(n_rows-4)*(h+vgap))/fig_height,
-                        cbar_width/fig_width, h/fig_height]
-            ax_cbar = fig.add_axes(pos_cbar)
-        else:
-            ax_cbar = None
-        vals = ( (combined_table['C_PE'])
-                 * (1 - np.minimum(np.array(combined_table['C_SQ']), C_ff)) )
-        val_alpha = ( (1-combined_table['max loss (PE)'])
-                      * (1-combined_table['max loss (SQ)']) )
-        cbar = render_values(combined_table['wc [GHz]'],
-                             combined_table['w2 [GHz]'], vals,
-                             ax, ax_cbar, density=density, vmin=0.0, vmax=1.0,
-                             val_alpha=val_alpha, bg='black',
-                             transform_x=DeltaC, transform_y=Delta2)
-        if ax_cbar is not None:
-            ax_cbar.set_ylabel(r'$C_{\text{PE}} \times (1-C_\text{SQ})$',
-                               rotation=90)
-            cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
-            ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
-        set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
-                range=y_range, minor=y_minor)
-        set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
-                range=x_range, minor=x_minor)
-        ax.tick_params(which='both', direction='out')
-        if i_col > 0:
-            ax.set_yticklabels([])
-        else:
-            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
-        labels = [
-        #          w_c   w_2     label pos
-            ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
-        ]
+        if 4 in rows:
+            i_row = rows.index(4) + 1  # the *actual* row number
+            pos = [(left_margin+i_col*(w+hgap))/fig_width,
+                   (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                   w/fig_width, h/fig_height]
+            ax = fig.add_axes(pos)
+            if T == 10:
+                pos_cbar = [(left_margin+i_col*(w+hgap)+w+cbar_gap)/fig_width,
+                            (bottom_margin+(n_rows-i_row)*(h+vgap))/fig_height,
+                            cbar_width/fig_width, h/fig_height]
+                ax_cbar = fig.add_axes(pos_cbar)
+            else:
+                ax_cbar = None
+            vals = ((combined_table['C_PE']) *
+                    (1 - np.minimum(np.array(combined_table['C_SQ']), C_ff)))
+            val_alpha = ((1-combined_table['max loss (PE)']) *
+                         (1-combined_table['max loss (SQ)']))
+            cbar = render_values(combined_table['wc [GHz]'],
+                                 combined_table['w2 [GHz]'], vals,
+                                 ax, ax_cbar, density=density,
+                                 vmin=0.0, vmax=1.0,
+                                 val_alpha=val_alpha, bg='black',
+                                 transform_x=DeltaC, transform_y=Delta2)
+            if ax_cbar is not None:
+                ax_cbar.set_ylabel(r'$C_{\text{PE}} \times (1-C_\text{SQ})$',
+                                   rotation=90)
+                cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+                ax_cbar.yaxis.set_ticks([0.1, 0.3, 0.5, 0.7, 0.9], minor=True)
+            set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
+                    range=y_range, minor=y_minor)
+            set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
+                    range=x_range, minor=x_minor, ticklabels=(rows[-1] == 4))
+            ax.tick_params(which='both', direction='out')
+            if i_col > 0:
+                ax.set_yticklabels([])
+            else:
+                ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+            labels = [
+                #      w_c   w_2     label pos
+                ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+            ]
 
-        for (label, x_y_data, x_y_label, color) in labels:
-            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+            for (label, x_y_data, x_y_label, color) in labels:
+                ax.scatter(
+                    (DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
                     color=color, marker='x')
-            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                        color=color)
-        if (i_col == 2):
-            fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
-                     (bottom_margin+(n_rows-4)*(h+vgap)+0.2)/fig_height,
+                ax.annotate(
+                    label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                    color=color)
+            if (i_col == 2):
+                fig.text(
+                    (left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
+                    (bottom_margin+(n_rows-i_row)*(h+vgap)+0.2)/fig_height,
                     r'combined', verticalalignment='bottom',
                     horizontalalignment='right', size=10, color='white')
 
-        # time labels at top of figure
+        # x label for whatever is the bottom row
+        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
 
+        # time labels at top of figure
         fig.text((left_margin+i_col*(w+hgap)+0.95*w)/fig_width,
                  (bottom_margin+(n_rows-1)*(h+vgap)+h-0.2)/fig_height,
                  r'$T = %d$~ns' % T, verticalalignment='top',
@@ -783,6 +815,19 @@ def main(argv=None):
     generate_map_plot_combined(stage_table_200, stage_table_050,
                                stage_table_010, zeta_table,
                                outfile='fig2_main.pdf')
+    # variations for talks:
+    #generate_map_plot_combined(stage_table_200, stage_table_050,
+                               #stage_table_010, zeta_table,
+                               #outfile='fig2_ac.pdf', rows=(1, ))
+    #generate_map_plot_combined(stage_table_200, stage_table_050,
+                               #stage_table_010, zeta_table,
+                               #outfile='fig2_af.pdf', rows=(1, 2))
+    #generate_map_plot_combined(stage_table_200, stage_table_050,
+                               #stage_table_010, zeta_table,
+                               #outfile='fig2_ac_gi.pdf', rows=(1, 3))
+    #generate_map_plot_combined(stage_table_200, stage_table_050,
+                               #stage_table_010, zeta_table,
+                               #outfile='fig2_gi.pdf', rows=(3, ))
 
     # Fig 3
     generate_weyl_plot(stage_table_200, stage_table_050, stage_table_010,
