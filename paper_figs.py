@@ -39,7 +39,7 @@ OUTFOLDER = './paper_images'
 #OUTFOLDER = '/Users/goerz/Documents/Papers/TransmonLandscape'
 
 
-def generate_field_free_plot(zeta_table, T, outfile):
+def generate_field_free_plot(zeta_table, T, outfile, cols=(1,2,3)):
     """Plot field-free entangling energy zeta, and projected concurrence after
     the given gate duration T in ns.
     """
@@ -48,8 +48,11 @@ def generate_field_free_plot(zeta_table, T, outfile):
     cbar_gap      = 0.25
     hgap1         = 1.13
     hgap2         = 0.93
-    right_margin  = 1.0
+    right_margin  = 0.75
     w             = 4.2
+
+    # the buffer space we need on the right of the color bar for panel 1, 2, 3
+    hgap = [hgap1, hgap2, right_margin]
 
     top_margin    = 0.65
     bottom_margin = 0.85
@@ -85,157 +88,203 @@ def generate_field_free_plot(zeta_table, T, outfile):
         dy = r * sin(2*pi*phi/360.0)
         return dx, dy
 
+    n_cols = len(cols)
     fig_height = bottom_margin + top_margin + h
-    fig_width  = (left_margin + 2 * cbar_gap + 3 * cbar_width +
-                  hgap1 + hgap2 + right_margin + 3*w)
+    fig_width = (left_margin + n_cols * (cbar_gap + cbar_width + w) +
+                 sum([hgap[col-1] for col in cols]))
 
     fig = new_figure(fig_width, fig_height, style=STYLE)
     axs = []
     cbar_axs = []
 
     # Zeta
-
     zeta = zeta_table['zeta [MHz]']
     abs_zeta = np.clip(np.abs(zeta), a_min=1e-5, a_max=1e5)
     w2 = zeta_table['w2 [GHz]']
     wc = zeta_table['wc [GHz]']
 
-    pos = [left_margin/fig_width, bottom_margin/fig_height,
-           w/fig_width, h/fig_height]
-    ax = fig.add_axes(pos); axs.append(ax)
-    pos_cbar = [(left_margin+w+cbar_gap)/fig_width, bottom_margin/fig_height,
-               cbar_width/fig_width, h/fig_height]
-    ax_cbar = fig.add_axes(pos_cbar); cbar_axs.append(ax_cbar)
-    cbar = render_values(wc, w2, abs_zeta, ax, ax_cbar, density=density,
-                         logscale=True, vmin=1e-1,
-                         transform_x=DeltaC, transform_y=Delta2)
-    cbar.ax.yaxis.set_ticks(cbar.norm(np.concatenate(
-            [np.arange(0.1, 1, 0.1), np.arange(1, 10, 1),
-            np.arange(10, 100, 10)])), minor=True)
-    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks,
-             range=y_range, minor=y_minor)
-    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks,
-             range=x_range, minor=x_minor)
-    ax.tick_params(which='both', direction='out')
-    ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
-    ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
-    fig.text((left_margin + w + cbar_gap + cbar_width+0.53)/fig_width,
-              1-0.2/fig_height, r'$\zeta$~(MHz)', verticalalignment='top',
-              horizontalalignment='right')
-    labels = [
-    #         w_c   w_2     label pos
-        ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
-    ]
-    for (label, x_y_data, x_y_label, color) in labels:
-        ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
-                   color=color, marker='x')
-        ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                    color=color)
+    if 1 in cols:
+        i_col = cols.index(1)  # *actual* column number
+
+        pos_x = (
+            left_margin + i_col * (cbar_gap + cbar_width + w) +
+            sum([hgap[col-1] for col in cols[0:i_col]]))
+        pos = [
+            pos_x/fig_width, bottom_margin/fig_height,
+            w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos); axs.append(ax)
+        pos_cbar = [
+            (pos_x + w + cbar_gap) / fig_width, bottom_margin/fig_height,
+            cbar_width/fig_width, h/fig_height]
+        ax_cbar = fig.add_axes(pos_cbar)
+        cbar_axs.append(ax_cbar)
+        cbar = render_values(
+            wc, w2, abs_zeta, ax, ax_cbar, density=density,
+            logscale=True, vmin=1e-1, transform_x=DeltaC, transform_y=Delta2)
+        cbar.ax.yaxis.set_ticks(
+            cbar.norm(
+                np.concatenate([
+                    np.arange(0.1, 1, 0.1), np.arange(1, 10, 1),
+                    np.arange(10, 100, 10)])),
+            minor=True)
+        set_axis(
+            ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
+            minor=y_minor, ticklabels=(i_col==0))
+        set_axis(
+            ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
+            minor=x_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col == 0:
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
+        fig.text(
+            (pos_x + w + cbar_gap + cbar_width+0.53)/fig_width,
+            1-0.2/fig_height, r'$\zeta$~(MHz)', verticalalignment='top',
+            horizontalalignment='right')
+        labels = [
+        #         w_c   w_2     label pos
+            ("", (6.20, 5.90 ), (6.35, 5.95), 'OrangeRed')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter(
+                (DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
 
     # Entanglement time
 
-    T_entangling = 500.0/abs_zeta
+    if 2 in cols:
 
-    pos = [(left_margin+cbar_gap+cbar_width+hgap1+w)/fig_width,
-            bottom_margin/fig_height, w/fig_width, h/fig_height]
-    ax = fig.add_axes(pos)
-    pos_cbar = [(left_margin+2*(w+cbar_gap)+hgap1+cbar_width)/fig_width,
-                bottom_margin/fig_height, cbar_width/fig_width, h/fig_height]
-    ax_cbar = fig.add_axes(pos_cbar)
-    cbar = render_values(wc, w2, T_entangling, ax, ax_cbar, density=density,
-                         logscale=True, vmax=1e3,
-                         transform_x=DeltaC, transform_y=Delta2)
-    cbar.ax.yaxis.set_ticks(cbar.norm(np.concatenate(
-            [np.arange(4, 10, 1), np.arange(10, 100, 10),
-            np.arange(100, 1000, 100)])), minor=True)
-    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
-             minor=y_minor, ticklabels=False)
-    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
-             minor=x_minor)
-    ax.tick_params(which='both', direction='out')
-    ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
-    fig.text((left_margin + 2*(w + cbar_gap + cbar_width)+hgap1+0.53)/fig_width,
-              1-0.2/fig_height, r'$T(C_0=1)$ (ns)', verticalalignment='top',
-              horizontalalignment='right')
-    labels = [
-    #          w_c   w_2     label pos
-        ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
-    ]
-    for (label, x_y_data, x_y_label, color) in labels:
-        ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
-                   color=color, marker='x')
-        ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                    color=color)
-    other_gates = [
-        # label Dc    D2            r    phi (label)   #                  T [ns]
-        ("1",  'o', (15,   1),     (5,  45), 'Black'), #                  150  \cite{LeekPRB2009}
-        ("2",  '>', (42,   0.85),  (5, 180), 'Black'), # (Delta_c = 58)   220  \cite{ChowPRL2011}
-        ("3",  'o', (26,   0.29),  (6, -50), 'Black'), #                  110  \cite{ChowPRL2012}
-        ("4",  '>', (42,   1.1 ),  (6, 115), 'Black'), # (Delta_c = 95)   200  \cite{PolettoPRL2012}
-        ("5",  'o', (24,   2.3 ),  (5,  45), 'Black'), #                  500  \cite{ChowNJP2013}
-        ("6",  '>', (42,   0.6 ),  (6,-115), 'Black'), # (Delta_c = 43)   350  \cite{ChowNC2014}
-        ("7",  'o', (29,   0.6 ),  (5,   0), 'Black'), #                  350  \cite{CorcolesNC2015}
-        ("8",  'o', ( 1.4, 1.76),  (5,  45), 'Black'), #                   50  \cite{EconomouPRB2015}
-        ("9",  'o', (17,   0.17),  (6, -50), 'Black'), #                  120  \cite{CrossPRA2015}
-        ("10", 'o', (25,   0.6 ),  (6, 180), 'Black'), #                  200  \cite{1603.04821}
-    ]
-    for (label, marker, x_y_data, r_phi_label, color) in other_gates:
-        ax.scatter((x_y_data[0], ), (x_y_data[1], ), color=color,
-                   marker=marker, s=1.5)
-        r, phi = r_phi_label
-        ax.annotate(label, xy=x_y_data, xycoords='data', color=color,
-                    xytext=polar(r, phi), textcoords='offset points',
-                    ha='center', va='center')
-                    #xytext=(3,0), textcoords='offset points',
-    # guides for Delta_2 = 0, \pm 2 alpha
-    # These are broken up into several segments to make them appear "in the background"
-    ax.plot([-22, -13], [0, 0], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([10, 15],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([21, 26],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([30, 39],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([-22, -6], [2, 2], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([12, 43], [2, 2], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([-22, -14], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
-    ax.plot([4, 43], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
+        i_col = cols.index(2)  # *actual* column number
+
+        T_entangling = 500.0/abs_zeta
+
+        pos_x = (
+            left_margin + i_col * (cbar_gap + cbar_width + w) +
+            sum([hgap[col-1] for col in cols[0:i_col]]))
+        pos = [
+            pos_x/fig_width, bottom_margin/fig_height,
+            w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos)
+        pos_cbar = [(pos_x + w + cbar_gap)/fig_width,
+                    bottom_margin/fig_height,
+                    cbar_width/fig_width, h/fig_height]
+        ax_cbar = fig.add_axes(pos_cbar)
+        cbar = render_values(
+            wc, w2, T_entangling, ax, ax_cbar, density=density, logscale=True,
+            vmax=1e3, transform_x=DeltaC, transform_y=Delta2)
+        cbar.ax.yaxis.set_ticks(cbar.norm(np.concatenate(
+                [np.arange(4, 10, 1), np.arange(10, 100, 10),
+                np.arange(100, 1000, 100)])), minor=True)
+        set_axis(
+            ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
+            minor=y_minor, ticklabels=(i_col==0))
+        set_axis(
+            ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
+            minor=x_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col == 0:
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
+        fig.text(
+            (pos_x + w + cbar_gap + cbar_width+0.53)/fig_width,
+            1-0.2/fig_height, r'$T(C_0=1)$ (ns)', verticalalignment='top',
+            horizontalalignment='right')
+        labels = [
+        #          w_c   w_2     label pos
+            ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                    color=color, marker='x')
+            ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                        color=color)
+        other_gates = [
+            # label Dc    D2            r    phi (label)   #                  T [ns]
+            ("1",  'o', (15,   1),     (5,  45), 'Black'), #                  150  \cite{LeekPRB2009}
+            ("2",  '>', (42,   0.85),  (5, 180), 'Black'), # (Delta_c = 58)   220  \cite{ChowPRL2011}
+            ("3",  'o', (26,   0.29),  (6, -50), 'Black'), #                  110  \cite{ChowPRL2012}
+            ("4",  '>', (42,   1.1 ),  (6, 115), 'Black'), # (Delta_c = 95)   200  \cite{PolettoPRL2012}
+            ("5",  'o', (24,   2.3 ),  (5,  45), 'Black'), #                  500  \cite{ChowNJP2013}
+            ("6",  '>', (42,   0.6 ),  (6,-115), 'Black'), # (Delta_c = 43)   350  \cite{ChowNC2014}
+            ("7",  'o', (29,   0.6 ),  (5,   0), 'Black'), #                  350  \cite{CorcolesNC2015}
+            ("8",  'o', ( 1.4, 1.76),  (5,  45), 'Black'), #                   50  \cite{EconomouPRB2015}
+            ("9",  'o', (17,   0.17),  (6, -50), 'Black'), #                  120  \cite{CrossPRA2015}
+            ("10", 'o', (25,   0.6 ),  (6, 180), 'Black'), #                  200  \cite{1603.04821}
+        ]
+        for (label, marker, x_y_data, r_phi_label, color) in other_gates:
+            ax.scatter((x_y_data[0], ), (x_y_data[1], ), color=color,
+                    marker=marker, s=1.5)
+            r, phi = r_phi_label
+            ax.annotate(label, xy=x_y_data, xycoords='data', color=color,
+                        xytext=polar(r, phi), textcoords='offset points',
+                        ha='center', va='center')
+                        #xytext=(3,0), textcoords='offset points',
+        # guides for Delta_2 = 0, \pm 2 alpha
+        # These are broken up into several segments to make them appear "in the
+        # background"
+        ax.plot([-22, -13], [0, 0], ls='dotted', color='Gray', lw=1) # hline
+        ax.plot([10, 15],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
+        ax.plot([21, 26],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
+        ax.plot([30, 39],   [0, 0], ls='dotted', color='Gray', lw=1) # hline
+        ax.plot([-22, -6], [2, 2], ls='dotted', color='Gray', lw=1) # hline
+        ax.plot([12, 43], [2, 2], ls='dotted', color='Gray', lw=1) # hline
+        ax.plot([-22, -14], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
+        ax.plot([4, 43], [-2, -2], ls='dotted', color='Gray', lw=1) # hline
 
     # Relative effective decay rate
 
-    gamma_bare = 0.012
-    rel_decay = zeta_table['gamma [MHz]'] / gamma_bare
-    print("Min: %s" % np.min(rel_decay))
-    print("Max: %s" % np.max(rel_decay))
+    if 3 in cols:
+        i_col = cols.index(3)  # *actual* column number
+        gamma_bare = 0.012
+        rel_decay = zeta_table['gamma [MHz]'] / gamma_bare
+        print("Min: %s" % np.min(rel_decay))
+        print("Max: %s" % np.max(rel_decay))
 
-    pos = [(left_margin+w+cbar_gap+cbar_width+hgap1+w
-                 +cbar_gap+cbar_width+hgap2)/fig_width,
-            bottom_margin/fig_height, w/fig_width, h/fig_height]
-    ax = fig.add_axes(pos)
-    pos_cbar = [(left_margin+w+cbar_gap+cbar_width+hgap1+w
-                 +cbar_gap+cbar_width+hgap2+w+cbar_gap)/fig_width,
-                bottom_margin/fig_height, cbar_width/fig_width, h/fig_height]
-    ax_cbar = fig.add_axes(pos_cbar)
-    cbar = render_values(wc, w2, rel_decay, ax, ax_cbar, density=density,
-                         logscale=False, vmin=1, vmax=2.3,
-                         cmap=plt.cm.cubehelix_r,
-                         transform_x=DeltaC, transform_y=Delta2)
-    cbar.set_ticks([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])
-    set_axis(ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
-             minor=y_minor, ticklabels=False)
-    set_axis(ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
-             minor=x_minor)
-    ax.tick_params(which='both', direction='out')
-    ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
-    fig.text(0.995, 1-0.2/fig_height,
-             r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$',
-             verticalalignment='top', horizontalalignment='right')
-    labels = [
-    #          w_c   w_2     label pos
-        ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
-    ]
-    for (label, x_y_data, x_y_label, color) in labels:
-        ax.scatter((DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
-                   color=color, marker='x')
-        ax.annotate(label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
-                    color=color)
+        pos_x = (
+            left_margin + i_col * (cbar_gap + cbar_width + w) +
+            sum([hgap[col-1] for col in cols[0:i_col]]))
+        pos = [
+            pos_x/fig_width, bottom_margin/fig_height,
+            w/fig_width, h/fig_height]
+        ax = fig.add_axes(pos)
+        pos_cbar = [
+            (pos_x + w + cbar_gap) / fig_width, bottom_margin/fig_height,
+            cbar_width/fig_width, h/fig_height]
+        ax_cbar = fig.add_axes(pos_cbar)
+        cbar = render_values(
+            wc, w2, rel_decay, ax, ax_cbar, density=density, logscale=False,
+            vmin=1, vmax=2.3, cmap=plt.cm.cubehelix_r, transform_x=DeltaC,
+            transform_y=Delta2)
+        cbar.set_ticks([1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])
+        set_axis(
+            ax, 'y', y_tick0, y_tick1, y_major_ticks, range=y_range,
+            minor=y_minor, ticklabels=(i_col==0))
+        set_axis(
+            ax, 'x', x_tick0, x_tick1, x_major_ticks, range=x_range,
+            minor=x_minor)
+        ax.tick_params(which='both', direction='out')
+        if i_col == 0:
+            ax.set_ylabel(r"$\Delta_2/\alpha$", labelpad=ylabelpad)
+        ax.set_xlabel(r"$\Delta_c/g$", labelpad=xlabelpad)
+        fig.text(
+            (pos_x + w + cbar_gap + cbar_width +
+             right_margin - 0.09)/fig_width,
+            1-0.2/fig_height,
+            r'$\gamma_{\text{dressed}} / \gamma_{\text{bare}}$',
+            verticalalignment='top', horizontalalignment='right')
+        labels = [
+        #          w_c   w_2     label pos
+            ("", (6.20, 5.90 ), (6.35, 5.95), 'FireBrick')
+        ]
+        for (label, x_y_data, x_y_label, color) in labels:
+            ax.scatter(
+                (DeltaC(x_y_data[0]),), (Delta2(x_y_data[1]), ),
+                color=color, marker='x')
+            ax.annotate(
+                label, (DeltaC(x_y_label[0]), Delta2(x_y_label[1])),
+                color=color)
 
     if OUTFOLDER is not None:
         outfile = os.path.join(OUTFOLDER, outfile)
@@ -810,6 +859,13 @@ def main(argv=None):
 
     # Fig 1
     generate_field_free_plot(zeta_table, T=50, outfile='fig1_main.pdf')
+    # variations for talks:
+    #generate_field_free_plot(
+        #zeta_table, T=50, outfile='fig1_a.pdf', cols=(1, ))
+    #generate_field_free_plot(
+        #zeta_table, T=50, outfile='fig1_b.pdf', cols=(2, ))
+    #generate_field_free_plot(
+        #zeta_table, T=50, outfile='fig1_c.pdf', cols=(3, ))
 
     # Fig 2
     generate_map_plot_combined(stage_table_200, stage_table_050,
@@ -830,8 +886,9 @@ def main(argv=None):
                                #outfile='fig2_gi.pdf', rows=(3, ))
 
     # Fig 3
-    generate_weyl_plot(stage_table_200, stage_table_050, stage_table_010,
-                               outfile='fig3_main.pdf')
+    generate_weyl_plot(
+        stage_table_200, stage_table_050, stage_table_010,
+        outfile='fig3_main.pdf')
 
     # Fig 4
     generate_error_plot(outfile='fig4_main.pdf')
